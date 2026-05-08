@@ -13,7 +13,7 @@ import {
   SEED_STAYS, SEED_TABS, SEED_TICKETS,
 } from './seed';
 import { newId } from '../domain/id';
-import { db } from '../firebase';
+import { db, ensureAuth } from '../firebase';
 import { doc } from 'firebase/firestore';
 
 const FS = (name: string) => doc(db, 'stores', 'default', 'slices', name);
@@ -50,17 +50,19 @@ class Store {
     ];
     this.slicesByKey = new Map(entries);
 
-    // Connect all slices to Firestore for real-time multi-device sync
+    // Connect all slices to Firestore after anonymous auth is ready
     if (typeof window !== 'undefined') {
-      this.settings.connectFirestore(FS('settings'));
-      this.staff.connectFirestore(FS('staff'));
-      this.products.connectFirestore(FS('products'));
-      this.modifierGroups.connectFirestore(FS('modifierGroups'));
-      this.tabs.connectFirestore(FS('tabs'));
-      this.stays.connectFirestore(FS('stays'));
-      this.shift.connectFirestore(FS('shift'));
-      this.tickets.connectFirestore(FS('tickets'));
-      this.audit.connectFirestore(FS('audit'));
+      ensureAuth().then(() => {
+        this.settings.connectFirestore(FS('settings'));
+        this.staff.connectFirestore(FS('staff'));
+        this.products.connectFirestore(FS('products'));
+        this.modifierGroups.connectFirestore(FS('modifierGroups'));
+        this.tabs.connectFirestore(FS('tabs'));
+        this.stays.connectFirestore(FS('stays'));
+        this.shift.connectFirestore(FS('shift'));
+        this.tickets.connectFirestore(FS('tickets'));
+        this.audit.connectFirestore(FS('audit'));
+      });
     }
 
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
