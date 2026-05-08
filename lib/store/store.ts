@@ -13,6 +13,10 @@ import {
   SEED_STAYS, SEED_TABS, SEED_TICKETS,
 } from './seed';
 import { newId } from '../domain/id';
+import { db } from '../firebase';
+import { doc } from 'firebase/firestore';
+
+const FS = (name: string) => doc(db, 'stores', 'default', 'slices', name);
 
 const CHANNEL = 'denz-pos';
 const CURRENT_SCHEMA = 1;
@@ -43,6 +47,18 @@ class Store {
       [this.audit.storageKey,    this.audit],
     ];
     this.slicesByKey = new Map(entries);
+
+    // Connect all slices to Firestore for real-time multi-device sync
+    if (typeof window !== 'undefined') {
+      this.settings.connectFirestore(FS('settings'));
+      this.staff.connectFirestore(FS('staff'));
+      this.products.connectFirestore(FS('products'));
+      this.tabs.connectFirestore(FS('tabs'));
+      this.stays.connectFirestore(FS('stays'));
+      this.shift.connectFirestore(FS('shift'));
+      this.tickets.connectFirestore(FS('tickets'));
+      this.audit.connectFirestore(FS('audit'));
+    }
 
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
       this.channel = new BroadcastChannel(CHANNEL);

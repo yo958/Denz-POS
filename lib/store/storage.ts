@@ -1,6 +1,9 @@
 // ─────────────────────────────────────────────────────────────────
 // Typed localStorage with Date round-tripping + versioning + pub/sub
+// + optional Firestore real-time sync (write-through, offline-first)
 // ─────────────────────────────────────────────────────────────────
+
+import type { DocumentReference } from 'firebase/firestore';
 
 const DATE_TAG = '__d';
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
@@ -26,6 +29,9 @@ interface Envelope<T> {
 export class StorageSlice<T> {
   private cache: T;
   private listeners = new Set<() => void>();
+  private firestoreUnsub?: () => void;
+  private firestoreDoc?: DocumentReference;
+  private _suppressFirestoreWrite = false;
 
   constructor(
     private readonly key: string,
@@ -50,39 +56,48 @@ export class StorageSlice<T> {
       const raw = window.localStorage.getItem(this.key);
       if (!raw) {
         const seeded = this.initial();
-        this.persist(seeded);
+        this.localPersist(seeded);
         return seeded;
       }
       const parsed = JSON.parse(raw, reviver) as Envelope<unknown>;
       if (!parsed || typeof parsed !== 'object' || !('v' in parsed)) {
         const seeded = this.initial();
-        this.persist(seeded);
+        this.localPersist(seeded);
         return seeded;
       }
       if (parsed.v !== this.version) {
         const migrated = this.migrate
           ? this.migrate(parsed.v, parsed.data)
           : this.initial();
-        this.persist(migrated);
+        this.localPersist(migrated);
         return migrated;
       }
       return parsed.data as T;
     } catch {
       const seeded = this.initial();
-      this.persist(seeded);
+      this.localPersist(seeded);
       return seeded;
     }
   }
 
-  private persist(value: T) {
+  private localPersist(value: T) {
     if (typeof window === 'undefined') return;
     const env: Envelope<T> = { v: this.version, data: value };
     try {
       window.localStorage.setItem(this.key, JSON.stringify(env, replacer));
     } catch (e) {
-      // Quota exceeded or serialisation error — surface to console; data is in-memory.
       console.error(`[storage] failed to persist ${this.key}`, e);
     }
+  }
+
+  private firestorePersist(value: T) {
+    if (!this.firestoreDoc) return;
+    // Serialize with our custom replacer so Dates survive the round-trip
+    const serialized = JSON.stringify(value, replacer);
+    import('firebase/firestore').then(({ setDoc }) => {
+      setDoc(this.firestoreDoc!, { v: this.version, serialized })
+        .catch(e => console.warn(`[firestore] write error for ${this.key}`, e));
+    });
   }
 
   get(): T {
@@ -94,11 +109,12 @@ export class StorageSlice<T> {
       ? (updater as (p: T) => T)(this.cache)
       : updater;
     this.cache = next;
-    this.persist(next);
+    this.localPersist(next);
+    this.firestorePersist(next);
     this.listeners.forEach(l => l());
   }
 
-  /** Force re-read from storage (used by BroadcastChannel sync). */
+  /** Force re-read from localStorage (used by BroadcastChannel sync). */
   refresh() {
     this.cache = this.load();
     this.listeners.forEach(l => l());
@@ -112,12 +128,57 @@ export class StorageSlice<T> {
   /** For backup/import — raw read/write of the whole envelope. */
   rawWrite(data: T) {
     this.cache = data;
-    this.persist(data);
+    this.localPersist(data);
+    this.firestorePersist(data);
     this.listeners.forEach(l => l());
   }
 
   get storageKey(): string {
     return this.key;
+  }
+
+  /**
+   * Connect this slice to a Firestore document for real-time multi-device sync.
+   * Firestore is the source of truth when online; localStorage is the offline cache.
+   */
+  connectFirestore(docRef: DocumentReference) {
+    this.firestoreDoc = docRef;
+
+    import('firebase/firestore').then(({ onSnapshot }) => {
+      this.firestoreUnsub = onSnapshot(
+        docRef,
+        { includeMetadataChanges: true },
+        (snap) => {
+          // Skip snapshots caused by our own pending writes to avoid loops
+          if (snap.metadata.hasPendingWrites) return;
+          if (!snap.exists()) {
+            // No remote data yet — push our local data up
+            this.firestorePersist(this.cache);
+            return;
+          }
+          const remote = snap.data() as { v: number; serialized: string } | null;
+          if (!remote?.serialized) return;
+          try {
+            const parsed = JSON.parse(remote.serialized, reviver) as T;
+            this._suppressFirestoreWrite = true;
+            this.cache = parsed;
+            this.localPersist(parsed);
+            this.listeners.forEach(l => l());
+          } catch (e) {
+            console.warn(`[firestore] parse error for ${this.key}`, e);
+          } finally {
+            this._suppressFirestoreWrite = false;
+          }
+        },
+        (err) => console.warn(`[firestore] listener error for ${this.key}`, err),
+      );
+    });
+  }
+
+  disconnectFirestore() {
+    this.firestoreUnsub?.();
+    this.firestoreUnsub = undefined;
+    this.firestoreDoc = undefined;
   }
 }
 
