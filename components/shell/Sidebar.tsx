@@ -7,14 +7,14 @@ import { LayoutGrid, BookOpen, BedDouble, BarChart2, Settings, Laptop, ChefHat, 
 import { useCurrentStaff, setCurrentStaffId } from '@/lib/hooks/useStore';
 
 const NAV = [
-  { href: '/',           icon: LayoutGrid, label: 'Tabs'       },
-  { href: '/coworking',  icon: Laptop,     label: 'CoWorking'  },
-  { href: '/menu',       icon: BookOpen,   label: 'Menu'       },
-  { href: '/rooms',      icon: BedDouble,  label: 'Rooms'      },
-  { href: '/kds',        icon: ChefHat,    label: 'Kitchen'    },
-  { href: '/history',    icon: History,    label: 'History'    },
-  { href: '/reports',    icon: BarChart2,  label: 'Reports'    },
-  { href: '/settings',   icon: Settings,   label: 'Settings'   },
+  { href: '/',           icon: LayoutGrid, label: 'Tabs',      managerOnly: false },
+  { href: '/coworking',  icon: Laptop,     label: 'CoWorking', managerOnly: false },
+  { href: '/menu',       icon: BookOpen,   label: 'Menu',      managerOnly: false },
+  { href: '/rooms',      icon: BedDouble,  label: 'Rooms',     managerOnly: false },
+  { href: '/kds',        icon: ChefHat,    label: 'Kitchen',   managerOnly: false },
+  { href: '/history',    icon: History,    label: 'History',   managerOnly: true  },
+  { href: '/reports',    icon: BarChart2,  label: 'Reports',   managerOnly: true  },
+  { href: '/settings',   icon: Settings,   label: 'Settings',  managerOnly: true  },
 ];
 
 export function Sidebar() {
@@ -43,7 +43,7 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex flex-col gap-1 p-3 flex-1" aria-label="Main navigation">
-        {NAV.map(({ href, icon: Icon, label }) => {
+        {NAV.filter(({ managerOnly }) => !managerOnly || me?.role === 'manager').map(({ href, icon: Icon, label }) => {
           const active = pathname === href;
           return (
             <Link

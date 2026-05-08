@@ -10,21 +10,22 @@ import {
   LayoutGrid, BookOpen, BedDouble, BarChart2, Settings,
   Laptop, ChefHat, History, LogOut,
 } from 'lucide-react';
-import { setCurrentStaffId } from '@/lib/hooks/useStore';
+import { setCurrentStaffId, useCurrentStaff } from '@/lib/hooks/useStore';
 
 const NAV = [
-  { href: '/',          icon: LayoutGrid, label: 'POS'      },
-  { href: '/coworking', icon: Laptop,     label: 'Desks'    },
-  { href: '/menu',      icon: BookOpen,   label: 'Menu'     },
-  { href: '/rooms',     icon: BedDouble,  label: 'Rooms'    },
-  { href: '/kds',       icon: ChefHat,    label: 'Kitchen'  },
-  { href: '/history',   icon: History,    label: 'History'  },
-  { href: '/reports',   icon: BarChart2,  label: 'Reports'  },
-  { href: '/settings',  icon: Settings,   label: 'Settings' },
+  { href: '/',          icon: LayoutGrid, label: 'POS',     managerOnly: false },
+  { href: '/coworking', icon: Laptop,     label: 'Desks',   managerOnly: false },
+  { href: '/menu',      icon: BookOpen,   label: 'Menu',    managerOnly: false },
+  { href: '/rooms',     icon: BedDouble,  label: 'Rooms',   managerOnly: false },
+  { href: '/kds',       icon: ChefHat,    label: 'Kitchen', managerOnly: false },
+  { href: '/history',   icon: History,    label: 'History', managerOnly: true  },
+  { href: '/reports',   icon: BarChart2,  label: 'Reports', managerOnly: true  },
+  { href: '/settings',  icon: Settings,   label: 'Settings',managerOnly: true  },
 ];
 
 export function MobileNav() {
   const pathname = usePathname();
+  const me = useCurrentStaff();
 
   return (
     <nav
@@ -36,7 +37,7 @@ export function MobileNav() {
       "
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      {NAV.map(({ href, icon: Icon, label }) => {
+      {NAV.filter(({ managerOnly }) => !managerOnly || me?.role === 'manager').map(({ href, icon: Icon, label }) => {
         const active = pathname === href;
         return (
           <Link

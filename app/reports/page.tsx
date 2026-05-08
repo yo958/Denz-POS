@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { TrendingUp, ShoppingBag, Clock, DollarSign, Coffee, Monitor, BedDouble, RotateCcw, CreditCard, Banknote } from 'lucide-react';
-import { useTabs, useShift, useSettings } from '@/lib/hooks/useStore';
+import { useTabs, useShift, useSettings, useCurrentStaff } from '@/lib/hooks/useStore';
 import { lineUnitPrice, tabGrandTotal, tabRefundedAmount, tabCardFee } from '@/lib/domain/tabs';
 import { buildZReport } from '@/lib/domain/shift';
 import type { PaymentMethod, TabType } from '@/lib/types';
@@ -31,10 +31,19 @@ const METHOD_META: Record<PaymentMethod, { label: string; icon: typeof CreditCar
 };
 
 export default function ReportsPage() {
+  const me = useCurrentStaff();
   const tabs = useTabs();
   const shift = useShift();
   const cur = useSettings().currency;
   const [range, setRange] = useState<Range>('today');
+
+  if (me?.role !== 'manager') {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
+        <p className="text-sm">Manager access required.</p>
+      </div>
+    );
+  }
 
   const stats = useMemo(() => {
     const since = startOf(range);

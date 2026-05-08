@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Save, Upload, Download, Trash2, KeyRound, UserPlus, AlertTriangle, Plus, Pencil, X } from 'lucide-react';
+import { Save, Upload, Download, Trash2, KeyRound, UserPlus, AlertTriangle, Plus, Pencil, X, Phone, Mail, Image as ImageIcon } from 'lucide-react';
 import { useSettings, useStaff, useCurrentStaff, useModifierGroups } from '@/lib/hooks/useStore';
 import { getStore } from '@/lib/store/store';
 import { downloadBackup, importBackupFromString } from '@/lib/store/backup';
@@ -17,8 +17,17 @@ export default function SettingsPage() {
   const me = useCurrentStaff();
   const fileRef = useRef<HTMLInputElement>(null);
 
+  if (me?.role !== 'manager') {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
+        <p className="text-sm">Manager access required.</p>
+      </div>
+    );
+  }
+
   const [draft, setDraft] = useState<Settings>(settings);
   const [dirty, setDirty] = useState(false);
+  const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
 
   function update(patch: Partial<Settings>) {
     setDraft(prev => ({ ...prev, ...patch }));
@@ -87,6 +96,13 @@ export default function SettingsPage() {
     getStore().staff.set(prev => prev.map(x => x.id === s.id ? { ...x, archived: true } : x));
     getStore().log('staff.delete', s.name, me?.id);
     toast.success('Archived');
+  }
+
+  function saveStaff(updated: Staff) {
+    getStore().staff.set(prev => prev.map(x => x.id === updated.id ? updated : x));
+    getStore().log('staff.update', updated.name, me?.id);
+    toast.success('Staff updated');
+    setEditingStaff(null);
   }
 
   /* ── Backup ────────────────────────── */
@@ -194,13 +210,21 @@ export default function SettingsPage() {
           <div className="rounded-xl border border-border bg-white/50 dark:bg-white/3 divide-y divide-border">
             {staff.filter(s => !s.archived).map(s => (
               <div key={s.id} className="flex items-center gap-3 px-3 py-2.5">
-                <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-primary/10 text-primary text-xs font-bold">{s.initials}</div>
+                <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-primary/10 overflow-hidden">
+                  {s.image
+                    ? <img src={s.image} alt={s.name} className="w-full h-full object-cover" />
+                    : <span className="text-primary text-xs font-bold">{s.initials}</span>
+                  }
+                </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium">{s.name}{s.id === me?.id && <span className="ml-2 text-xs text-muted-foreground">(you)</span>}</p>
-                  <p className="text-xs text-muted-foreground capitalize">{s.role}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{s.role}{s.contact?.phone && ` · ${s.contact.phone}`}</p>
                 </div>
+                <button onClick={() => setEditingStaff(s)} aria-label={`Edit ${s.name}`} className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer">
+                  <Pencil size={13} />
+                </button>
                 <button onClick={() => resetPin(s)} className="flex items-center gap-1 h-8 px-2.5 rounded-lg text-xs font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8 cursor-pointer">
-                  <KeyRound size={11} /> Reset PIN
+                  <KeyRound size={11} /> PIN
                 </button>
                 {s.id !== me?.id && (
                   <button onClick={() => archiveStaff(s)} aria-label={`Archive ${s.name}`} className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors cursor-pointer">
@@ -210,6 +234,13 @@ export default function SettingsPage() {
               </div>
             ))}
           </div>
+          {editingStaff && (
+            <StaffEditDialog
+              staff={editingStaff}
+              onClose={() => setEditingStaff(null)}
+              onSave={saveStaff}
+            />
+          )}
         </Section>
 
         <ModifierGroupsSection />
@@ -255,6 +286,111 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</span>
       {children}
     </label>
+  );
+}
+
+/* ── Staff Edit Dialog ─────────────────────────────────────── */
+
+interface StaffEditDialogProps {
+  staff: Staff;
+  onClose: () => void;
+  onSave: (s: Staff) => void;
+}
+
+function StaffEditDialog({ staff, onClose, onSave }: StaffEditDialogProps) {
+  const [form, setForm] = useState<Staff>(staff);
+  const imgRef = useRef<HTMLInputElement>(null);
+
+  function handleImageFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setForm(f => ({ ...f, image: reader.result as string }));
+    reader.readAsDataURL(file);
+  }
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const name = form.name.trim();
+    if (!name) { toast.error('Name required'); return; }
+    const initials = name.split(/\s+/).map(p => p[0]).join('').slice(0, 2).toUpperCase();
+    onSave({ ...form, name, initials });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <form onSubmit={submit} className="relative w-full max-w-sm glass-strong rounded-3xl p-6 shadow-2xl space-y-4">
+        <h2 className="text-lg font-semibold">Edit staff</h2>
+
+        {/* Photo */}
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => imgRef.current?.click()}
+            className="relative w-16 h-16 rounded-2xl bg-primary/10 overflow-hidden flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity border border-border"
+          >
+            {form.image
+              ? <img src={form.image} alt={form.name} className="w-full h-full object-cover" />
+              : <span className="text-primary text-lg font-bold">{form.initials}</span>
+            }
+            <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity rounded-2xl">
+              <ImageIcon size={16} className="text-white" />
+            </div>
+          </button>
+          <input ref={imgRef} type="file" accept="image/*" onChange={handleImageFile} className="hidden" />
+          <div className="flex-1 space-y-1">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Photo</p>
+            <p className="text-xs text-muted-foreground">Click photo to upload</p>
+            {form.image && (
+              <button type="button" onClick={() => setForm(f => ({ ...f, image: undefined }))} className="text-xs text-rose-500 hover:text-rose-600 cursor-pointer">Remove</button>
+            )}
+          </div>
+        </div>
+
+        <Field label="Name">
+          <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus className={inputCls} />
+        </Field>
+
+        <Field label="Role">
+          <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value as StaffRole }))} className={inputCls}>
+            <option value="manager">Manager</option>
+            <option value="staff">Staff</option>
+          </select>
+        </Field>
+
+        <Field label="Phone">
+          <div className="relative">
+            <Phone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <input
+              type="tel"
+              value={form.contact?.phone ?? ''}
+              onChange={e => setForm(f => ({ ...f, contact: { ...f.contact, phone: e.target.value } }))}
+              placeholder="+66 81 234 5678"
+              className={inputCls + ' pl-8'}
+            />
+          </div>
+        </Field>
+
+        <Field label="Email">
+          <div className="relative">
+            <Mail size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <input
+              type="email"
+              value={form.contact?.email ?? ''}
+              onChange={e => setForm(f => ({ ...f, contact: { ...f.contact, email: e.target.value } }))}
+              placeholder="name@example.com"
+              className={inputCls + ' pl-8'}
+            />
+          </div>
+        </Field>
+
+        <div className="flex gap-2 pt-1">
+          <button type="button" onClick={onClose} className="flex-1 h-11 rounded-2xl text-sm font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8 active:scale-95 transition-all cursor-pointer">Cancel</button>
+          <button type="submit" className="flex-1 h-11 rounded-2xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 transition-all cursor-pointer">Save</button>
+        </div>
+      </form>
+    </div>
   );
 }
 

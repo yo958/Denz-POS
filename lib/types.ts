@@ -171,6 +171,9 @@ export interface Staff {
   pinHash: string;
   pinSalt: string;
   initials: string;
+  /** Profile photo — data URL or hosted path. */
+  image?: string;
+  contact?: { phone?: string; email?: string };
   archived?: boolean;
 }
 

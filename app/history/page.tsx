@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Search, Receipt, Coffee, Monitor, BedDouble, RotateCcw, Trash2 } from 'lucide-react';
-import { useTabs, useSettings } from '@/lib/hooks/useStore';
+import { useTabs, useSettings, useCurrentStaff } from '@/lib/hooks/useStore';
 import { tabGrandTotal, tabRefundedAmount } from '@/lib/domain/tabs';
 import { getStore } from '@/lib/store/store';
 import { confirm } from '@/components/ui/confirm-dialog';
@@ -36,8 +36,17 @@ function dayLabel(d: Date) {
 }
 
 export default function HistoryPage() {
+  const me = useCurrentStaff();
   const tabs = useTabs();
   const cur = useSettings().currency;
+
+  if (me?.role !== 'manager') {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
+        <p className="text-sm">Manager access required.</p>
+      </div>
+    );
+  }
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | TabType>('all');
 
