@@ -1,36 +1,76 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Denz POS
 
-## Getting Started
+Single-device point-of-sale for Denz Coworking Cafe — cafe orders, coworking desk tabs, guestroom folios, kitchen display, receipts, and end-of-day reports. All data lives in `localStorage` on the device; no server, no cloud.
 
-First, run the development server:
+Built on Next.js 16 (App Router) + React 19 + Tailwind v4. Ships in a Docker container on port **3001**.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Run
+
+### Docker (recommended)
+
+```sh
+docker compose up -d --build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+App is at `http://localhost:3001`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Local dev
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```sh
+npm install
+npm run dev          # http://localhost:3000
+```
 
-## Learn More
+## First login
 
-To learn more about Next.js, take a look at the following resources:
+Default PINs (change immediately in **Settings → Staff**):
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Role    | PIN  |
+| ------- | ---- |
+| Manager | 1234 |
+| Staff   | 0000 |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## What's included
 
-## Deploy on Vercel
+- **POS** — cafe / coworking / room tabs, line discounts, manual Card / Cash / Charge-to-Room.
+- **Guestrooms** — real Stay model with folio tabs; charges from anywhere route into the folio.
+- **Kitchen Display** at `/kds` — auto-syncs across browser tabs/windows via `BroadcastChannel`.
+- **Receipts** at `/receipt/[tabId]` — auto-prints, 80mm thermal-friendly CSS.
+- **Inventory** — per-product stock, low-stock badges, auto-decrement on payment, restock on refund.
+- **Voids & refunds** — both gated by manager PIN, fully audited.
+- **Shifts** — open with a cash float, close with counted cash → Z-report with variance.
+- **Reports** — today / 7d / 30d / all, by area, by payment method, top items, refunds.
+- **Settings** — venue, tax, currency, receipt header/footer, staff CRUD, idle auto-lock, KDS sound.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Backup & recovery
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Everything is in `localStorage`. **Export a backup before clearing browser data, switching browsers, or migrating devices.**
+
+- **Export**: Settings → Data → **Export Backup** (downloads a timestamped `.json`).
+- **Restore**: Settings → Data → **Restore Backup** → pick the `.json` (manager PIN required, overwrites everything).
+- **Factory reset**: Settings → Data → **Factory Reset** (manager PIN required, reseeds with demo data).
+
+A daily export to a USB stick or cloud folder is the supported disaster-recovery flow.
+
+## Project layout
+
+```
+app/                    routes (POS at /, /kds, /rooms, /coworking, /menu, /reports, /settings, /receipt/[tabId])
+components/
+  pos/                  cart, payment, void/refund/discount dialogs, product grid
+  rooms/                check-in dialog
+  shell/                sidebar, topbar (with shift open/close), theme toggle
+  auth/                 PIN pad, auth shell, idle-lock
+  ui/                   shadcn-style primitives + toast + confirm dialog
+lib/
+  types.ts              domain types
+  store/                storage wrapper, slices, broadcast sync, seed, backup
+  domain/               pure helpers (tabs, stays, inventory, shift, auth, ids)
+  hooks/                useStore + per-slice hooks
+```
+
+## Notes
+
+- This is **not** the Next.js you might know — pinned to 16.2.4 with Turbopack. See `AGENTS.md`.
+- Single-device by design. Two browser tabs on the same machine sync (BroadcastChannel); two devices do not.
+- No real payment processor. Card / Cash are manual mark-paid; the `PaymentMethod` enum is the seam for v2.

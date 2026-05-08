@@ -1,0 +1,57 @@
+// ─────────────────────────────────────────────────────────────────
+// App shell wrapper: gates the UI behind PIN, handles idle auto-lock.
+// ─────────────────────────────────────────────────────────────────
+
+'use client';
+
+import { useEffect, useState } from 'react';
+import { PinPad } from './PinPad';
+import {
+  getCurrentStaffId, setCurrentStaffId, useSettings, useCurrentStaff,
+} from '@/lib/hooks/useStore';
+import { Sidebar } from '@/components/shell/Sidebar';
+
+export function AuthShell({ children }: { children: React.ReactNode }) {
+  const [unlocked, setUnlocked] = useState<boolean>(() => !!getCurrentStaffId());
+  const settings = useSettings();
+  const me = useCurrentStaff();
+
+  // Re-sync if session changes externally (e.g., logout from sidebar)
+  useEffect(() => {
+    setUnlocked(!!me);
+  }, [me]);
+
+  // Idle auto-lock
+  useEffect(() => {
+    const minutes = settings.device.idleLockMinutes;
+    if (!unlocked || !minutes || minutes <= 0) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const reset = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        setCurrentStaffId(null);
+        setUnlocked(false);
+      }, minutes * 60_000);
+    };
+    const events = ['mousemove', 'keydown', 'pointerdown', 'touchstart'];
+    events.forEach(e => window.addEventListener(e, reset, { passive: true }));
+    reset();
+    return () => {
+      clearTimeout(timer);
+      events.forEach(e => window.removeEventListener(e, reset));
+    };
+  }, [unlocked, settings.device.idleLockMinutes]);
+
+  if (!unlocked) {
+    return <PinPad onUnlock={() => setUnlocked(true)} />;
+  }
+
+  return (
+    <>
+      <Sidebar />
+      <div className="flex flex-col flex-1 min-h-screen min-w-0 overflow-hidden">
+        {children}
+      </div>
+    </>
+  );
+}

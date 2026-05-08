@@ -1,0 +1,96 @@
+// ─────────────────────────────────────────────────────────────────
+// Central store — slices of versioned localStorage + cross-tab sync
+// via BroadcastChannel. Use the React hook `useSlice()` to subscribe.
+// ─────────────────────────────────────────────────────────────────
+
+import type {
+  AuditAction, AuditEntry, KitchenTicket, Product, Settings, Shift,
+  Staff, Stay, Tab,
+} from '../types';
+import { StorageSlice } from './storage';
+import {
+  SEED_AUDIT, SEED_PRODUCTS, SEED_SETTINGS, SEED_SHIFT, SEED_STAFF,
+  SEED_STAYS, SEED_TABS, SEED_TICKETS,
+} from './seed';
+import { newId } from '../domain/id';
+
+const CHANNEL = 'denz-pos';
+const CURRENT_SCHEMA = 1;
+
+class Store {
+  readonly settings = new StorageSlice<Settings>('denz.settings', CURRENT_SCHEMA, () => SEED_SETTINGS);
+  readonly staff    = new StorageSlice<Staff[]>('denz.staff',    CURRENT_SCHEMA, () => SEED_STAFF);
+  readonly products = new StorageSlice<Product[]>('denz.products', CURRENT_SCHEMA, () => SEED_PRODUCTS);
+  readonly tabs     = new StorageSlice<Tab[]>('denz.tabs',       CURRENT_SCHEMA, () => SEED_TABS);
+  readonly stays    = new StorageSlice<Stay[]>('denz.stays',     CURRENT_SCHEMA, () => SEED_STAYS);
+  readonly shift    = new StorageSlice<Shift | null>('denz.shift', CURRENT_SCHEMA, () => SEED_SHIFT);
+  readonly tickets  = new StorageSlice<KitchenTicket[]>('denz.tickets', CURRENT_SCHEMA, () => SEED_TICKETS);
+  readonly audit    = new StorageSlice<AuditEntry[]>('denz.audit', CURRENT_SCHEMA, () => SEED_AUDIT);
+
+  /** Map of storage key -> slice for cross-tab sync. */
+  private readonly slicesByKey: Map<string, { refresh(): void }>;
+  private readonly channel?: BroadcastChannel;
+
+  constructor() {
+    const entries: [string, { refresh(): void }][] = [
+      [this.settings.storageKey, this.settings],
+      [this.staff.storageKey,    this.staff],
+      [this.products.storageKey, this.products],
+      [this.tabs.storageKey,     this.tabs],
+      [this.stays.storageKey,    this.stays],
+      [this.shift.storageKey,    this.shift],
+      [this.tickets.storageKey,  this.tickets],
+      [this.audit.storageKey,    this.audit],
+    ];
+    this.slicesByKey = new Map(entries);
+
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      this.channel = new BroadcastChannel(CHANNEL);
+
+      // Re-broadcast our own writes so other tabs refresh their slice from storage.
+      const wrap = (slice: StorageSlice<unknown>) => {
+        const original = slice.set.bind(slice);
+        slice.set = (updater) => {
+          original(updater as never);
+          this.channel?.postMessage({ key: slice.storageKey });
+        };
+      };
+      for (const slice of [
+        this.settings, this.staff, this.products, this.tabs,
+        this.stays, this.shift, this.tickets, this.audit,
+      ]) {
+        wrap(slice as unknown as StorageSlice<unknown>);
+      }
+
+      this.channel.addEventListener('message', e => {
+        const key = (e.data as { key?: string } | null)?.key;
+        if (key) this.slicesByKey.get(key)?.refresh();
+      });
+    }
+  }
+
+  /* ── Audit helper ───────────────────────────────────────────── */
+  log(action: AuditAction, detail: string, staffId?: string) {
+    this.audit.set(prev => [
+      { id: newId('aud'), at: new Date(), action, staffId, detail },
+      ...prev,
+    ].slice(0, 1000)); // keep last 1000 entries
+  }
+
+  /* ── Wipe + reseed (factory reset) ──────────────────────────── */
+  wipe() {
+    if (typeof window === 'undefined') return;
+    for (const slice of this.slicesByKey.values()) {
+      window.localStorage.removeItem((slice as unknown as { storageKey: string }).storageKey);
+      slice.refresh();
+    }
+  }
+}
+
+let _store: Store | null = null;
+export function getStore(): Store {
+  if (!_store) _store = new Store();
+  return _store;
+}
+
+export type { Store };
