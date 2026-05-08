@@ -218,7 +218,19 @@ export default function SettingsPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium">{s.name}{s.id === me?.id && <span className="ml-2 text-xs text-muted-foreground">(you)</span>}</p>
-                  <p className="text-xs text-muted-foreground capitalize">{s.role}{s.contact?.phone && ` · ${s.contact.phone}`}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-muted-foreground capitalize">{s.role}{s.contact?.phone && ` · ${s.contact.phone}`}</span>
+                    {s.contact?.phone && (
+                      <a href={`tel:${s.contact.phone}`} aria-label="Call" className="text-muted-foreground hover:text-primary transition-colors" onClick={e => e.stopPropagation()}>
+                        <Phone size={11} />
+                      </a>
+                    )}
+                    {s.contact?.email && (
+                      <a href={`mailto:${s.contact.email}`} aria-label="Email" className="text-muted-foreground hover:text-primary transition-colors" onClick={e => e.stopPropagation()}>
+                        <Mail size={11} />
+                      </a>
+                    )}
+                  </div>
                 </div>
                 <button onClick={() => setEditingStaff(s)} aria-label={`Edit ${s.name}`} className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer">
                   <Pencil size={13} />
