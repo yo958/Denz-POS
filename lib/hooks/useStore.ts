@@ -25,6 +25,7 @@ export function useSlice<T>(slice: StorageSlice<T>): T {
 export function useTabs()     { return useSlice(getStore().tabs); }
 export function useStays()    { return useSlice(getStore().stays); }
 export function useProducts() { return useSlice(getStore().products); }
+export function useModifierGroups() { return useSlice(getStore().modifierGroups); }
 export function useSettings() { return useSlice(getStore().settings); }
 export function useShift()    { return useSlice(getStore().shift); }
 export function useTickets()  { return useSlice(getStore().tickets); }

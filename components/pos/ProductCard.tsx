@@ -1,6 +1,7 @@
 'use client';
 
-import { Plus } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Plus, Check } from 'lucide-react';
 import { useSettings } from '@/lib/hooks/useStore';
 import type { Product } from '@/lib/types';
 
@@ -28,15 +29,43 @@ interface ProductCardProps {
 
 export function ProductCard({ product, onAdd, disabled, outOfStock, lowStock }: ProductCardProps) {
   const cur = useSettings().currency;
+  const [addedAt, setAddedAt] = useState(0);
+  const [count, setCount] = useState(0);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+
+  function handleAdd() {
+    onAdd(product);
+    setCount(c => c + 1);
+    setAddedAt(Date.now());
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => { setAddedAt(0); setCount(0); }, 1200);
+  }
+
+  const justAdded = addedAt !== 0;
+
   return (
     <div
       className={`
-        group relative flex flex-col rounded-2xl border border-border overflow-hidden
+        group relative flex flex-col rounded-2xl border overflow-hidden
         bg-white/60 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/8
-        transition-all duration-150
+        transition-all duration-200
+        ${justAdded ? 'border-primary ring-2 ring-primary/40 scale-[1.015]' : 'border-border'}
         ${disabled ? 'opacity-50 pointer-events-none' : ''}
       `}
     >
+      {/* "+N added" floater */}
+      {justAdded && (
+        <span
+          key={addedAt}
+          className="absolute top-2 left-1/2 -translate-x-1/2 z-20 text-[11px] font-bold px-2 py-0.5 rounded-full bg-primary text-primary-foreground shadow-md pointer-events-none"
+          style={{ animation: 'addedPop 1.2s ease-out forwards' }}
+        >
+          +{count} added
+        </span>
+      )}
+
       {/* Stock badge */}
       {(outOfStock || lowStock) && (
         <span className={`absolute top-2 right-2 z-10 text-[10px] font-bold px-2 py-0.5 rounded-full ${
@@ -66,17 +95,18 @@ export function ProductCard({ product, onAdd, disabled, outOfStock, lowStock }: 
         <div className="flex items-center justify-between mt-2">
           <span className="text-sm font-bold tabular-nums">{cur}{product.price}</span>
           <button
-            onClick={() => onAdd(product)}
+            onClick={handleAdd}
             aria-label={`Add ${product.name}`}
-            className="
-              flex items-center justify-center w-8 h-8 rounded-xl
-              bg-primary text-primary-foreground
-              hover:opacity-90 active:scale-95
-              transition-all duration-150 cursor-pointer
+            className={`
+              flex items-center justify-center w-9 h-9 rounded-xl
+              text-primary-foreground touch-manipulation select-none
+              hover:opacity-90 active:scale-90
+              transition-all duration-200 cursor-pointer
               focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring
-            "
+              ${justAdded ? 'bg-emerald-500' : 'bg-primary'}
+            `}
           >
-            <Plus size={15} strokeWidth={2.5} />
+            {justAdded ? <Check size={16} strokeWidth={3} /> : <Plus size={16} strokeWidth={2.5} />}
           </button>
         </div>
       </div>

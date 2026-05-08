@@ -4,12 +4,12 @@
 // ─────────────────────────────────────────────────────────────────
 
 import type {
-  AuditAction, AuditEntry, KitchenTicket, Product, Settings, Shift,
+  AuditAction, AuditEntry, KitchenTicket, ModifierGroup, Product, Settings, Shift,
   Staff, Stay, Tab,
 } from '../types';
 import { StorageSlice } from './storage';
 import {
-  SEED_AUDIT, SEED_PRODUCTS, SEED_SETTINGS, SEED_SHIFT, SEED_STAFF,
+  SEED_AUDIT, SEED_MODIFIER_GROUPS, SEED_PRODUCTS, SEED_SETTINGS, SEED_SHIFT, SEED_STAFF,
   SEED_STAYS, SEED_TABS, SEED_TICKETS,
 } from './seed';
 import { newId } from '../domain/id';
@@ -25,6 +25,7 @@ class Store {
   readonly settings = new StorageSlice<Settings>('denz.settings', CURRENT_SCHEMA, () => SEED_SETTINGS);
   readonly staff    = new StorageSlice<Staff[]>('denz.staff',    CURRENT_SCHEMA, () => SEED_STAFF);
   readonly products = new StorageSlice<Product[]>('denz.products', CURRENT_SCHEMA, () => SEED_PRODUCTS);
+  readonly modifierGroups = new StorageSlice<ModifierGroup[]>('denz.modifierGroups', CURRENT_SCHEMA, () => SEED_MODIFIER_GROUPS);
   readonly tabs     = new StorageSlice<Tab[]>('denz.tabs',       CURRENT_SCHEMA, () => SEED_TABS);
   readonly stays    = new StorageSlice<Stay[]>('denz.stays',     CURRENT_SCHEMA, () => SEED_STAYS);
   readonly shift    = new StorageSlice<Shift | null>('denz.shift', CURRENT_SCHEMA, () => SEED_SHIFT);
@@ -40,6 +41,7 @@ class Store {
       [this.settings.storageKey, this.settings],
       [this.staff.storageKey,    this.staff],
       [this.products.storageKey, this.products],
+      [this.modifierGroups.storageKey, this.modifierGroups],
       [this.tabs.storageKey,     this.tabs],
       [this.stays.storageKey,    this.stays],
       [this.shift.storageKey,    this.shift],
@@ -53,6 +55,7 @@ class Store {
       this.settings.connectFirestore(FS('settings'));
       this.staff.connectFirestore(FS('staff'));
       this.products.connectFirestore(FS('products'));
+      this.modifierGroups.connectFirestore(FS('modifierGroups'));
       this.tabs.connectFirestore(FS('tabs'));
       this.stays.connectFirestore(FS('stays'));
       this.shift.connectFirestore(FS('shift'));
@@ -72,7 +75,7 @@ class Store {
         };
       };
       for (const slice of [
-        this.settings, this.staff, this.products, this.tabs,
+        this.settings, this.staff, this.products, this.modifierGroups, this.tabs,
         this.stays, this.shift, this.tickets, this.audit,
       ]) {
         wrap(slice as unknown as StorageSlice<unknown>);

@@ -35,13 +35,57 @@ export interface Product {
   sendToKitchen: boolean;
   /** Hidden from the POS grid (still in Menu management). */
   archived?: boolean;
+  /** IDs of shared ModifierGroups offered when adding this product to a tab. */
+  modifierGroupIds?: string[];
+  /**
+   * Per-product overrides for modifier option prices. Keyed by `[groupId][optionId] = priceDelta`.
+   * If an override is present, it replaces the group's option `priceDelta` for this product only.
+   * Absent entries fall back to the shared group price.
+   */
+  modifierOptionPriceOverrides?: Record<string, Record<string, number>>;
+}
+
+/* ── Modifier groups (shared, reused across products) ─────────── */
+export type ModifierGroupType = 'single' | 'multi';
+
+export interface ModifierOption {
+  id: string;
+  name: string;
+  /** Added to the line unit price. Can be 0 or negative. */
+  priceDelta: number;
+  archived?: boolean;
+}
+
+export interface ModifierGroup {
+  id: string;
+  name: string;
+  /** 'single' = pick exactly one (radio); 'multi' = pick zero or more (checkboxes). */
+  type: ModifierGroupType;
+  /** Only meaningful for 'single' — if true, customer must pick one. */
+  required?: boolean;
+  /** Optional default option (id) for 'single' groups. */
+  defaultOptionId?: string;
+  options: ModifierOption[];
+  archived?: boolean;
+}
+
+export interface SelectedModifier {
+  groupId: string;
+  groupName: string;
+  optionId: string;
+  name: string;
+  priceDelta: number;
 }
 
 /* ── Line items ───────────────────────────────────────────────── */
 export interface LineItem {
+  /** Stable per-line identifier. New lines should always be given an id; legacy lines fall back to productId. */
+  id?: string;
   productId: string;
   product: Product;
   qty: number;
+  /** Selected modifier options for this line. */
+  modifiers?: SelectedModifier[];
   /** Per-line note (eg "no onion"). */
   note?: string;
   /** Quantity already sent to kitchen (for diffing on resend). */
@@ -166,6 +210,7 @@ export type AuditAction =
   | 'tab.create' | 'tab.update' | 'tab.pay' | 'tab.void' | 'tab.refund' | 'tab.kitchen-send'
   | 'stay.checkin' | 'stay.checkout' | 'stay.charge'
   | 'product.create' | 'product.update' | 'product.delete' | 'product.stock'
+  | 'modifier.create' | 'modifier.update' | 'modifier.delete'
   | 'shift.open' | 'shift.close'
   | 'staff.create' | 'staff.update' | 'staff.delete'
   | 'settings.update' | 'data.export' | 'data.import' | 'data.wipe';

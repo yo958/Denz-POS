@@ -3,30 +3,30 @@
 import { useState } from 'react';
 import { X, Trash2 } from 'lucide-react';
 import type { Tab } from '@/lib/types';
-import { effectiveQty, formatMoney } from '@/lib/domain/tabs';
+import { effectiveQty, formatMoney, lineKey, lineUnitPrice, modifiersSummary } from '@/lib/domain/tabs';
 
 interface VoidDialogProps {
   open: boolean;
   tab: Tab | null;
-  onConfirm: (productId: string, qty: number, reason: string) => void;
+  onConfirm: (lineKey: string, qty: number, reason: string) => void;
   onClose: () => void;
 }
 
 export function VoidDialog({ open, tab, onConfirm, onClose }: VoidDialogProps) {
-  const [productId, setProductId] = useState<string>('');
+  const [selectedKey, setSelectedKey] = useState<string>('');
   const [qty, setQty] = useState(1);
   const [reason, setReason] = useState('');
 
   if (!open || !tab) return null;
 
   const lines = tab.items.filter(li => effectiveQty(li) > 0);
-  const selected = lines.find(li => li.productId === productId);
+  const selected = lines.find(li => lineKey(li) === selectedKey);
   const maxQty = selected ? effectiveQty(selected) : 0;
 
   const submit = () => {
     if (!selected || qty < 1 || qty > maxQty || reason.trim().length < 2) return;
-    onConfirm(selected.productId, qty, reason.trim());
-    setProductId(''); setQty(1); setReason('');
+    onConfirm(lineKey(selected), qty, reason.trim());
+    setSelectedKey(''); setQty(1); setReason('');
     onClose();
   };
 
@@ -53,22 +53,27 @@ export function VoidDialog({ open, tab, onConfirm, onClose }: VoidDialogProps) {
           {lines.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-4">No items to void.</p>
           )}
-          {lines.map(li => (
-            <button
-              key={li.productId}
-              onClick={() => { setProductId(li.productId); setQty(1); }}
-              className={`w-full flex items-center justify-between gap-3 p-3 rounded-2xl border transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
-                productId === li.productId
-                  ? 'border-rose-400 bg-rose-50 dark:bg-rose-900/10'
-                  : 'border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8'
-              }`}
-            >
-              <div className="text-left">
-                <p className="text-sm font-medium">{li.product.name}</p>
-                <p className="text-xs text-muted-foreground">{formatMoney(li.product.price)} · qty {effectiveQty(li)}</p>
-              </div>
-            </button>
-          ))}
+          {lines.map(li => {
+            const k = lineKey(li);
+            const mods = modifiersSummary(li.modifiers);
+            return (
+              <button
+                key={k}
+                onClick={() => { setSelectedKey(k); setQty(1); }}
+                className={`w-full flex items-center justify-between gap-3 p-3 rounded-2xl border transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+                  selectedKey === k
+                    ? 'border-rose-400 bg-rose-50 dark:bg-rose-900/10'
+                    : 'border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8'
+                }`}
+              >
+                <div className="text-left min-w-0">
+                  <p className="text-sm font-medium truncate">{li.product.name}</p>
+                  {mods && <p className="text-[11px] text-muted-foreground/80 truncate">{mods}</p>}
+                  <p className="text-xs text-muted-foreground">{formatMoney(lineUnitPrice(li))} · qty {effectiveQty(li)}</p>
+                </div>
+              </button>
+            );
+          })}
         </div>
 
         {selected && (

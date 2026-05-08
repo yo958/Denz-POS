@@ -1,15 +1,15 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Save, Upload, Download, Trash2, KeyRound, UserPlus, AlertTriangle } from 'lucide-react';
-import { useSettings, useStaff, useCurrentStaff } from '@/lib/hooks/useStore';
+import { Save, Upload, Download, Trash2, KeyRound, UserPlus, AlertTriangle, Plus, Pencil, X } from 'lucide-react';
+import { useSettings, useStaff, useCurrentStaff, useModifierGroups } from '@/lib/hooks/useStore';
 import { getStore } from '@/lib/store/store';
 import { downloadBackup, importBackupFromString } from '@/lib/store/backup';
 import { hashPin, newSalt } from '@/lib/domain/auth';
 import { confirm } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/toast';
 import { newId } from '@/lib/domain/id';
-import type { Settings, Staff, StaffRole } from '@/lib/types';
+import type { ModifierGroup, ModifierOption, Settings, Staff, StaffRole } from '@/lib/types';
 
 export default function SettingsPage() {
   const settings = useSettings();
@@ -212,6 +212,8 @@ export default function SettingsPage() {
           </div>
         </Section>
 
+        <ModifierGroupsSection />
+
         <Section title="Data">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <button onClick={handleExport} className="flex items-center justify-center gap-2 h-11 rounded-2xl border border-border bg-white/50 dark:bg-white/5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/8 cursor-pointer">
@@ -255,3 +257,234 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </label>
   );
 }
+
+/* ── Modifier Groups CRUD ──────────────────────────────────── */
+
+function ModifierGroupsSection() {
+  const groups = useModifierGroups();
+  const [editing, setEditing] = useState<ModifierGroup | null>(null);
+  const me = useCurrentStaff();
+
+  function startNew() {
+    setEditing({
+      id: newId('mg'),
+      name: '',
+      type: 'single',
+      required: false,
+      options: [{ id: newId('mo'), name: '', priceDelta: 0 }],
+    });
+  }
+
+  async function archive(g: ModifierGroup) {
+    const ok = await confirm({
+      title: `Archive “${g.name}”?`,
+      message: 'Existing tabs will keep their existing modifiers, but new orders will not show this group.',
+      confirmLabel: 'Archive',
+      danger: true,
+    });
+    if (!ok) return;
+    getStore().modifierGroups.set(prev => prev.map(x => x.id === g.id ? { ...x, archived: true } : x));
+    getStore().log('modifier.delete', g.name, me?.id);
+    toast.success('Group archived');
+  }
+
+  function unarchive(g: ModifierGroup) {
+    getStore().modifierGroups.set(prev => prev.map(x => x.id === g.id ? { ...x, archived: false } : x));
+    toast.success('Group restored');
+  }
+
+  return (
+    <Section
+      title="Modifier groups"
+      action={
+        <button onClick={startNew} className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8 cursor-pointer">
+          <Plus size={12} /> Add group
+        </button>
+      }
+    >
+      <p className="text-xs text-muted-foreground -mt-1">Shared option lists (size, milk, extras…) you can attach to any product in Menu.</p>
+      <div className="rounded-xl border border-border bg-white/50 dark:bg-white/3 divide-y divide-border">
+        {groups.length === 0 && <p className="text-xs text-muted-foreground px-3 py-3">No groups yet.</p>}
+        {groups.map(g => (
+          <div key={g.id} className="flex items-center gap-3 px-3 py-2.5">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">
+                {g.name || <span className="italic text-muted-foreground">Untitled</span>}
+                {g.archived && <span className="ml-2 text-[10px] uppercase font-bold text-muted-foreground">archived</span>}
+              </p>
+              <p className="text-xs text-muted-foreground truncate">
+                {g.type === 'single' ? `single${g.required ? ' · required' : ''}` : 'multi · optional'} · {g.options.filter(o => !o.archived).length} option{g.options.length === 1 ? '' : 's'}
+              </p>
+            </div>
+            <button onClick={() => setEditing(g)} aria-label={`Edit ${g.name}`} className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer">
+              <Pencil size={13} />
+            </button>
+            {g.archived ? (
+              <button onClick={() => unarchive(g)} className="h-8 px-2.5 rounded-lg text-xs font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8 cursor-pointer">
+                Restore
+              </button>
+            ) : (
+              <button onClick={() => archive(g)} aria-label={`Archive ${g.name}`} className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 cursor-pointer">
+                <Trash2 size={13} />
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {editing && (
+        <ModifierGroupDialog
+          group={editing}
+          onClose={() => setEditing(null)}
+          onSave={(g) => {
+            getStore().modifierGroups.set(prev => {
+              const idx = prev.findIndex(x => x.id === g.id);
+              if (idx === -1) return [...prev, g];
+              const next = prev.slice();
+              next[idx] = g;
+              return next;
+            });
+            getStore().log(groups.some(x => x.id === g.id) ? 'modifier.update' : 'modifier.create', g.name, me?.id);
+            toast.success('Group saved');
+            setEditing(null);
+          }}
+        />
+      )}
+    </Section>
+  );
+}
+
+interface ModifierGroupDialogProps {
+  group: ModifierGroup;
+  onClose: () => void;
+  onSave: (g: ModifierGroup) => void;
+}
+
+function ModifierGroupDialog({ group, onClose, onSave }: ModifierGroupDialogProps) {
+  const [form, setForm] = useState<ModifierGroup>(group);
+
+  function patchOption(id: string, patch: Partial<ModifierOption>) {
+    setForm(f => ({ ...f, options: f.options.map(o => o.id === id ? { ...o, ...patch } : o) }));
+  }
+  function addOption() {
+    setForm(f => ({ ...f, options: [...f.options, { id: newId('mo'), name: '', priceDelta: 0 }] }));
+  }
+  function removeOption(id: string) {
+    setForm(f => ({
+      ...f,
+      options: f.options.filter(o => o.id !== id),
+      defaultOptionId: f.defaultOptionId === id ? undefined : f.defaultOptionId,
+    }));
+  }
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.name.trim()) { toast.error('Name required'); return; }
+    const opts = form.options
+      .map(o => ({ ...o, name: o.name.trim() }))
+      .filter(o => o.name.length > 0);
+    if (opts.length === 0) { toast.error('At least one option required'); return; }
+    if (form.type === 'single' && form.required && !opts.some(o => o.id === form.defaultOptionId)) {
+      // Fall back to first option as default if none chosen
+      onSave({ ...form, name: form.name.trim(), options: opts, defaultOptionId: opts[0].id });
+      return;
+    }
+    onSave({ ...form, name: form.name.trim(), options: opts });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <form onSubmit={submit} className="relative w-full max-w-md glass-strong rounded-3xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <h2 className="text-lg font-semibold">Modifier group</h2>
+
+        <Field label="Name">
+          <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} autoFocus className={inputCls} />
+        </Field>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Type">
+            <select
+              value={form.type}
+              onChange={e => setForm({ ...form, type: e.target.value as ModifierGroup['type'] })}
+              className={inputCls}
+            >
+              <option value="single">Single (radio)</option>
+              <option value="multi">Multi (checkbox)</option>
+            </select>
+          </Field>
+          {form.type === 'single' && (
+            <Field label="Required">
+              <label className="flex items-center gap-2 h-10 px-3 rounded-xl border border-border bg-black/5 dark:bg-white/5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!form.required}
+                  onChange={e => setForm({ ...form, required: e.target.checked })}
+                  className="w-4 h-4 accent-primary"
+                />
+                <span className="text-sm">Customer must pick one</span>
+              </label>
+            </Field>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Options</span>
+            <button type="button" onClick={addOption} className="flex items-center gap-1 h-7 px-2 rounded-lg text-xs font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8 cursor-pointer">
+              <Plus size={11} /> Add option
+            </button>
+          </div>
+          <div className="space-y-1.5">
+            {form.options.map(o => (
+              <div key={o.id} className="flex items-center gap-2">
+                {form.type === 'single' && (
+                  <input
+                    type="radio"
+                    name="default-opt"
+                    aria-label="Default"
+                    checked={form.defaultOptionId === o.id}
+                    onChange={() => setForm({ ...form, defaultOptionId: o.id })}
+                    className="w-4 h-4 accent-primary"
+                  />
+                )}
+                <input
+                  value={o.name}
+                  onChange={e => patchOption(o.id, { name: e.target.value })}
+                  placeholder="Option name"
+                  className="flex-1 h-9 px-3 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+                <input
+                  type="number"
+                  step={0.01}
+                  value={o.priceDelta}
+                  onChange={e => patchOption(o.id, { priceDelta: parseFloat(e.target.value) || 0 })}
+                  placeholder="+$"
+                  className="w-20 h-9 px-2 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border tabular-nums focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeOption(o.id)}
+                  aria-label="Remove option"
+                  className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 cursor-pointer"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            ))}
+          </div>
+          {form.type === 'single' && (
+            <p className="text-[11px] text-muted-foreground">Tip: select the radio next to an option to make it the default.</p>
+          )}
+        </div>
+
+        <div className="flex gap-2 pt-2">
+          <button type="button" onClick={onClose} className="flex-1 h-11 rounded-2xl text-sm font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8 active:scale-95 transition-all cursor-pointer">Cancel</button>
+          <button type="submit" className="flex-1 h-11 rounded-2xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 transition-all cursor-pointer">Save</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+

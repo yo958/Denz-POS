@@ -3,13 +3,13 @@
 import { useState, useEffect } from 'react';
 import { X, RotateCcw } from 'lucide-react';
 import type { Tab } from '@/lib/types';
-import { effectiveQty, formatMoney, tabGrandTotal, tabSubtotal } from '@/lib/domain/tabs';
+import { effectiveQty, formatMoney, lineKey, lineUnitPrice, modifiersSummary, tabGrandTotal, tabSubtotal } from '@/lib/domain/tabs';
 
 interface RefundDialogProps {
   open: boolean;
   tab: Tab | null;
   onClose: () => void;
-  onConfirm: (lines: { productId: string; qty: number }[], reason: string) => void;
+  onConfirm: (lines: { lineKey: string; qty: number }[], reason: string) => void;
 }
 
 export function RefundDialog({ open, tab, onClose, onConfirm }: RefundDialogProps) {
@@ -18,7 +18,7 @@ export function RefundDialog({ open, tab, onClose, onConfirm }: RefundDialogProp
 
   useEffect(() => {
     if (open && tab) {
-      setQtys(Object.fromEntries(tab.items.map(li => [li.productId, effectiveQty(li)])));
+      setQtys(Object.fromEntries(tab.items.map(li => [lineKey(li), effectiveQty(li)])));
       setReason('');
     }
   }, [open, tab]);
@@ -26,11 +26,11 @@ export function RefundDialog({ open, tab, onClose, onConfirm }: RefundDialogProp
   if (!open || !tab) return null;
 
   const lines = tab.items
-    .map(li => ({ li, qty: qtys[li.productId] ?? 0 }))
+    .map(li => ({ li, qty: qtys[lineKey(li)] ?? 0 }))
     .filter(x => x.qty > 0);
 
   const ratio = (() => {
-    const remaining = lines.reduce((s, x) => s + x.qty * x.li.product.price, 0);
+    const remaining = lines.reduce((s, x) => s + x.qty * lineUnitPrice(x.li), 0);
     const sub = tabSubtotal(tab.items);
     return sub > 0 ? remaining / sub : 0;
   })();
@@ -59,22 +59,25 @@ export function RefundDialog({ open, tab, onClose, onConfirm }: RefundDialogProp
           {tab.items.map(li => {
             const max = effectiveQty(li);
             if (max === 0) return null;
-            const cur = qtys[li.productId] ?? 0;
+            const k = lineKey(li);
+            const cur = qtys[k] ?? 0;
+            const mods = modifiersSummary(li.modifiers);
             return (
-              <div key={li.productId} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-white/50 dark:bg-white/5">
+              <div key={k} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-white/50 dark:bg-white/5">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{li.product.name}</p>
-                  <p className="text-xs text-muted-foreground">{formatMoney(li.product.price)} × {max} purchased</p>
+                  {mods && <p className="text-[11px] text-muted-foreground/80 truncate">{mods}</p>}
+                  <p className="text-xs text-muted-foreground">{formatMoney(lineUnitPrice(li))} × {max} purchased</p>
                 </div>
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={() => setQtys(q => ({ ...q, [li.productId]: Math.max(0, (q[li.productId] ?? 0) - 1) }))}
+                    onClick={() => setQtys(q => ({ ...q, [k]: Math.max(0, (q[k] ?? 0) - 1) }))}
                     aria-label="Decrease"
                     className="w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
                   >−</button>
                   <span className="w-6 text-center text-sm font-semibold tabular-nums">{cur}</span>
                   <button
-                    onClick={() => setQtys(q => ({ ...q, [li.productId]: Math.min(max, (q[li.productId] ?? 0) + 1) }))}
+                    onClick={() => setQtys(q => ({ ...q, [k]: Math.min(max, (q[k] ?? 0) + 1) }))}
                     aria-label="Increase"
                     className="w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
                   >+</button>
@@ -105,7 +108,7 @@ export function RefundDialog({ open, tab, onClose, onConfirm }: RefundDialogProp
           </button>
           <button
             disabled={!canConfirm}
-            onClick={() => onConfirm(lines.map(x => ({ productId: x.li.productId, qty: x.qty })), reason.trim())}
+            onClick={() => onConfirm(lines.map(x => ({ lineKey: lineKey(x.li), qty: x.qty })), reason.trim())}
             className="flex-1 h-10 rounded-2xl text-sm font-semibold bg-rose-600 text-white hover:bg-rose-700 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             Refund

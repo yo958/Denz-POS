@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────────────────
 
 import type {
-  AuditEntry, KitchenTicket, Product, Settings, Shift, Staff, Stay, Tab,
+  AuditEntry, KitchenTicket, ModifierGroup, Product, Settings, Shift, Staff, Stay, Tab,
 } from '../types';
 import { getStore } from './store';
 import { json } from './storage';
@@ -18,6 +18,7 @@ export interface Backup {
     settings: Settings;
     staff: Staff[];
     products: Product[];
+    modifierGroups: ModifierGroup[];
     tabs: Tab[];
     stays: Stay[];
     shift: Shift | null;
@@ -36,6 +37,7 @@ export function exportBackup(): Backup {
       settings: s.settings.get(),
       staff:    s.staff.get(),
       products: s.products.get(),
+      modifierGroups: s.modifierGroups.get(),
       tabs:     s.tabs.get(),
       stays:    s.stays.get(),
       shift:    s.shift.get(),
@@ -79,6 +81,7 @@ export function importBackupFromString(raw: string): { ok: true } | { ok: false;
   s.settings.rawWrite(parsed.data.settings);
   s.staff.rawWrite(parsed.data.staff);
   s.products.rawWrite(parsed.data.products);
+  if (parsed.data.modifierGroups) s.modifierGroups.rawWrite(parsed.data.modifierGroups);
   s.tabs.rawWrite(parsed.data.tabs);
   s.stays.rawWrite(parsed.data.stays);
   s.shift.rawWrite(parsed.data.shift);

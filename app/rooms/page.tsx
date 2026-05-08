@@ -9,7 +9,7 @@ import { CheckInDialog } from '@/components/rooms/CheckInDialog';
 import { confirm } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/toast';
 import {
-  formatDate, formatElapsed, tabGrandTotal,
+  formatDate, formatElapsed, lineKey, lineUnitPrice, modifiersSummary, tabGrandTotal,
 } from '@/lib/domain/tabs';
 import type { Product, Stay } from '@/lib/types';
 
@@ -168,12 +168,18 @@ function FolioPanel({ stay, onClose }: { stay: Stay | null; onClose: () => void 
         </div>
         <div className="space-y-1.5 max-h-72 overflow-y-auto">
           {folio?.items.length === 0 && <p className="text-sm text-muted-foreground">No charges yet.</p>}
-          {folio?.items.map(li => (
-            <div key={li.productId} className="flex justify-between text-sm border-b border-border py-1.5 last:border-0">
-              <span>{li.qty}× {li.product.name}</span>
-              <span className="tabular-nums">{cur}{(li.product.price * li.qty).toFixed(2)}</span>
-            </div>
-          ))}
+          {folio?.items.map(li => {
+            const mods = modifiersSummary(li.modifiers);
+            return (
+              <div key={lineKey(li)} className="flex justify-between text-sm border-b border-border py-1.5 last:border-0">
+                <span className="min-w-0">
+                  <span className="truncate block">{li.qty}× {li.product.name}</span>
+                  {mods && <span className="block text-[11px] text-muted-foreground/80 truncate">{mods}</span>}
+                </span>
+                <span className="tabular-nums">{cur}{(lineUnitPrice(li) * li.qty).toFixed(2)}</span>
+              </div>
+            );
+          })}
         </div>
         <div className="flex justify-between font-bold text-base pt-2 border-t border-border">
           <span>Total</span><span className="tabular-nums">{cur}{total.toFixed(2)}</span>

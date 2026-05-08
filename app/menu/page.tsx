@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Plus, Pencil, Archive, ArchiveRestore, Trash2 } from 'lucide-react';
-import { useProducts, useCurrentStaff, useSettings } from '@/lib/hooks/useStore';
+import { useProducts, useCurrentStaff, useSettings, useModifierGroups } from '@/lib/hooks/useStore';
 import { getStore } from '@/lib/store/store';
 import { newId } from '@/lib/domain/id';
 import { confirm } from '@/components/ui/confirm-dialog';
@@ -140,6 +140,7 @@ interface ProductDialogProps {
 }
 
 function ProductDialog({ product, onClose, onSave }: ProductDialogProps) {
+  const groups = useModifierGroups();
   const [form, setForm] = useState<Product>(product ?? {
     id: newId('prod'),
     name: '',
@@ -292,6 +293,96 @@ function ProductDialog({ product, onClose, onSave }: ProductDialogProps) {
           <input type="checkbox" checked={form.sendToKitchen} onChange={e => setForm({ ...form, sendToKitchen: e.target.checked })} className="w-4 h-4 accent-primary" />
           <span className="text-sm">Send to kitchen (KDS)</span>
         </label>
+
+        {groups.filter(g => !g.archived).length > 0 && (
+          <div className="space-y-2">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Modifier groups</span>
+            <div className="flex flex-wrap gap-1.5">
+              {groups.filter(g => !g.archived).map(g => {
+                const ids = form.modifierGroupIds ?? [];
+                const on = ids.includes(g.id);
+                return (
+                  <button
+                    key={g.id}
+                    type="button"
+                    onClick={() => setForm(f => {
+                      const cur = f.modifierGroupIds ?? [];
+                      const nextIds = on ? cur.filter(id => id !== g.id) : [...cur, g.id];
+                      // Drop overrides for groups no longer attached
+                      const overrides = { ...(f.modifierOptionPriceOverrides ?? {}) };
+                      if (on) delete overrides[g.id];
+                      return { ...f, modifierGroupIds: nextIds, modifierOptionPriceOverrides: overrides };
+                    })}
+                    className={`px-2.5 h-8 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
+                      on
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-white/50 dark:bg-white/5 border-border hover:bg-black/5 dark:hover:bg-white/8'
+                    }`}
+                  >
+                    {g.name}
+                    <span className="ml-1 opacity-70">({g.type === 'single' ? '1' : 'n'})</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Per-product price overrides for each enabled group */}
+            {(form.modifierGroupIds ?? []).map(gid => {
+              const g = groups.find(x => x.id === gid && !x.archived);
+              if (!g) return null;
+              const groupOverrides = form.modifierOptionPriceOverrides?.[g.id] ?? {};
+
+              const setOverride = (optId: string, value: number | null) => {
+                setForm(f => {
+                  const all = { ...(f.modifierOptionPriceOverrides ?? {}) };
+                  const grp = { ...(all[g.id] ?? {}) };
+                  if (value === null) delete grp[optId]; else grp[optId] = value;
+                  if (Object.keys(grp).length === 0) delete all[g.id]; else all[g.id] = grp;
+                  return { ...f, modifierOptionPriceOverrides: all };
+                });
+              };
+
+              return (
+                <div key={g.id} className="rounded-2xl border border-border bg-black/3 dark:bg-white/3 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold">{g.name}</span>
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Per-item prices</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {g.options.filter(o => !o.archived).map(o => {
+                      const has = Object.prototype.hasOwnProperty.call(groupOverrides, o.id);
+                      const value = has ? groupOverrides[o.id] : o.priceDelta;
+                      return (
+                        <div key={o.id} className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={has}
+                            onChange={e => setOverride(o.id, e.target.checked ? o.priceDelta : null)}
+                            aria-label={`Override price for ${o.name}`}
+                            className="w-4 h-4 accent-primary"
+                          />
+                          <span className="flex-1 text-sm truncate">{o.name}</span>
+                          <input
+                            type="number"
+                            step={0.01}
+                            value={value}
+                            disabled={!has}
+                            onChange={e => setOverride(o.id, parseFloat(e.target.value) || 0)}
+                            placeholder="+$"
+                            className="w-20 h-9 px-2 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border tabular-nums focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Tick to set a custom price for this item. Unticked options use the group default.
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         <div className="flex gap-2 pt-2">
           <button type="button" onClick={onClose} className="flex-1 h-11 rounded-2xl text-sm font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8 active:scale-95 transition-all cursor-pointer">Cancel</button>

@@ -3,8 +3,8 @@
 import { use, useEffect, useRef } from 'react';
 import { useTabs, useSettings } from '@/lib/hooks/useStore';
 import {
-  effectiveQty, formatDate, formatTime, tabSubtotal, tabDiscountAmount,
-  tabTax, tabGrandTotal, tabRefundedAmount, tabCardFee, CARD_FEE_RATE,
+  effectiveQty, formatDate, formatTime, lineKey, lineUnitPrice, modifiersSummary,
+  tabSubtotal, tabDiscountAmount, tabTax, tabGrandTotal, tabRefundedAmount, tabCardFee, CARD_FEE_RATE,
 } from '@/lib/domain/tabs';
 
 export default function ReceiptPage({ params }: { params: Promise<{ tabId: string }> }) {
@@ -69,10 +69,12 @@ export default function ReceiptPage({ params }: { params: Promise<{ tabId: strin
 
       {tab.items.map(li => {
         const q = effectiveQty(li);
-        const line = li.product.price * q;
+        const line = lineUnitPrice(li) * q;
+        const mods = modifiersSummary(li.modifiers);
         return (
-          <div key={li.productId} className="item">
+          <div key={lineKey(li)} className="item">
             <div className="row"><span>{q} × {li.product.name}</span><span>{cur}{line.toFixed(2)}</span></div>
+            {mods && <div style={{ paddingLeft: 8 }}>{mods}</div>}
             {li.note && <div style={{ paddingLeft: 8, fontStyle: 'italic' }}>{li.note}</div>}
             {(li.refundedQty ?? 0) > 0 && <div style={{ paddingLeft: 8 }}>refunded ×{li.refundedQty}</div>}
           </div>

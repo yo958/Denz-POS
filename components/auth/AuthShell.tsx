@@ -10,6 +10,7 @@ import {
   getCurrentStaffId, setCurrentStaffId, useSettings, useCurrentStaff,
 } from '@/lib/hooks/useStore';
 import { Sidebar } from '@/components/shell/Sidebar';
+import { MobileNav } from '@/components/shell/MobileNav';
 
 export function AuthShell({ children }: { children: React.ReactNode }) {
   const [unlocked, setUnlocked] = useState<boolean>(() => !!getCurrentStaffId());
@@ -49,9 +50,13 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <Sidebar />
-      <div className="flex flex-col flex-1 min-h-screen min-w-0 overflow-hidden">
+      <div
+        className="flex flex-col flex-1 min-h-screen min-w-0 overflow-hidden"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 56px)' }}
+      >
         {children}
       </div>
+      <MobileNav />
     </>
   );
 }

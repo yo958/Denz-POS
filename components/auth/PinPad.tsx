@@ -72,12 +72,20 @@ export function PinPad({ onUnlock }: { onUnlock: () => void }) {
   function backspace() { setPin(p => p.slice(0, -1)); setError(null); }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background">
-      <div className="w-full max-w-sm px-6 py-10 flex flex-col items-center gap-7">
-        <div className="flex flex-col items-center gap-3">
-          <Image src="/logo.png" alt="Denz" width={48} height={48} priority />
-          <h1 className="text-xl font-semibold">Denz POS</h1>
-          <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-background overflow-y-auto"
+      style={{
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        paddingLeft: 'env(safe-area-inset-left)',
+        paddingRight: 'env(safe-area-inset-right)',
+      }}
+    >
+      <div className="w-full max-w-sm px-5 py-6 sm:px-6 sm:py-10 flex flex-col items-center gap-5 sm:gap-7">
+        <div className="flex flex-col items-center gap-2 sm:gap-3">
+          <Image src="/logo.png" alt="Denz" width={48} height={48} priority className="w-10 h-10 sm:w-12 sm:h-12" />
+          <h1 className="text-lg sm:text-xl font-semibold">Denz POS</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1.5">
             <Lock size={12} strokeWidth={2} />
             Locked
           </p>
@@ -91,7 +99,7 @@ export function PinPad({ onUnlock }: { onUnlock: () => void }) {
               <button
                 key={s.id}
                 onClick={() => { setSelected(s); setPin(''); setError(null); }}
-                className={`flex items-center gap-2 h-10 px-3 rounded-2xl text-sm font-medium border transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+                className={`flex items-center gap-2 h-11 px-3 rounded-2xl text-sm font-medium border transition-all cursor-pointer touch-manipulation select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
                   active
                     ? 'border-primary/40 bg-primary/10 text-primary'
                     : 'border-border bg-white/50 dark:bg-white/5 text-muted-foreground hover:text-foreground'
@@ -121,13 +129,13 @@ export function PinPad({ onUnlock }: { onUnlock: () => void }) {
         {error && <p className="text-sm text-rose-600 dark:text-rose-400 -mt-2">{error}</p>}
 
         {/* Numpad */}
-        <div className="grid grid-cols-3 gap-3 w-full max-w-[280px]">
+        <div className="grid grid-cols-3 gap-2.5 sm:gap-3 w-full max-w-[320px]">
           {['1','2','3','4','5','6','7','8','9'].map(d => (
             <button
               key={d}
               onClick={() => tap(d)}
               disabled={busy}
-              className="h-16 rounded-2xl text-xl font-semibold bg-white/60 dark:bg-white/5 border border-border hover:bg-black/5 dark:hover:bg-white/8 active:scale-95 transition-all cursor-pointer tabular-nums disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              className="h-14 sm:h-16 rounded-2xl text-xl font-semibold bg-white/60 dark:bg-white/5 border border-border hover:bg-black/5 dark:hover:bg-white/8 active:scale-95 transition-all cursor-pointer tabular-nums touch-manipulation select-none disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               {d}
             </button>
@@ -136,7 +144,7 @@ export function PinPad({ onUnlock }: { onUnlock: () => void }) {
           <button
             onClick={() => tap('0')}
             disabled={busy}
-            className="h-16 rounded-2xl text-xl font-semibold bg-white/60 dark:bg-white/5 border border-border hover:bg-black/5 dark:hover:bg-white/8 active:scale-95 transition-all cursor-pointer tabular-nums disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="h-14 sm:h-16 rounded-2xl text-xl font-semibold bg-white/60 dark:bg-white/5 border border-border hover:bg-black/5 dark:hover:bg-white/8 active:scale-95 transition-all cursor-pointer tabular-nums touch-manipulation select-none disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             0
           </button>
@@ -144,7 +152,7 @@ export function PinPad({ onUnlock }: { onUnlock: () => void }) {
             onClick={backspace}
             aria-label="Backspace"
             disabled={busy || pin.length === 0}
-            className="h-16 rounded-2xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 transition-all cursor-pointer disabled:opacity-30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="h-14 sm:h-16 rounded-2xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 transition-all cursor-pointer touch-manipulation select-none disabled:opacity-30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             <Delete size={20} strokeWidth={2} />
           </button>
@@ -161,8 +169,6 @@ export function PinPad({ onUnlock }: { onUnlock: () => void }) {
           aria-hidden="true"
           tabIndex={-1}
         />
-
-        <p className="text-xs text-muted-foreground">Default PINs: Manager 1234 · Staff 0000</p>
       </div>
     </div>
   );

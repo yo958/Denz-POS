@@ -43,8 +43,8 @@ export function TabList({ tabs, activeTabId, onSelectTab, onNewTab }: TabListPro
 
   return (
     <aside className="
-      flex flex-col w-[280px] shrink-0 h-full
-      border-r border-border overflow-hidden
+      flex flex-col w-full md:w-[280px] shrink-0 h-full
+      md:border-r border-border overflow-hidden
     ">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">

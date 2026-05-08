@@ -11,15 +11,17 @@ import { DiscountDialog } from '@/components/pos/DiscountDialog';
 import { ChargeToRoomDialog } from '@/components/pos/ChargeToRoomDialog';
 import { RefundDialog } from '@/components/pos/RefundDialog';
 import { VoidDialog } from '@/components/pos/VoidDialog';
+import { ProductOptionsDialog } from '@/components/pos/ProductOptionsDialog';
 import { useTabs, useStays, useCurrentStaff, useSettings } from '@/lib/hooks/useStore';
 import { getStore } from '@/lib/store/store';
 import {
-  effectiveQty, newId, tabGrandTotal, tabSubtotal, tabCardFee,
+  effectiveQty, lineKey, lineUnitPrice, modifiersStableKey,
+  newId, tabGrandTotal, tabSubtotal, tabCardFee,
 } from '@/lib/domain/tabs';
 import { decrementForTab, restock } from '@/lib/domain/inventory';
 import { confirm } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/toast';
-import type { Discount, KitchenTicket, PaymentMethod, Product, Stay, Tab, TabType } from '@/lib/types';
+import type { Discount, KitchenTicket, PaymentMethod, Product, SelectedModifier, Stay, Tab, TabType } from '@/lib/types';
 
 export default function POSPage() {
   const tabs = useTabs();
@@ -30,6 +32,7 @@ export default function POSPage() {
 
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [mobileView, setMobileView] = useState<'tabs' | 'menu' | 'cart'>('tabs');
 
   // Dialog state
   const [newTabOpen, setNewTabOpen] = useState(false);
@@ -41,6 +44,9 @@ export default function POSPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [cashTendered, setCashTendered] = useState(0);
+
+  // Product modifiers picker
+  const [optionsProduct, setOptionsProduct] = useState<Product | null>(null);
 
   const activeTab = tabs.find(t => t.id === activeTabId) ?? null;
 
@@ -84,16 +90,41 @@ export default function POSPage() {
     store.log('tab.create', `${type} · ${name} · ${label}`, me?.id);
     setActiveTabId(tab.id);
     setNewTabOpen(false);
+    setMobileView('menu');
     toast.success(`Tab opened for ${name}`);
   }
 
   function handleAddProduct(product: Product) {
     if (!activeTab) return;
+    if (product.modifierGroupIds && product.modifierGroupIds.length > 0) {
+      setOptionsProduct(product);
+      return;
+    }
+    addLineWithModifiers(product, [], undefined);
+  }
+
+  function addLineWithModifiers(product: Product, mods: SelectedModifier[], note?: string) {
+    if (!activeTab) return;
+    const stable = modifiersStableKey(mods);
     store.tabs.set(prev => prev.map(t => {
       if (t.id !== activeTab.id) return t;
-      const idx = t.items.findIndex(li => li.productId === product.id);
+      // Stack onto an existing line if same product + identical modifiers + same note + not yet sent.
+      const idx = t.items.findIndex(li =>
+        li.productId === product.id &&
+        modifiersStableKey(li.modifiers) === stable &&
+        (li.note ?? '') === (note ?? '') &&
+        (li.sentToKitchenQty ?? 0) === 0,
+      );
       if (idx === -1) {
-        return { ...t, items: [...t.items, { productId: product.id, product, qty: 1 }] };
+        const newLine = {
+          id: newId('li'),
+          productId: product.id,
+          product,
+          qty: 1,
+          modifiers: mods.length ? mods : undefined,
+          note,
+        };
+        return { ...t, items: [...t.items, newLine] };
       }
       const items = t.items.slice();
       items[idx] = { ...items[idx], qty: items[idx].qty + 1 };
@@ -101,23 +132,20 @@ export default function POSPage() {
     }));
   }
 
-  function handleQtyChange(productId: string, qty: number) {
+  function handleQtyChange(key: string, qty: number) {
     if (!activeTab || qty < 1) return;
     store.tabs.set(prev => prev.map(t => t.id !== activeTab.id ? t : {
       ...t,
-      items: t.items.map(li => li.productId === productId ? { ...li, qty } : li),
+      items: t.items.map(li => lineKey(li) === key ? { ...li, qty } : li),
     }));
   }
 
-  async function handleVoidLine(productId: string) {
+  async function handleVoidLine(_key: string) {
     if (!activeTab) return;
-    const li = activeTab.items.find(x => x.productId === productId);
-    if (!li) return;
-    // Single-item void shortcut → still requires reason via VoidDialog flow.
     setVoidOpen(true);
   }
 
-  async function handleVoidConfirm(productId: string, qty: number, reason: string) {
+  async function handleVoidConfirm(key: string, qty: number, reason: string) {
     if (!activeTab) return;
     const ok = await confirm({
       title: 'Void item?',
@@ -127,15 +155,15 @@ export default function POSPage() {
       confirmLabel: 'Void',
     });
     if (!ok) return;
-    const li = activeTab.items.find(x => x.productId === productId);
+    const li = activeTab.items.find(x => lineKey(x) === key);
     if (!li) return;
     store.tabs.set(prev => prev.map(t => {
       if (t.id !== activeTab.id) return t;
       const items = t.items
-        .map(x => x.productId === productId ? { ...x, qty: Math.max(0, x.qty - qty) } : x)
+        .map(x => lineKey(x) === key ? { ...x, qty: Math.max(0, x.qty - qty) } : x)
         .filter(x => x.qty > 0);
       const voids = [...(t.voids ?? []), {
-        id: newId('void'), productId, productName: li.product.name, qty, reason,
+        id: newId('void'), productId: li.productId, productName: li.product.name, qty, reason,
         staffId: me?.id ?? 'unknown', at: new Date(),
       }];
       return { ...t, items, voids };
@@ -213,8 +241,11 @@ export default function POSPage() {
       if (t.id === stay.folioTabId) {
         const items = [...t.items];
         for (const li of sourceItems) {
-          const idx = items.findIndex(x => x.productId === li.productId);
-          if (idx === -1) items.push({ ...li });
+          const stable = modifiersStableKey(li.modifiers);
+          const idx = items.findIndex(x =>
+            x.productId === li.productId && modifiersStableKey(x.modifiers) === stable,
+          );
+          if (idx === -1) items.push({ ...li, id: li.id ?? newId('li') });
           else items[idx] = { ...items[idx], qty: items[idx].qty + li.qty };
         }
         return { ...t, items };
@@ -237,7 +268,7 @@ export default function POSPage() {
   }
 
   /* ── Refund ────────────────────────────────────────── */
-  async function handleRefundConfirm(lines: { productId: string; qty: number }[], reason: string) {
+  async function handleRefundConfirm(lines: { lineKey: string; qty: number }[], reason: string) {
     if (!activeTab) return;
     const ok = await confirm({
       title: 'Issue refund?',
@@ -248,26 +279,31 @@ export default function POSPage() {
     });
     if (!ok) return;
 
-    // Compute refund amount proportionally.
-    const refundedSubtotal = lines.reduce((s, x) => {
-      const li = activeTab.items.find(li => li.productId === x.productId);
-      return s + (li ? li.product.price * x.qty : 0);
-    }, 0);
+    // Resolve each refund line back to the underlying tab line.
+    const resolved = lines
+      .map(x => {
+        const li = activeTab.items.find(l => lineKey(l) === x.lineKey);
+        return li ? { li, qty: x.qty } : null;
+      })
+      .filter((x): x is { li: typeof activeTab.items[number]; qty: number } => !!x);
+
+    // Compute refund amount proportionally using line unit price.
+    const refundedSubtotal = resolved.reduce((s, x) => s + lineUnitPrice(x.li) * x.qty, 0);
     const fullSubtotal = tabSubtotal(activeTab.items);
     const ratio = fullSubtotal > 0 ? refundedSubtotal / fullSubtotal : 0;
     const amount = tabGrandTotal(activeTab.items, activeTab.discount) * ratio;
 
-    // Restock refunded items.
+    // Restock refunded items (by productId).
     store.products.set(prev => {
       let next = prev;
-      for (const x of lines) next = restock(next, x.productId, x.qty);
+      for (const x of resolved) next = restock(next, x.li.productId, x.qty);
       return next;
     });
 
     store.tabs.set(prev => prev.map(t => {
       if (t.id !== activeTab.id) return t;
       const items = t.items.map(li => {
-        const refundLine = lines.find(x => x.productId === li.productId);
+        const refundLine = resolved.find(x => lineKey(x.li) === lineKey(li));
         if (!refundLine) return li;
         return { ...li, refundedQty: (li.refundedQty ?? 0) + refundLine.qty };
       });
@@ -279,7 +315,7 @@ export default function POSPage() {
         refunds: [...(t.refunds ?? []), {
           id: newId('ref'),
           tabId: t.id,
-          lines,
+          lines: resolved.map(x => ({ productId: x.li.productId, qty: x.qty })),
           amount,
           reason,
           method: t.paymentMethod ?? 'cash',
@@ -349,14 +385,37 @@ export default function POSPage() {
       />
 
       <main className="flex flex-1 min-h-0 overflow-hidden">
-        <TabList
-          tabs={tabs}
-          activeTabId={activeTabId}
-          onSelectTab={setActiveTabId}
-          onNewTab={() => setNewTabOpen(true)}
-        />
+        {/* Mobile view switcher */}
+        <div className="md:hidden fixed top-[57px] inset-x-0 z-10 flex border-b border-border bg-background/95 backdrop-blur">
+          {([
+            { id: 'tabs', label: `Tabs${tabs.filter(t => t.status === 'open').length ? ` (${tabs.filter(t => t.status === 'open').length})` : ''}` },
+            { id: 'menu', label: 'Menu' },
+            { id: 'cart', label: `Cart${activeTab && activeTab.items.length ? ` (${activeTab.items.length})` : ''}` },
+          ] as const).map(v => (
+            <button
+              key={v.id}
+              onClick={() => setMobileView(v.id)}
+              className={`flex-1 h-11 text-sm font-medium touch-manipulation select-none transition-colors ${
+                mobileView === v.id
+                  ? 'text-primary border-b-2 border-primary'
+                  : 'text-muted-foreground border-b-2 border-transparent'
+              }`}
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
 
-        <div className="flex-1 min-w-0 overflow-hidden flex flex-col">
+        <div className={`${mobileView === 'tabs' ? 'flex' : 'hidden'} md:flex w-full md:w-auto pt-11 md:pt-0`}>
+          <TabList
+            tabs={tabs}
+            activeTabId={activeTabId}
+            onSelectTab={(id) => { setActiveTabId(id); setMobileView('cart'); }}
+            onNewTab={() => setNewTabOpen(true)}
+          />
+        </div>
+
+        <div className={`${mobileView === 'menu' ? 'flex' : 'hidden'} md:flex flex-1 min-w-0 overflow-hidden flex-col w-full pt-11 md:pt-0`}>
           <ProductGrid
             searchQuery={searchQuery}
             onAddProduct={handleAddProduct}
@@ -364,7 +423,7 @@ export default function POSPage() {
           />
         </div>
 
-        <aside className="w-[360px] shrink-0 border-l border-border flex flex-col overflow-hidden">
+        <aside className={`${mobileView === 'cart' ? 'flex' : 'hidden'} md:flex w-full md:w-[360px] shrink-0 md:border-l border-border flex-col overflow-hidden pt-11 md:pt-0`}>
           <Cart
             tab={activeTab}
             onQtyChange={handleQtyChange}
@@ -416,6 +475,14 @@ export default function POSPage() {
         amount={activeTab ? tabGrandTotal(activeTab.items, activeTab.discount) : 0}
         onChoose={handleChooseStay}
         onClose={() => setChargeRoomOpen(false)}
+      />
+      <ProductOptionsDialog
+        product={optionsProduct}
+        onClose={() => setOptionsProduct(null)}
+        onConfirm={(mods, note) => {
+          if (optionsProduct) addLineWithModifiers(optionsProduct, mods, note);
+          setOptionsProduct(null);
+        }}
       />
     </div>
   );

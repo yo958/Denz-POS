@@ -6,13 +6,14 @@ import { LineItem } from './LineItem';
 import { PaymentBar } from './PaymentBar';
 import { getStore } from '@/lib/store/store';
 import { useCurrentStaff } from '@/lib/hooks/useStore';
+import { lineKey } from '@/lib/domain/tabs';
 import { toast } from '@/components/ui/toast';
 import type { PaymentMethod, Tab } from '@/lib/types';
 
 interface CartProps {
   tab: Tab | null;
-  onQtyChange: (productId: string, qty: number) => void;
-  onVoidLine: (productId: string) => void;
+  onQtyChange: (lineKey: string, qty: number) => void;
+  onVoidLine: (lineKey: string) => void;
   onPay: (method: PaymentMethod) => void;
   onDiscount: () => void;
   onSendKitchen: () => void;
@@ -56,7 +57,7 @@ export function Cart({
         ) : (
           tab.items.map(item => (
             <LineItem
-              key={item.productId}
+              key={lineKey(item)}
               item={item}
               onQtyChange={onQtyChange}
               onVoid={onVoidLine}

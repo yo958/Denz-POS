@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { TrendingUp, ShoppingBag, Clock, DollarSign, Coffee, Monitor, BedDouble, RotateCcw, CreditCard, Banknote } from 'lucide-react';
 import { useTabs, useShift, useSettings } from '@/lib/hooks/useStore';
-import { tabGrandTotal, tabRefundedAmount, tabCardFee } from '@/lib/domain/tabs';
+import { lineUnitPrice, tabGrandTotal, tabRefundedAmount, tabCardFee } from '@/lib/domain/tabs';
 import { buildZReport } from '@/lib/domain/shift';
 import type { PaymentMethod, TabType } from '@/lib/types';
 
@@ -58,7 +58,7 @@ export default function ReportsPage() {
       for (const li of t.items) {
         const qty = Math.max(0, li.qty - (li.refundedQty ?? 0));
         if (qty <= 0) continue;
-        const lineRevenue = li.product.price * qty;
+        const lineRevenue = lineUnitPrice(li) * qty;
         const bucket: TabType =
           li.product.category === 'desks' ? 'desk' :
           li.product.category === 'rooms' ? 'room' :
@@ -77,7 +77,7 @@ export default function ReportsPage() {
       for (const li of t.items) {
         if (!itemCounts[li.productId]) itemCounts[li.productId] = { name: li.product.name, qty: 0, revenue: 0 };
         itemCounts[li.productId].qty += li.qty;
-        itemCounts[li.productId].revenue += li.product.price * li.qty;
+        itemCounts[li.productId].revenue += lineUnitPrice(li) * li.qty;
       }
     }
     const topItems = Object.values(itemCounts).sort((a, b) => b.qty - a.qty).slice(0, 5);

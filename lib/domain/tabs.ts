@@ -2,7 +2,7 @@
 // Pure tab math + formatting helpers (no React, no storage).
 // ─────────────────────────────────────────────────────────────────
 
-import type { Discount, LineItem, Tab } from '../types';
+import type { Discount, LineItem, SelectedModifier, Tab } from '../types';
 import { getStore } from '../store/store';
 
 /** Net qty = ordered qty minus refunded qty. */
@@ -10,8 +10,34 @@ export function effectiveQty(li: LineItem): number {
   return Math.max(0, li.qty - (li.refundedQty ?? 0));
 }
 
+/** Per-unit price including selected modifier deltas. */
+export function lineUnitPrice(li: LineItem): number {
+  const mods = (li.modifiers ?? []).reduce((s, m) => s + (m.priceDelta || 0), 0);
+  return Math.max(0, li.product.price + mods);
+}
+
+/** Stable key for a line item (falls back to productId for legacy lines). */
+export function lineKey(li: LineItem): string {
+  return li.id ?? li.productId;
+}
+
+/** Deterministic string for matching identical modifier sets when stacking. */
+export function modifiersStableKey(modifiers?: SelectedModifier[]): string {
+  if (!modifiers || modifiers.length === 0) return '';
+  return [...modifiers]
+    .map(m => `${m.groupId}:${m.optionId}`)
+    .sort()
+    .join('|');
+}
+
+/** Short human-readable summary of selected modifiers. */
+export function modifiersSummary(modifiers?: SelectedModifier[]): string {
+  if (!modifiers || modifiers.length === 0) return '';
+  return modifiers.map(m => m.name).join(' · ');
+}
+
 export function tabSubtotal(items: LineItem[]): number {
-  return items.reduce((sum, li) => sum + li.product.price * effectiveQty(li), 0);
+  return items.reduce((sum, li) => sum + lineUnitPrice(li) * effectiveQty(li), 0);
 }
 /** @deprecated alias kept so existing imports compile. */
 export const tabTotal = tabSubtotal;
