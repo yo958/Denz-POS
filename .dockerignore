@@ -1,0 +1,9 @@
+.git
+.claude
+.next
+node_modules
+*.md
+.env*
+.vscode
+.dockerignore
+docker-compose.yml
