@@ -181,6 +181,10 @@ export interface CoworkSpaceRate {
   period: CoworkRatePeriod;
   price: number;
   enabled: boolean;
+  /** Per-hour tiers — only used when period === 'hourly'.
+   *  tiers[0] = hr 1 price, tiers[1] = hr 2 price, last entry repeats.
+   *  When present and length > 0, overrides the flat `price` field. */
+  tiers?: EquipmentTier[];
 }
 
 export interface CoworkSpace {

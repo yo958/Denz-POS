@@ -752,6 +752,32 @@ function SpaceDialog({ space, cur, onClose, onSave }: {
     setDedicatedRates(prev => prev.map(r => r.period === period ? { ...r, ...patch } : r));
   }
 
+  // Hourly tier helpers (only the hourly rate supports tiers)
+  const hourlyRate = rates.find(r => r.period === 'hourly');
+  const hourlyTiers: EquipmentTier[] = hourlyRate?.tiers ?? [];
+  const hasHourlyTiers = hourlyTiers.length > 0;
+
+  function addHourlyTier() {
+    const last = hourlyTiers[hourlyTiers.length - 1]?.price ?? hourlyRate?.price ?? 0;
+    patchRate('hourly', { tiers: [...hourlyTiers, { price: last }] });
+  }
+  function removeHourlyTier(idx: number) {
+    if (hourlyTiers.length <= 1) return;
+    const next = hourlyTiers.filter((_, i) => i !== idx);
+    patchRate('hourly', { tiers: next, price: next[0]?.price ?? 0 });
+  }
+  function patchHourlyTier(idx: number, price: number) {
+    const next = hourlyTiers.map((t, i) => i === idx ? { price } : t);
+    patchRate('hourly', { tiers: next, price: next[0]?.price ?? 0 });
+  }
+  function enableHourlyTiers() {
+    // Seed with current flat price as hour 1
+    patchRate('hourly', { tiers: [{ price: hourlyRate?.price ?? 0 }, { price: hourlyRate?.price ?? 0 }] });
+  }
+  function disableHourlyTiers() {
+    patchRate('hourly', { tiers: [] });
+  }
+
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) { toast.error('Name required'); return; }
@@ -813,29 +839,90 @@ function SpaceDialog({ space, cur, onClose, onSave }: {
               <span className="text-[10px] text-muted-foreground">Toggle to enable · set price per period</span>
             </div>
             <div className="rounded-xl border border-border bg-white/50 dark:bg-white/3 divide-y divide-border">
-              {rates.map(r => (
-                <div key={r.period} className={`flex items-center gap-3 px-3 py-2.5 transition-opacity ${r.enabled ? '' : 'opacity-50'}`}>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={r.enabled}
-                    onClick={() => patchRate(r.period, { enabled: !r.enabled })}
-                    className={`relative w-9 h-5 rounded-full transition-colors shrink-0 cursor-pointer ${r.enabled ? 'bg-primary' : 'bg-border'}`}
-                  >
-                    <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${r.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
-                  </button>
-                  <span className="text-sm font-medium w-24 shrink-0">{PERIOD_LABEL[r.period]}</span>
-                  <div className="flex items-center gap-1 flex-1">
-                    <span className="text-sm text-muted-foreground shrink-0">{cur}</span>
-                    <input
-                      type="number" min={0} step={1} value={r.price || ''}
-                      onChange={e => patchRate(r.period, { price: parseFloat(e.target.value) || 0 })}
-                      disabled={!r.enabled} placeholder="0"
-                      className="flex-1 h-9 px-3 rounded-xl text-sm tabular-nums bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed"
-                    />
+              {rates.map(r => {
+                const isHourly = r.period === 'hourly';
+                return (
+                  <div key={r.period} className={`transition-opacity ${r.enabled ? '' : 'opacity-50'}`}>
+                    {/* Period row */}
+                    <div className="flex items-center gap-3 px-3 py-2.5">
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={r.enabled}
+                        onClick={() => patchRate(r.period, { enabled: !r.enabled })}
+                        className={`relative w-9 h-5 rounded-full transition-colors shrink-0 cursor-pointer ${r.enabled ? 'bg-primary' : 'bg-border'}`}
+                      >
+                        <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${r.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                      </button>
+                      <span className="text-sm font-medium w-24 shrink-0">{PERIOD_LABEL[r.period]}</span>
+                      {/* For hourly with tiers: show summary; otherwise show flat price input */}
+                      {isHourly && hasHourlyTiers ? (
+                        <span className="flex-1 text-xs text-muted-foreground">
+                          {hourlyTiers.length} tier{hourlyTiers.length !== 1 ? 's' : ''} · hr 1 = {cur}{hourlyTiers[0]?.price ?? 0}
+                        </span>
+                      ) : (
+                        <div className="flex items-center gap-1 flex-1">
+                          <span className="text-sm text-muted-foreground shrink-0">{cur}</span>
+                          <input
+                            type="number" min={0} step={1} value={r.price || ''}
+                            onChange={e => patchRate(r.period, { price: parseFloat(e.target.value) || 0 })}
+                            disabled={!r.enabled} placeholder="0"
+                            className="flex-1 h-9 px-3 rounded-xl text-sm tabular-nums bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed"
+                          />
+                        </div>
+                      )}
+                      {/* Toggle tiers button for hourly only */}
+                      {isHourly && r.enabled && (
+                        <button
+                          type="button"
+                          onClick={hasHourlyTiers ? disableHourlyTiers : enableHourlyTiers}
+                          className="shrink-0 text-[10px] font-medium px-2 py-1 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                        >
+                          {hasHourlyTiers ? 'Flat rate' : 'Per-hr tiers'}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Hourly tier sub-rows */}
+                    {isHourly && hasHourlyTiers && r.enabled && (
+                      <div className="border-t border-border bg-black/2 dark:bg-white/2 px-3 pb-2.5 pt-2 space-y-1.5">
+                        {hourlyTiers.map((t, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-muted-foreground w-14 shrink-0">
+                              {hourlyTiers.length === 1 ? 'Per hour' : i === hourlyTiers.length - 1 ? `Hr ${i + 1}+` : `Hour ${i + 1}`}
+                            </span>
+                            <div className="flex items-center gap-1 flex-1">
+                              <span className="text-sm text-muted-foreground shrink-0">{cur}</span>
+                              <input
+                                type="number" min={0} step={0.5} value={t.price || ''}
+                                onChange={e => patchHourlyTier(i, parseFloat(e.target.value) || 0)}
+                                placeholder="0"
+                                className="flex-1 h-8 px-2 rounded-lg text-sm tabular-nums bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring"
+                              />
+                            </div>
+                            {hourlyTiers.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeHourlyTier(i)}
+                                className="flex items-center justify-center w-6 h-6 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 cursor-pointer shrink-0"
+                              >
+                                <X size={11} />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={addHourlyTier}
+                          className="flex items-center gap-1 h-7 px-2 rounded-lg text-xs font-medium border border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-black/3 dark:hover:bg-white/3 cursor-pointer w-full justify-center transition-colors"
+                        >
+                          <Plus size={11} /> Add hour tier
+                        </button>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -1016,10 +1103,15 @@ function RentDialog({ equip: e, cur, availableSpaces, onClose, onConfirm }: {
   const enabledDedicatedRates = (selectedSpace?.dedicatedRates ?? []).filter(r => r.enabled);
   const hasDedicatedOption    = enabledDedicatedRates.length > 0;
   const isDedicatedDesk       = hasDedicatedOption && deskBookingType === 'dedicated';
-  const hourlyRate            = selectedSpace?.rates?.find(r => r.period === 'hourly' && r.enabled)?.price ?? 0;
+  const hourlyRateObj         = selectedSpace?.rates?.find(r => r.period === 'hourly' && r.enabled);
+  const hourlyTiersForCalc    = (hourlyRateObj?.tiers && hourlyRateObj.tiers.length > 0)
+                                  ? hourlyRateObj.tiers
+                                  : [{ price: hourlyRateObj?.price ?? 0 }];
   const equipTotal            = calcRentalTotal(e.tiers, hours);
   const selectedDedicatedRate = enabledDedicatedRates[dedicatedRateIdx];
-  const deskTotal             = isDedicatedDesk ? (selectedDedicatedRate?.price ?? 0) : hourlyRate * hours;
+  const deskTotal             = isDedicatedDesk
+                                  ? (selectedDedicatedRate?.price ?? 0)
+                                  : calcRentalTotal(hourlyTiersForCalc, hours);
   const grandTotal            = equipTotal + deskTotal;
   const noSpaces              = availableSpaces.length === 0;
   const canSubmit             = name.trim().length > 0 && hours >= 1 && !noSpaces;

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.7] - 2026-05-10
+### Added
+- **Coworking — per-hour pricing tiers** — the "Per Hour" rate row in the space editor now has a "Per-hr tiers" button (appears when hourly is enabled). Click it to expand into individual hour slots (Hour 1, Hour 2, Hour 3+, etc.) with add/remove tier controls — identical to the equipment rental system. Click "Flat rate" to collapse back to a single price. Billing automatically uses the tiers when set.
+### Fixed
+- **Coworking space editor — rate row layout** — hourly row now cleanly expands into tier sub-rows below it rather than inline, keeping all other period rows in the same flat layout
+
 ## [0.9.6] - 2026-05-10
 ### Added
 - **New tab — "Save as new customer" toggle** — when you type a free-text name in the New Tab dialog (not picked from the existing customer list), a small toggle appears: "Save as new customer". Turning it on creates a Customer record and links it to the tab in one step, without needing to navigate to the Customers page
