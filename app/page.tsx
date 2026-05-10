@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { X } from 'lucide-react';
 import { Topbar } from '@/components/shell/Topbar';
 import { TabList } from '@/components/pos/TabList';
 import { ProductGrid } from '@/components/pos/ProductGrid';
@@ -23,6 +24,62 @@ import { decrementForTab, restock } from '@/lib/domain/inventory';
 import { confirm } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/toast';
 import type { CoworkSpace, CoworkSpaceRate, Discount, KitchenTicket, PaymentMethod, Product, SelectedModifier, Stay, Tab, TabType } from '@/lib/types';
+
+/* ── Desk rate picker (used when a POS tab is already active) ─────── */
+function DeskRatePickerDialog({ space, cur, onClose, onConfirm }: {
+  space: CoworkSpace; cur: string;
+  onClose: () => void;
+  onConfirm: (rate: CoworkSpaceRate) => void;
+}) {
+  const enabledRates = space.rates?.filter(r => r.enabled) ?? [];
+  const [rateIdx, setRateIdx] = useState(0);
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    const rate = enabledRates[rateIdx];
+    if (!rate) { toast.error('No rates available — edit this space to add rates'); return; }
+    onConfirm(rate);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <form onSubmit={submit} className="relative w-full max-w-sm glass-strong rounded-3xl p-6 shadow-2xl space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Add Desk to Tab</h2>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground cursor-pointer"><X size={18} /></button>
+        </div>
+        <p className="text-sm text-muted-foreground -mt-2">{space.name} — select a rate to add to the current tab</p>
+
+        {enabledRates.length > 0 ? (
+          <div className="space-y-1.5">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Rate</span>
+            <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+              {enabledRates.map((r, i) => (
+                <label key={r.period} className={`flex items-center justify-between gap-3 px-3 py-2 rounded-xl border cursor-pointer transition-colors ${rateIdx === i ? 'border-primary bg-primary/5' : 'border-border bg-black/3 dark:bg-white/3 hover:bg-black/5 dark:hover:bg-white/5'}`}>
+                  <div className="flex items-center gap-2">
+                    <input type="radio" name="rate" checked={rateIdx === i} onChange={() => setRateIdx(i)} className="accent-primary" />
+                    <span className="text-sm font-medium">{PERIOD_LABEL[r.period]}</span>
+                  </div>
+                  <span className="text-sm font-semibold tabular-nums shrink-0">{cur}{r.price.toLocaleString()}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/10 rounded-xl px-3 py-2.5">
+            No rates enabled. Edit this space to add pricing.
+          </p>
+        )}
+
+        <div className="flex gap-2 pt-1">
+          <button type="button" onClick={onClose} className="flex-1 h-11 rounded-2xl text-sm font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 active:scale-95 transition-all cursor-pointer">Cancel</button>
+          <button type="submit" disabled={enabledRates.length === 0} className="flex-1 h-11 rounded-2xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 transition-all cursor-pointer disabled:opacity-40">Add to Tab</button>
+        </div>
+      </form>
+    </div>
+  );
+}
 
 export default function POSPage() {
   const tabs = useTabs();
@@ -52,6 +109,8 @@ export default function POSPage() {
 
   // Coworking check-in triggered from the POS Desks chip
   const [checkingInSpace, setCheckingInSpace] = useState<CoworkSpace | null>(null);
+  // Rate-only picker when a tab is already active (no new tab needed)
+  const [deskRateSpace, setDeskRateSpace] = useState<CoworkSpace | null>(null);
 
   // Tracks cumulative add count per product to trigger card flash animations
   const [addedCounts, setAddedCounts] = useState<Record<string, number>>({});
@@ -108,11 +167,19 @@ export default function POSPage() {
   }
 
   function handleAddProduct(product: Product) {
-    // Desk products are CoworkSpace cards — open the check-in flow instead of
-    // adding a line item. The product id is the space id (set in ProductGrid).
+    // Desk products are CoworkSpace cards. The product id equals the space id (set in ProductGrid).
     if (product.category === 'desks') {
       const space = spaces.find(s => s.id === product.id);
-      if (space) { setCheckingInSpace(space); return; }
+      if (space) {
+        if (activeTab) {
+          // Tab already open — just pick a rate and add as a line item; no second tab
+          setDeskRateSpace(space);
+        } else {
+          // No tab yet — full check-in flow creates a dedicated desk tab
+          setCheckingInSpace(space);
+        }
+        return;
+      }
     }
     if (!activeTab) return;
     if (product.modifierGroupIds && product.modifierGroupIds.length > 0) {
@@ -503,7 +570,32 @@ export default function POSPage() {
         }}
       />
 
-      {/* Coworking check-in triggered from the POS Desks chip */}
+      {/* Desk rate picker — used when a tab is already active (no new tab created) */}
+      {deskRateSpace && activeTab && (
+        <DeskRatePickerDialog
+          space={deskRateSpace}
+          cur={cur}
+          onClose={() => setDeskRateSpace(null)}
+          onConfirm={(rate) => {
+            const deskProduct: Product = {
+              id: deskRateSpace.id,
+              name: `${deskRateSpace.name} — ${PERIOD_LABEL[rate.period]}`,
+              price: rate.price,
+              category: 'desks',
+              description: '',
+              stock: null,
+              lowStockAt: null,
+              sendToKitchen: false,
+            };
+            addLineWithModifiers(deskProduct, []);
+            store.log('tab.desk-added', `${activeTab.customerName} · ${deskRateSpace.name} (${PERIOD_LABEL[rate.period]})`, me?.id);
+            toast.success(`${deskRateSpace.name} added to tab`);
+            setDeskRateSpace(null);
+          }}
+        />
+      )}
+
+      {/* Coworking check-in triggered from the POS Desks chip (no active tab — creates a new desk tab) */}
       {checkingInSpace && (
         <CheckInDialog
           space={checkingInSpace}

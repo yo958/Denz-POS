@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.0.6] - 2026-05-10
+### Fixed
+- **POS Desks chip — adds desk to existing tab instead of creating a second tab** — when a tab is already open, tapping a desk card now shows a compact rate-picker dialog (no customer name field — it's already known from the tab) and adds the desk as a line item to the current tab. No duplicate tab is created. The Coworking page now detects these desk line items on regular POS tabs and shows them as active sessions; the active card displays "Manage on the POS tab" instead of a checkout button, since the full tab lives on the POS page.
+
 ## [1.0.5] - 2026-05-10
 ### Fixed
 - **POS Desks chip — now triggers proper coworking check-in** — tapping a desk card on the Tabs page now opens the full Check In dialog (customer name, rate, booking type) instead of adding a line item to the current tab. This creates a `type: desk` tab with the correct space label, so the booking appears immediately on the Coworking tab as an active session. `CheckInDialog` extracted to `components/coworking/CheckInDialog.tsx` and shared between both pages.

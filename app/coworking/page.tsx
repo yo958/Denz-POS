@@ -70,12 +70,29 @@ export default function CoWorkingPage() {
   const [editingEquip, setEditingEquip]   = useState<Equipment | null>(null);
   const [addingEquip, setAddingEquip]     = useState(false);
 
-  // Spaces — track ALL open desk tabs per space name (supports multi-occupancy)
+  // Spaces — track ALL open desk tabs per space name (supports multi-occupancy).
+  // Two sources:
+  //   1. Tabs of type 'desk' (created by the Coworking check-in or POS with no active tab)
+  //   2. Regular POS tabs that have a desk line item added via the rate picker
   const activeTabsByLabel = new Map<string, Tab[]>();
   for (const t of tabs) {
-    if (t.type === 'desk' && t.status === 'open') {
+    if (t.status !== 'open') continue;
+    if (t.type === 'desk') {
       const list = activeTabsByLabel.get(t.label) ?? [];
       activeTabsByLabel.set(t.label, [...list, t]);
+    } else {
+      // Scan line items for desk-category products (added from POS rate picker)
+      for (const item of t.items) {
+        if (item.product.category === 'desks') {
+          const space = spaces.find(s => s.id === item.productId || item.productId.startsWith(s.id + '-'));
+          if (space) {
+            const list = activeTabsByLabel.get(space.name) ?? [];
+            if (!list.find(x => x.id === t.id)) {
+              activeTabsByLabel.set(space.name, [...list, t]);
+            }
+          }
+        }
+      }
     }
   }
   const allSpaces = spaces.filter(s => !s.archived);
@@ -263,7 +280,7 @@ export default function CoWorkingPage() {
                     isManager={isManager}
                     customer={customers.find(c => c.id === tab.customerId) ?? null}
                     onEdit={() => setEditingSpace(s)}
-                    onCheckOut={async () => {
+                    onCheckOut={tab.type === 'desk' ? async () => {
                       const ok = await confirm({ title: `Check out ${tab.customerName}?`, confirmLabel: 'Check Out' });
                       if (!ok) return;
                       getStore().tabs.set(prev => prev.map(t =>
@@ -273,7 +290,7 @@ export default function CoWorkingPage() {
                       ));
                       getStore().log('tab.pay', `${tab.customerName} checked out of ${s.name}`, me?.id);
                       toast.success(`${tab.customerName} checked out`);
-                    }}
+                    } : undefined}
                   />
                 ))
               )}
@@ -554,10 +571,12 @@ function AvailableCard({ space, cur, isManager, activeCount, onCheckIn, onEdit, 
 function ActiveCard({ space, tab, cur, isManager, customer, onEdit, onCheckOut }: {
   space: CoworkSpace; tab: Tab; cur: string; isManager: boolean;
   customer?: import('@/lib/types').Customer | null;
-  onEdit: () => void; onCheckOut: () => void;
+  onEdit: () => void; onCheckOut?: () => void;
 }) {
   const total = tabGrandTotal(tab.items, tab.discount);
-  const rateName = tab.items[0]?.product.name.replace(`${space.name} — `, '') ?? '';
+  // Find the desk line item specifically (tab may also contain food/drink items)
+  const deskItem = tab.items.find(li => li.product.category === 'desks');
+  const rateName = deskItem?.product.name.replace(`${space.name} — `, '') ?? tab.items[0]?.product.name.replace(`${space.name} — `, '') ?? '';
   const spaceType = normalizeType(space.type);
   const Icon = spaceType === 'private-office' ? Building2 : Monitor;
   const isDedicated = !!tab.bookingEndsAt;
@@ -633,14 +652,20 @@ function ActiveCard({ space, tab, cur, isManager, customer, onEdit, onCheckOut }
           <span className="flex items-center gap-1"><DollarSign size={11} /> {cur}{total.toFixed(2)}</span>
         </div>
       </div>
-      <button
-        onClick={onCheckOut}
-        className={`w-full h-9 rounded-xl text-xs font-semibold text-white active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-          isExpired ? 'bg-rose-600 hover:bg-rose-700' : 'bg-sky-600 hover:bg-sky-700'
-        }`}
-      >
-        <Lock size={13} /> Check Out
-      </button>
+      {onCheckOut ? (
+        <button
+          onClick={onCheckOut}
+          className={`w-full h-9 rounded-xl text-xs font-semibold text-white active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+            isExpired ? 'bg-rose-600 hover:bg-rose-700' : 'bg-sky-600 hover:bg-sky-700'
+          }`}
+        >
+          <Lock size={13} /> Check Out
+        </button>
+      ) : (
+        <p className="text-xs text-muted-foreground text-center py-1 border border-dashed border-border rounded-xl">
+          Manage on the POS tab
+        </p>
+      )}
     </div>
   );
 }
