@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.2] - 2026-05-10
+### Changed
+- **Modifier groups — names only in Settings** — removed the global price field from modifier group options; prices are now set per product, not per group
+- **Product modifier options — visibility + price at product level** — checkboxes in the product editor now control which options from a group are shown in the POS (tick = show, untick = hide); each visible option has its own price field (amount added to the base price, 0 = included free)
+- When a modifier group is first attached to a product, all its options are auto-enabled
+- **POS picker respects per-product visibility** — only options enabled for the product are shown when staff add it to a tab; existing products without the new config continue to show all options (backwards compatible)
+
 ## [0.9.1] - 2026-05-10
 ### Added
 - **Permanent delete for menu items** — Trash icon on each menu item row lets managers permanently remove a product; requires manager PIN confirmation and shows a danger warning that the action cannot be undone

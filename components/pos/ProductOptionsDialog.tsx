@@ -110,7 +110,13 @@ export function ProductOptionsDialog({ product, onClose, onConfirm }: ProductOpt
         {/* Groups — this area scrolls */}
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-4 space-y-5">
           {productGroups.map(g => {
-            const opts = g.options.filter(o => !o.archived);
+            // Only show options enabled for this product; fall back to all if no config (legacy)
+            const enabledIds = product.modifierEnabledOptions?.[g.id];
+            const opts = g.options.filter(o => {
+              if (o.archived) return false;
+              if (!enabledIds) return true; // legacy: show all
+              return enabledIds.includes(o.id);
+            });
             // Use 2 columns when there are 3+ options and all names are short enough
             const twoCol = opts.length >= 3 && opts.every(o => o.name.length <= 22);
             return (

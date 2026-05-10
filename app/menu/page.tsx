@@ -340,10 +340,16 @@ function ProductDialog({ product, onClose, onSave }: ProductDialogProps) {
                     onClick={() => setForm(f => {
                       const cur = f.modifierGroupIds ?? [];
                       const nextIds = on ? cur.filter(id => id !== g.id) : [...cur, g.id];
-                      // Drop overrides for groups no longer attached
                       const overrides = { ...(f.modifierOptionPriceOverrides ?? {}) };
-                      if (on) delete overrides[g.id];
-                      return { ...f, modifierGroupIds: nextIds, modifierOptionPriceOverrides: overrides };
+                      const enabled = { ...(f.modifierEnabledOptions ?? {}) };
+                      if (on) {
+                        delete overrides[g.id];
+                        delete enabled[g.id];
+                      } else {
+                        // Auto-enable all non-archived options when group is first attached
+                        enabled[g.id] = g.options.filter(o => !o.archived).map(o => o.id);
+                      }
+                      return { ...f, modifierGroupIds: nextIds, modifierOptionPriceOverrides: overrides, modifierEnabledOptions: enabled };
                     })}
                     className={`px-2.5 h-8 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
                       on
@@ -358,57 +364,63 @@ function ProductDialog({ product, onClose, onSave }: ProductDialogProps) {
               })}
             </div>
 
-            {/* Per-product price overrides for each enabled group */}
+            {/* Per-product option visibility + prices for each enabled group */}
             {(form.modifierGroupIds ?? []).map(gid => {
               const g = groups.find(x => x.id === gid && !x.archived);
               if (!g) return null;
-              const groupOverrides = form.modifierOptionPriceOverrides?.[g.id] ?? {};
+              const allOpts = g.options.filter(o => !o.archived);
+              // Fall back to all enabled if no config yet (legacy products)
+              const enabledIds: string[] = form.modifierEnabledOptions?.[gid] ?? allOpts.map(o => o.id);
+              const groupPrices = form.modifierOptionPriceOverrides?.[gid] ?? {};
 
-              const setOverride = (optId: string, value: number | null) => {
+              const setEnabled = (optId: string, on: boolean) => {
+                setForm(f => {
+                  const cur: string[] = f.modifierEnabledOptions?.[gid] ?? allOpts.map(o => o.id);
+                  const next = on ? [...new Set([...cur, optId])] : cur.filter(id => id !== optId);
+                  return { ...f, modifierEnabledOptions: { ...(f.modifierEnabledOptions ?? {}), [gid]: next } };
+                });
+              };
+
+              const setPrice = (optId: string, value: number) => {
                 setForm(f => {
                   const all = { ...(f.modifierOptionPriceOverrides ?? {}) };
-                  const grp = { ...(all[g.id] ?? {}) };
-                  if (value === null) delete grp[optId]; else grp[optId] = value;
-                  if (Object.keys(grp).length === 0) delete all[g.id]; else all[g.id] = grp;
+                  all[gid] = { ...(all[gid] ?? {}), [optId]: value };
                   return { ...f, modifierOptionPriceOverrides: all };
                 });
               };
 
               return (
-                <div key={g.id} className="rounded-2xl border border-border bg-black/3 dark:bg-white/3 p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold">{g.name}</span>
-                    <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Per-item prices</span>
-                  </div>
+                <div key={gid} className="rounded-2xl border border-border bg-black/3 dark:bg-white/3 p-3 space-y-2">
+                  <span className="text-xs font-semibold">{g.name}</span>
                   <div className="space-y-1.5">
-                    {g.options.filter(o => !o.archived).map(o => {
-                      const has = Object.prototype.hasOwnProperty.call(groupOverrides, o.id);
-                      const value = has ? groupOverrides[o.id] : o.priceDelta;
+                    {allOpts.map(o => {
+                      const isEnabled = enabledIds.includes(o.id);
+                      const price = groupPrices[o.id] ?? 0;
                       return (
                         <div key={o.id} className="flex items-center gap-2">
                           <input
                             type="checkbox"
-                            checked={has}
-                            onChange={e => setOverride(o.id, e.target.checked ? o.priceDelta : null)}
-                            aria-label={`Override price for ${o.name}`}
+                            checked={isEnabled}
+                            onChange={e => setEnabled(o.id, e.target.checked)}
+                            aria-label={`Show ${o.name}`}
                             className="w-4 h-4 accent-primary"
                           />
-                          <span className="flex-1 text-sm truncate">{o.name}</span>
+                          <span className={`flex-1 text-sm truncate transition-opacity ${!isEnabled ? 'opacity-40' : ''}`}>{o.name}</span>
                           <input
                             type="number"
                             step={0.01}
-                            value={value}
-                            disabled={!has}
-                            onChange={e => setOverride(o.id, parseFloat(e.target.value) || 0)}
-                            placeholder="+$"
-                            className="w-20 h-9 px-2 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border tabular-nums focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                            value={price || ''}
+                            disabled={!isEnabled}
+                            onChange={e => setPrice(o.id, parseFloat(e.target.value) || 0)}
+                            placeholder="0.00"
+                            className="w-20 h-9 px-2 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border tabular-nums focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-40"
                           />
                         </div>
                       );
                     })}
                   </div>
                   <p className="text-[11px] text-muted-foreground">
-                    Tick to set a custom price for this item. Unticked options use the group default.
+                    Tick to show an option in the POS. Price = amount added to base price (0 = free).
                   </p>
                 </div>
               );

@@ -38,9 +38,14 @@ export interface Product {
   /** IDs of shared ModifierGroups offered when adding this product to a tab. */
   modifierGroupIds?: string[];
   /**
-   * Per-product overrides for modifier option prices. Keyed by `[groupId][optionId] = priceDelta`.
-   * If an override is present, it replaces the group's option `priceDelta` for this product only.
-   * Absent entries fall back to the shared group price.
+   * Per-product option visibility. Keyed by `[groupId] → string[]` of enabled optionIds.
+   * Only options listed here are shown in the POS picker for this product.
+   * If undefined (legacy) or the group key is absent, all non-archived options are shown.
+   */
+  modifierEnabledOptions?: Record<string, string[]>;
+  /**
+   * Per-product price deltas. Keyed by `[groupId][optionId] = priceDelta`.
+   * Prices are set at the product level; the shared group options carry no default price.
    */
   modifierOptionPriceOverrides?: Record<string, Record<string, number>>;
 }

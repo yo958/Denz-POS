@@ -602,14 +602,6 @@ function ModifierGroupDialog({ group, onClose, onSave }: ModifierGroupDialogProp
                   placeholder="Option name"
                   className="flex-1 h-9 px-3 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring"
                 />
-                <input
-                  type="number"
-                  step={0.01}
-                  value={o.priceDelta}
-                  onChange={e => patchOption(o.id, { priceDelta: parseFloat(e.target.value) || 0 })}
-                  placeholder="+$"
-                  className="w-20 h-9 px-2 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border tabular-nums focus:outline-none focus:ring-2 focus:ring-ring"
-                />
                 <button
                   type="button"
                   onClick={() => removeOption(o.id)}
