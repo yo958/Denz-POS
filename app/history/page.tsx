@@ -1,10 +1,13 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import Link from 'next/link';
-import { Search, Receipt, Coffee, Monitor, BedDouble, RotateCcw, Trash2 } from 'lucide-react';
-import { useTabs, useSettings, useCurrentStaff } from '@/lib/hooks/useStore';
-import { tabGrandTotal, tabRefundedAmount } from '@/lib/domain/tabs';
+import { Search, Receipt, Coffee, Monitor, BedDouble, RotateCcw, Trash2, X, Printer, Tag, CreditCard, QrCode, Banknote, Star } from 'lucide-react';
+import { useTabs, useSettings, useCurrentStaff, useCustomers } from '@/lib/hooks/useStore';
+import {
+  tabSubtotal, tabDiscountAmount, tabTax, tabGrandTotal, tabCardFee,
+  tabRefundedAmount, lineUnitPrice, effectiveQty, modifiersSummary, CARD_FEE_RATE,
+  formatTime, formatDate,
+} from '@/lib/domain/tabs';
 import { getStore } from '@/lib/store/store';
 import { confirm } from '@/components/ui/confirm-dialog';
 import type { Tab, TabType } from '@/lib/types';
@@ -15,18 +18,15 @@ const TYPE_COLOR: Record<TabType, string> = {
   desk: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
   room: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
 };
+const METHOD_ICON = { card: CreditCard, qr: QrCode, cash: Banknote, room: BedDouble } as const;
+const METHOD_LABEL: Record<string, string> = { card: 'Card', qr: 'QR', cash: 'Cash', room: 'Room charge' };
 
 function startOfDayKey(d: Date) {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x.getTime();
+  const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime();
 }
-function isToday(d: Date) {
-  return startOfDayKey(d) === startOfDayKey(new Date());
-}
+function isToday(d: Date) { return startOfDayKey(d) === startOfDayKey(new Date()); }
 function isYesterday(d: Date) {
-  const y = new Date();
-  y.setDate(y.getDate() - 1);
+  const y = new Date(); y.setDate(y.getDate() - 1);
   return startOfDayKey(d) === startOfDayKey(y);
 }
 function dayLabel(d: Date) {
@@ -35,10 +35,189 @@ function dayLabel(d: Date) {
   return d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+function OrderDetailPanel({ tab, onClose, onDelete, cur }: {
+  tab: Tab; onClose: () => void; onDelete: (tab: Tab) => void; cur: string;
+}) {
+  const settings = useSettings();
+  const customers = useCustomers();
+  const taxRate    = settings.taxEnabled === false ? 0 : settings.taxRate;
+  const subtotal   = tabSubtotal(tab.items);
+  const discount   = tabDiscountAmount(tab.items, tab.discount);
+  const tax        = tabTax(tab.items, tab.discount, taxRate);
+  const baseTotal  = tabGrandTotal(tab.items, tab.discount, taxRate);
+  const isCard     = tab.paymentMethod === 'card';
+  const cardFee    = isCard ? tabCardFee(tab.items, tab.discount, taxRate) : 0;
+  const total      = baseTotal + cardFee;
+  const refunded   = tabRefundedAmount(tab);
+  const customer   = customers.find(c => c.id === tab.customerId);
+  const TypeIcon   = TYPE_ICON[tab.type];
+  const MethodIcon = tab.paymentMethod ? (METHOD_ICON[tab.paymentMethod] ?? Receipt) : Receipt;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-md bg-background rounded-3xl shadow-2xl border border-border flex flex-col max-h-[90vh]">
+
+        {/* Header */}
+        <div className="flex items-start justify-between p-6 pb-4 border-b border-border shrink-0">
+          <div className="flex items-center gap-3">
+            <span className={`flex items-center justify-center w-10 h-10 rounded-xl shrink-0 ${TYPE_COLOR[tab.type]}`}>
+              <TypeIcon size={18} strokeWidth={2} />
+            </span>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <h2 className="text-base font-semibold">{tab.customerName}</h2>
+                {customer?.vip && <Star size={13} className="text-amber-400 fill-amber-400 shrink-0" />}
+              </div>
+              <p className="text-sm text-muted-foreground">{tab.label}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="flex items-center justify-center w-8 h-8 rounded-xl text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer">
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Body — scrollable */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+
+          {/* Customer info */}
+          {customer && (
+            <section className="rounded-2xl border border-border bg-black/2 dark:bg-white/3 p-4 space-y-1.5 text-sm">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Customer</p>
+              <div className="flex items-center gap-2">
+                <span className="font-medium">{customer.name}</span>
+                {customer.vip && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">VIP</span>}
+              </div>
+              {customer.email && <p className="text-muted-foreground">{customer.email}</p>}
+              {customer.phone && <p className="text-muted-foreground">{customer.phone}</p>}
+              {customer.jobRole && <p className="text-muted-foreground">{customer.jobRole}</p>}
+            </section>
+          )}
+
+          {/* Order meta */}
+          <section className="space-y-1 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Date</span>
+              <span>{tab.paidAt ? formatDate(tab.paidAt) : '—'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Time</span>
+              <span>{tab.paidAt ? formatTime(tab.paidAt) : '—'}</span>
+            </div>
+            {tab.paymentMethod && (
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Payment</span>
+                <span className="flex items-center gap-1.5">
+                  <MethodIcon size={13} className="text-muted-foreground" />
+                  {METHOD_LABEL[tab.paymentMethod] ?? tab.paymentMethod}
+                </span>
+              </div>
+            )}
+            {tab.status === 'refunded' && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Status</span>
+                <span className="text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1"><RotateCcw size={12} /> Refunded</span>
+              </div>
+            )}
+          </section>
+
+          {/* Line items */}
+          <section>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Items</p>
+            <div className="rounded-2xl border border-border overflow-hidden divide-y divide-border">
+              {tab.items.map((li, i) => {
+                const qty  = effectiveQty(li);
+                const unit = lineUnitPrice(li);
+                const mods = modifiersSummary(li.modifiers);
+                return (
+                  <div key={li.id ?? i} className="flex items-start gap-3 px-4 py-3">
+                    <span className="text-sm text-muted-foreground tabular-nums w-5 shrink-0">{qty}×</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{li.product.name}</p>
+                      {mods && <p className="text-xs text-muted-foreground">{mods}</p>}
+                      {li.note && <p className="text-xs text-muted-foreground italic">{li.note}</p>}
+                      {(li.refundedQty ?? 0) > 0 && (
+                        <p className="text-xs text-rose-500">refunded ×{li.refundedQty}</p>
+                      )}
+                    </div>
+                    <span className="text-sm tabular-nums shrink-0">{cur}{(unit * qty).toFixed(2)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Totals */}
+          <section className="space-y-1.5 text-sm border-t border-border pt-4">
+            <div className="flex justify-between text-muted-foreground">
+              <span>Subtotal</span>
+              <span className="tabular-nums">{cur}{subtotal.toFixed(2)}</span>
+            </div>
+            {discount > 0 && (
+              <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
+                <span className="flex items-center gap-1">
+                  <Tag size={11} strokeWidth={2} />
+                  {tab.discount!.type === 'pct' ? `Discount (${tab.discount!.value}%)` : 'Discount'}
+                </span>
+                <span className="tabular-nums">−{cur}{discount.toFixed(2)}</span>
+              </div>
+            )}
+            {settings.taxEnabled !== false && (
+              <div className="flex justify-between text-muted-foreground">
+                <span>{settings.taxLabel} ({Math.round(settings.taxRate * 100)}%)</span>
+                <span className="tabular-nums">{cur}{tax.toFixed(2)}</span>
+              </div>
+            )}
+            {isCard && (
+              <div className="flex justify-between text-amber-600 dark:text-amber-400">
+                <span>Card fee ({Math.round(CARD_FEE_RATE * 100)}%)</span>
+                <span className="tabular-nums">+{cur}{cardFee.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex justify-between font-bold text-base pt-1 border-t border-border">
+              <span>Total</span>
+              <span className="tabular-nums">{cur}{total.toFixed(2)}</span>
+            </div>
+            {refunded > 0 && (
+              <div className="flex justify-between text-rose-600 dark:text-rose-400">
+                <span>Refunded</span>
+                <span className="tabular-nums">−{cur}{refunded.toFixed(2)}</span>
+              </div>
+            )}
+          </section>
+        </div>
+
+        {/* Footer actions */}
+        <div className="p-4 border-t border-border flex gap-2 shrink-0">
+          <button
+            onClick={() => onDelete(tab)}
+            className="flex items-center justify-center w-10 h-10 rounded-xl border border-border text-muted-foreground hover:text-rose-600 hover:border-rose-300 dark:hover:border-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors cursor-pointer shrink-0"
+            title="Delete order"
+          >
+            <Trash2 size={15} />
+          </button>
+          <a
+            href={`/receipt/${tab.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 h-10 rounded-2xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2"
+          >
+            <Printer size={15} strokeWidth={2} />
+            Print Receipt
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function HistoryPage() {
   const me = useCurrentStaff();
   const tabs = useTabs();
   const cur = useSettings().currency;
+  const [query, setQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | TabType>('all');
+  const [selected, setSelected] = useState<Tab | null>(null);
 
   if (me?.role !== 'manager') {
     return (
@@ -47,8 +226,6 @@ export default function HistoryPage() {
       </div>
     );
   }
-  const [query, setQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'all' | TabType>('all');
 
   async function deleteTab(tab: Tab) {
     const ok = await confirm({
@@ -59,6 +236,7 @@ export default function HistoryPage() {
     });
     if (!ok) return;
     getStore().tabs.set(prev => prev.filter(t => t.id !== tab.id));
+    if (selected?.id === tab.id) setSelected(null);
   }
 
   const { groups, totals } = useMemo(() => {
@@ -75,8 +253,7 @@ export default function HistoryPage() {
       .sort((a, b) => +new Date(b.paidAt!) - +new Date(a.paidAt!));
 
     const map = new Map<number, Tab[]>();
-    let revenue = 0;
-    let refunds = 0;
+    let revenue = 0; let refunds = 0;
     for (const t of past) {
       revenue += tabGrandTotal(t.items, t.discount);
       refunds += tabRefundedAmount(t);
@@ -148,17 +325,17 @@ export default function HistoryPage() {
               </div>
               <div className="rounded-2xl border border-border bg-white/50 dark:bg-white/3 divide-y divide-border overflow-hidden">
                 {group.items.map(tab => {
-                  const Icon = TYPE_ICON[tab.type];
-                  const total = tabGrandTotal(tab.items, tab.discount);
+                  const Icon    = TYPE_ICON[tab.type];
+                  const total   = tabGrandTotal(tab.items, tab.discount);
                   const refunded = tabRefundedAmount(tab);
-                  const time = new Date(tab.paidAt!).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                  const time    = new Date(tab.paidAt!).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                  const itemCount = tab.items.reduce((s, li) => s + li.qty, 0);
                   return (
-                    <Link
+                    <button
                       key={tab.id}
-                      href={`/receipt/${tab.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-black/3 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                      type="button"
+                      onClick={() => setSelected(tab)}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-black/3 dark:hover:bg-white/5 transition-colors cursor-pointer text-left"
                     >
                       <span className={`flex items-center justify-center w-8 h-8 rounded-lg shrink-0 ${TYPE_COLOR[tab.type]}`}>
                         <Icon size={14} strokeWidth={2} />
@@ -174,8 +351,8 @@ export default function HistoryPage() {
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground truncate">
-                          {time} · {tab.items.reduce((s, li) => s + li.qty, 0)} item{tab.items.reduce((s, li) => s + li.qty, 0) === 1 ? '' : 's'}
-                          {tab.paymentMethod && ` · ${tab.paymentMethod}`}
+                          {time} · {itemCount} item{itemCount === 1 ? '' : 's'}
+                          {tab.paymentMethod && ` · ${METHOD_LABEL[tab.paymentMethod] ?? tab.paymentMethod}`}
                         </p>
                       </div>
                       <div className="text-right shrink-0">
@@ -184,16 +361,7 @@ export default function HistoryPage() {
                           <p className="text-xs text-rose-600 dark:text-rose-400 tabular-nums">−{cur}{refunded.toFixed(2)}</p>
                         )}
                       </div>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); deleteTab(tab); }}
-                        title="Delete order"
-                        aria-label={`Delete order for ${tab.customerName}`}
-                        className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors cursor-pointer shrink-0"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </Link>
+                    </button>
                   );
                 })}
               </div>
@@ -201,6 +369,15 @@ export default function HistoryPage() {
           );
         })}
       </div>
+
+      {selected && (
+        <OrderDetailPanel
+          tab={selected}
+          cur={cur}
+          onClose={() => setSelected(null)}
+          onDelete={async (tab) => { await deleteTab(tab); }}
+        />
+      )}
     </div>
   );
 }

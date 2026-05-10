@@ -111,11 +111,24 @@ export default function KDSPage() {
                       <Clock size={11} /> {formatElapsed(t.createdAt)}
                     </span>
                   </div>
-                  <ul className="space-y-1 text-sm">
+                  <ul className="space-y-2 text-sm">
                     {t.items.map((it, i) => (
-                      <li key={i} className="flex justify-between gap-2">
-                        <span className="font-semibold">{it.qty}× {it.productName}</span>
-                        {it.note && <span className="text-amber-600 dark:text-amber-400 text-xs italic">{it.note}</span>}
+                      <li key={i} className="space-y-0.5">
+                        <span className="font-bold">{it.qty}× {it.productName}</span>
+                        {it.modifiers && it.modifiers.length > 0 && (
+                          <ul className="pl-3 space-y-0.5">
+                            {it.modifiers.map((m, j) => (
+                              <li key={j} className="text-xs text-muted-foreground">
+                                <span className="font-medium">{m.groupName}:</span> {m.name}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {it.note && (
+                          <p className="pl-3 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                            ✎ {it.note}
+                          </p>
+                        )}
                       </li>
                     ))}
                   </ul>

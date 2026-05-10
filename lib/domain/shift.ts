@@ -32,7 +32,7 @@ function inShift(shift: Shift, at: Date): boolean {
 }
 
 export function buildZReport(shift: Shift, tabs: Tab[]): ZReport {
-  const totals: Record<PaymentMethod, number> = { card: 0, cash: 0, room: 0 };
+  const totals: Record<PaymentMethod, number> = { card: 0, qr: 0, cash: 0, room: 0 };
   let totalSales = 0;
   let refundsTotal = 0;
   let voidsCount = 0;

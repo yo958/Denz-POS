@@ -30,7 +30,10 @@ export function useSettings() { return useSlice(getStore().settings); }
 export function useShift()    { return useSlice(getStore().shift); }
 export function useTickets()  { return useSlice(getStore().tickets); }
 export function useStaff()    { return useSlice(getStore().staff); }
-export function useAudit()    { return useSlice(getStore().audit); }
+export function useAudit()     { return useSlice(getStore().audit); }
+export function useCustomers()  { return useSlice(getStore().customers); }
+export function useSpaces()     { return useSlice(getStore().spaces); }
+export function useEquipment()  { return useSlice(getStore().equipment); }
 
 /* ── Auth (local only, sessionStorage) ────────────────────────── */
 const AUTH_KEY = 'denz.auth.staffId';

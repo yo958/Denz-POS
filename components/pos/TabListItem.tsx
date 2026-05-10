@@ -1,7 +1,7 @@
 'use client';
 
-import { Coffee, Monitor, BedDouble, Trash2 } from 'lucide-react';
-import type { Tab } from '@/lib/types';
+import { Coffee, Monitor, BedDouble, Trash2, Star } from 'lucide-react';
+import type { Customer, Tab } from '@/lib/types';
 import { tabGrandTotal, formatElapsed } from '@/lib/mock-data';
 import { useSettings } from '@/lib/hooks/useStore';
 
@@ -20,11 +20,12 @@ const TYPE_COLOR = {
 interface TabListItemProps {
   tab: Tab;
   active: boolean;
+  customer?: Customer | null;
   onClick: () => void;
   onDelete?: () => void;
 }
 
-export function TabListItem({ tab, active, onClick, onDelete }: TabListItemProps) {
+export function TabListItem({ tab, active, customer, onClick, onDelete }: TabListItemProps) {
   const cur = useSettings().currency;
   const Icon = TYPE_ICON[tab.type];
   const total = tabGrandTotal(tab.items, tab.discount);
@@ -63,7 +64,10 @@ export function TabListItem({ tab, active, onClick, onDelete }: TabListItemProps
             <Icon size={13} strokeWidth={2} />
           </span>
           <div className="min-w-0">
-            <p className="text-sm font-medium truncate">{tab.customerName}</p>
+            <div className="flex items-center gap-1 min-w-0">
+                <p className="text-sm font-medium truncate">{tab.customerName}</p>
+                {customer?.vip && <Star size={10} className="text-amber-400 fill-amber-400 shrink-0" />}
+              </div>
             <p className="text-xs text-muted-foreground">{tab.label}</p>
           </div>
         </div>

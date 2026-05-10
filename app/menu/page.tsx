@@ -9,15 +9,13 @@ import { confirm } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/toast';
 import type { Product, ProductCategory } from '@/lib/types';
 
-const CATEGORY_LABEL: Record<ProductCategory, string> = {
-  food: 'Food', drinks: 'Drinks', desks: 'Desks', rooms: 'Rooms',
+const CATEGORY_LABEL: Partial<Record<ProductCategory, string>> = {
+  food: 'Food', drinks: 'Drinks',
 };
-const CATEGORY_ORDER: ProductCategory[] = ['food', 'drinks', 'desks', 'rooms'];
-const CATEGORY_COLOR: Record<ProductCategory, string> = {
+const CATEGORY_ORDER: ProductCategory[] = ['food', 'drinks'];
+const CATEGORY_COLOR: Partial<Record<ProductCategory, string>> = {
   food:   'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400',
   drinks: 'bg-sky-100 text-sky-700 dark:bg-sky-900/20 dark:text-sky-400',
-  desks:  'bg-violet-100 text-violet-700 dark:bg-violet-900/20 dark:text-violet-400',
-  rooms:  'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400',
 };
 
 export default function MenuPage() {
@@ -83,7 +81,7 @@ export default function MenuPage() {
         {grouped.map(({ category, products: list }) => (
           <section key={category}>
             <div className="flex items-center gap-2 mb-3">
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${CATEGORY_COLOR[category]}`}>{CATEGORY_LABEL[category]}</span>
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${CATEGORY_COLOR[category] ?? ''}`}>{CATEGORY_LABEL[category]}</span>
               <span className="text-xs text-muted-foreground">{list.length}</span>
             </div>
             {list.length === 0 ? (
@@ -193,8 +191,7 @@ function ProductDialog({ product, onClose, onSave }: ProductDialogProps) {
           <Field label="Category">
             <select value={form.category} onChange={e => {
               const cat = e.target.value as ProductCategory;
-              const tracks = cat === 'food' || cat === 'drinks';
-              setForm({ ...form, category: cat, stock: tracks ? form.stock : null, lowStockAt: tracks ? form.lowStockAt : null });
+              setForm({ ...form, category: cat });
             }} className={inputCls}>
               {CATEGORY_ORDER.map(c => <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>)}
             </select>

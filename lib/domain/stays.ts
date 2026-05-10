@@ -13,6 +13,7 @@ export interface CheckInInput {
   room: Product;     // must be category 'rooms'
   nights: number;
   notes?: string;
+  customerId?: string;
 }
 
 export function createStayAndFolio(input: CheckInInput): { stay: Stay; folio: Tab } {
@@ -36,6 +37,7 @@ export function createStayAndFolio(input: CheckInInput): { stay: Stay; folio: Ta
     openedAt: checkInAt,
     status: 'open',
     stayId,
+    ...(input.customerId ? { customerId: input.customerId } : {}),
   };
 
   const stay: Stay = {
@@ -50,6 +52,7 @@ export function createStayAndFolio(input: CheckInInput): { stay: Stay; folio: Ta
     folioTabId: folioId,
     status: 'active',
     notes: input.notes,
+    ...(input.customerId ? { customerId: input.customerId } : {}),
   };
 
   return { stay, folio };

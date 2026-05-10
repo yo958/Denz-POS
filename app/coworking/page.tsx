@@ -1,91 +1,1288 @@
 'use client';
 
-import { Monitor, Users, Clock, DollarSign, CheckCircle2 } from 'lucide-react';
-import { useTabs, useSettings } from '@/lib/hooks/useStore';
+import { useState } from 'react';
+import { Monitor, Lock, Clock, DollarSign, Plus, Pencil, Trash2, Star, UserPlus, X, Building2, Package, ChevronUp, ChevronDown } from 'lucide-react';
+import { useTabs, useSettings, useSpaces, useEquipment, useCurrentStaff, useCustomers } from '@/lib/hooks/useStore';
 import { tabGrandTotal, formatElapsed } from '@/lib/domain/tabs';
-import type { Tab } from '@/lib/types';
+import { getStore } from '@/lib/store/store';
+import { newId } from '@/lib/domain/id';
+import { toast } from '@/components/ui/toast';
+import { confirm } from '@/components/ui/confirm-dialog';
+import { CustomerPicker } from '@/components/customers/CustomerPicker';
+import type {
+  CoworkSpace, CoworkSpaceType, CoworkSpaceRate, CoworkRatePeriod, Equipment, EquipmentTier, Product, Tab,
+} from '@/lib/types';
 
-function isSameLocalDay(a: Date, b: Date) {
-  return a.getFullYear() === b.getFullYear()
-      && a.getMonth() === b.getMonth()
-      && a.getDate() === b.getDate();
+/* ── Constants ──────────────────────────────────────────────────── */
+
+const ALL_PERIODS: CoworkRatePeriod[] = [
+  'hourly', 'daily', 'weekly', '2-weeks', 'monthly', '3-months', '6-months', 'yearly',
+];
+
+const PERIOD_LABEL: Record<CoworkRatePeriod, string> = {
+  'hourly':    'Per Hour',
+  'daily':     'Daily',
+  'weekly':    'Weekly',
+  '2-weeks':   '2 Weeks',
+  'monthly':   'Monthly',
+  '3-months':  '3 Months',
+  '6-months':  '6 Months',
+  'yearly':    '1 Year',
+};
+
+const TYPE_LABEL: Record<CoworkSpaceType, string> = {
+  'desk':           'Desk',
+  'private-office': 'Private Office',
+};
+
+const TYPE_COLOR: Record<CoworkSpaceType, string> = {
+  'desk':           'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+  'private-office': 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
+};
+
+const BOOKING_TYPE_LABEL = { hot: 'Hot Desk', dedicated: 'Dedicated Desk' } as const;
+const BOOKING_TYPE_COLOR = {
+  hot:       'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+  dedicated: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+} as const;
+
+// Duration in ms for each rate period (used to calculate booking end date)
+const PERIOD_DURATION_MS: Record<CoworkRatePeriod, number> = {
+  'hourly':   1 * 60 * 60 * 1000,
+  'daily':    24 * 60 * 60 * 1000,
+  'weekly':   7 * 24 * 60 * 60 * 1000,
+  '2-weeks':  14 * 24 * 60 * 60 * 1000,
+  'monthly':  30 * 24 * 60 * 60 * 1000,
+  '3-months': 90 * 24 * 60 * 60 * 1000,
+  '6-months': 180 * 24 * 60 * 60 * 1000,
+  'yearly':   365 * 24 * 60 * 60 * 1000,
+};
+
+type SpaceFilter = 'all' | CoworkSpaceType;
+
+// Migrate legacy type values to current CoworkSpaceType
+function normalizeType(type: string): CoworkSpaceType {
+  if (type === 'hot-desk' || type === 'dedicated-desk') return 'desk';
+  return type as CoworkSpaceType;
 }
 
-export default function CoWorkingPage() {
-  const tabs = useTabs();
-  const cur = useSettings().currency;
-  const now = new Date();
-  const deskTabs = tabs.filter(t => t.type === 'desk');
-  const open = deskTabs.filter(t => t.status === 'open');
-  // Paid desks remain "active" for the rest of the day they were paid (eg day pass).
-  const paidToday = deskTabs.filter(t => t.status === 'paid' && t.paidAt && isSameLocalDay(new Date(t.paidAt), now));
-  const settledEarlier = deskTabs.filter(t => t.status === 'paid' && (!t.paidAt || !isSameLocalDay(new Date(t.paidAt), now)));
+function defaultRates(type: CoworkSpaceType): CoworkSpaceRate[] {
+  const prices: Partial<Record<CoworkRatePeriod, number>> =
+    type === 'private-office'
+      ? { hourly: 500, daily: 1200, weekly: 5000, monthly: 15000 }
+      : { hourly: 80, daily: 350, weekly: 1500, '2-weeks': 2600, monthly: 4500, '3-months': 12000, '6-months': 21000, yearly: 36000 };
+  const defaultEnabled: CoworkRatePeriod[] =
+    type === 'private-office' ? ['daily', 'weekly', 'monthly'] : ['hourly', 'daily', 'weekly', 'monthly'];
+  return ALL_PERIODS.map(p => ({ period: p, price: prices[p] ?? 0, enabled: defaultEnabled.includes(p) }));
+}
 
-  // Active = open + paid-today, sorted by openedAt
-  const active: Tab[] = [...open, ...paidToday].sort((a, b) => +new Date(a.openedAt) - +new Date(b.openedAt));
+function defaultDedicatedRates(): CoworkSpaceRate[] {
+  const prices: Partial<Record<CoworkRatePeriod, number>> =
+    { daily: 600, weekly: 2500, '2-weeks': 4500, monthly: 8000, '3-months': 22000, '6-months': 40000, yearly: 72000 };
+  return ALL_PERIODS.map(p => ({ period: p, price: prices[p] ?? 0, enabled: ['daily', 'weekly', 'monthly'].includes(p) }));
+}
+
+/* ── Page ───────────────────────────────────────────────────────── */
+
+export default function CoWorkingPage() {
+  const spaces    = useSpaces();
+  const equipment = useEquipment();
+  const tabs      = useTabs();
+  const customers = useCustomers();
+  const cur       = useSettings().currency;
+  const me        = useCurrentStaff();
+  const isManager = me?.role === 'manager';
+
+  const [filter, setFilter]               = useState<SpaceFilter>('all');
+  const [checkingIn, setCheckingIn]       = useState<CoworkSpace | null>(null);
+  const [editingSpace, setEditingSpace]   = useState<CoworkSpace | null>(null);
+  const [addingSpace, setAddingSpace]     = useState(false);
+  const [rentingEquip, setRentingEquip]   = useState<Equipment | null>(null);
+  const [editingEquip, setEditingEquip]   = useState<Equipment | null>(null);
+  const [addingEquip, setAddingEquip]     = useState(false);
+
+  // Spaces — ALL open desk tabs mark their space occupied
+  const activeByLabel = new Map<string, Tab>();
+  for (const t of tabs) {
+    if (t.type === 'desk' && t.status === 'open') activeByLabel.set(t.label, t);
+  }
+  const allSpaces  = spaces.filter(s => !s.archived);
+  const allActive  = allSpaces.filter(s =>  activeByLabel.has(s.name));
+  const filtered   = allSpaces.filter(s => filter === 'all' || normalizeType(s.type) === filter);
+  const available  = filtered.filter(s => !activeByLabel.has(s.name));
+
+  // Equipment — detect active by product.id prefix 'equip:'
+  const activeEquipIds  = new Set<string>();
+  const equipTabById    = new Map<string, Tab>();
+  for (const t of tabs) {
+    if (t.type === 'desk' && t.status === 'open') {
+      for (const item of t.items) {
+        if (item.product.id.startsWith('equip:')) {
+          const equipId = item.product.id.slice(6);
+          activeEquipIds.add(equipId);
+          equipTabById.set(equipId, t);
+        }
+      }
+    }
+  }
+  const visibleEquip   = equipment.filter(e => !e.archived);
+  const availableEquip = visibleEquip.filter(e => !activeEquipIds.has(e.id));
+  const activeEquip    = visibleEquip.filter(e =>  activeEquipIds.has(e.id));
+
+  const totalActive = allActive.length + activeEquip.length;
+
+  async function archiveSpace(s: CoworkSpace) {
+    const ok = await confirm({ title: `Remove "${s.name}"?`, danger: true, confirmLabel: 'Remove' });
+    if (!ok) return;
+    getStore().spaces.set(prev => prev.map(x => x.id === s.id ? { ...x, archived: true } : x));
+    toast.success('Space removed');
+  }
+  function saveSpace(updated: CoworkSpace) {
+    const existing = spaces.find(s => s.id === updated.id);
+    if (existing) {
+      getStore().spaces.set(prev => prev.map(s => s.id === updated.id ? updated : s));
+      toast.success('Space updated');
+    } else {
+      getStore().spaces.set(prev => [...prev, updated]);
+      toast.success('Space added');
+    }
+    setEditingSpace(null);
+    setAddingSpace(false);
+  }
+
+  async function archiveEquipment(e: Equipment) {
+    const ok = await confirm({ title: `Remove "${e.name}"?`, danger: true, confirmLabel: 'Remove' });
+    if (!ok) return;
+    getStore().equipment.set(prev => prev.map(x => x.id === e.id ? { ...x, archived: true } : x));
+    getStore().log('equipment.delete', e.name, me?.id);
+    toast.success('Equipment removed');
+  }
+  function saveEquipment(updated: Equipment) {
+    const isNew = !equipment.find(e => e.id === updated.id);
+    if (isNew) {
+      getStore().equipment.set(prev => [...prev, updated]);
+      toast.success('Equipment added');
+    } else {
+      getStore().equipment.set(prev => prev.map(e => e.id === updated.id ? updated : e));
+      toast.success('Equipment updated');
+    }
+    getStore().log(isNew ? 'equipment.create' : 'equipment.update', updated.name, me?.id);
+    setEditingEquip(null);
+    setAddingEquip(false);
+  }
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <header className="px-6 py-4 border-b border-border glass-strong">
-        <h1 className="text-lg font-semibold">CoWorking</h1>
-        <div className="flex items-center gap-4 mt-2 text-sm">
-          <span className="flex items-center gap-1.5 text-sky-600 dark:text-sky-400">
-            <span className="w-2 h-2 rounded-full bg-sky-500" />
-            {active.length} active
-          </span>
-          <span className="flex items-center gap-1.5 text-muted-foreground">
-            <span className="w-2 h-2 rounded-full bg-muted-foreground" />
-            {settledEarlier.length} settled earlier
-          </span>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-semibold">CoWorking</h1>
+            <div className="flex items-center gap-4 mt-1 text-sm">
+              <span className="flex items-center gap-1.5 text-sky-600 dark:text-sky-400">
+                <span className="w-2 h-2 rounded-full bg-sky-500" />{totalActive} active
+              </span>
+              <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />{available.length} available
+              </span>
+            </div>
+          </div>
+          {isManager && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setAddingEquip(true)}
+                className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-sm font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8 cursor-pointer"
+              >
+                <Plus size={14} /> Add Equipment
+              </button>
+              <button
+                onClick={() => setAddingSpace(true)}
+                className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-sm font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8 cursor-pointer"
+              >
+                <Plus size={14} /> Add Space
+              </button>
+            </div>
+          )}
+        </div>
+        {/* Space type filter */}
+        <div className="flex gap-2 mt-3">
+          {(['all', 'desk', 'private-office'] as SpaceFilter[]).map(f => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`h-7 px-2.5 rounded-lg text-[11px] font-medium transition-colors cursor-pointer ${
+                filter === f
+                  ? 'bg-primary/15 text-primary'
+                  : 'bg-black/4 dark:bg-white/4 text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {f === 'all' ? 'All' : TYPE_LABEL[f]}
+            </button>
+          ))}
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        <section>
-          <h2 className="text-sm font-semibold mb-3">Active</h2>
-          {active.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No active desk tabs.</p>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 max-w-5xl">
-              {active.map(tab => {
-                const isPaid = tab.status === 'paid';
+      <div className="flex-1 overflow-y-auto p-6 space-y-8">
+
+        {/* ── Active (desk sessions + equipment rentals) ───────── */}
+        {totalActive > 0 && (
+          <section>
+            <h2 className="text-sm font-semibold mb-3 text-sky-700 dark:text-sky-400">Active</h2>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {activeEquip.map(e => {
+                const tab = equipTabById.get(e.id)!;
                 return (
-                  <div key={tab.id} className={`flex flex-col rounded-2xl border border-border bg-white/60 dark:bg-white/5 p-4 gap-3 ring-1 ${isPaid ? 'ring-emerald-200 dark:ring-emerald-800' : 'ring-sky-200 dark:ring-sky-800'}`}>
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-primary/10 text-primary">
-                          {tab.label.toLowerCase().includes('meeting') ? <Users size={15} /> : <Monitor size={15} />}
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold leading-tight">{tab.label}</p>
-                          <p className="text-xs text-muted-foreground">{tab.customerName}</p>
-                        </div>
-                      </div>
-                      {isPaid ? (
-                        <span className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400">
-                          <CheckCircle2 size={11} /> Paid
-                        </span>
-                      ) : (
-                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/20 dark:text-sky-400">Active</span>
-                      )}
-                    </div>
-                    <div className="border-t border-border pt-2 space-y-1.5 text-xs">
-                      <div className="flex justify-between">
-                        <span className="flex items-center gap-1 text-muted-foreground"><Clock size={11} /> Open</span>
-                        <span className="font-medium">{formatElapsed(tab.openedAt)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="flex items-center gap-1 text-muted-foreground"><DollarSign size={11} /> Tab</span>
-                        <span className="font-semibold tabular-nums">{cur}{tabGrandTotal(tab.items, tab.discount).toFixed(2)}</span>
-                      </div>
-                    </div>
-                  </div>
+                  <ActiveEquipCard
+                    key={e.id}
+                    equip={e}
+                    tab={tab}
+                    cur={cur}
+                    isManager={isManager}
+                    onEdit={() => setEditingEquip(e)}
+                    onReturn={async () => {
+                      const ok = await confirm({ title: `Return ${e.name}?`, message: `End ${tab.customerName}'s rental.`, confirmLabel: 'Return' });
+                      if (!ok) return;
+                      getStore().tabs.set(prev => prev.map(t =>
+                        t.id === tab.id
+                          ? { ...t, status: 'paid', paidAt: new Date(), paidByStaffId: me?.id, paymentMethod: 'cash' }
+                          : t,
+                      ));
+                      getStore().log('tab.pay', `${tab.customerName} returned ${e.name}`, me?.id);
+                      toast.success(`${e.name} returned`);
+                    }}
+                  />
+                );
+              })}
+              {allActive.map(s => {
+                const tab = activeByLabel.get(s.name)!;
+                return (
+                  <ActiveCard
+                    key={s.id}
+                    space={s}
+                    tab={tab}
+                    cur={cur}
+                    isManager={isManager}
+                    customer={customers.find(c => c.id === tab.customerId) ?? null}
+                    onEdit={() => setEditingSpace(s)}
+                    onCheckOut={async () => {
+                      const ok = await confirm({ title: `Check out ${tab.customerName}?`, confirmLabel: 'Check Out' });
+                      if (!ok) return;
+                      getStore().tabs.set(prev => prev.map(t =>
+                        t.id === tab.id
+                          ? { ...t, status: 'paid', paidAt: new Date(), paidByStaffId: me?.id, paymentMethod: 'cash' }
+                          : t,
+                      ));
+                      getStore().log('tab.pay', `${tab.customerName} checked out of ${s.name}`, me?.id);
+                      toast.success(`${tab.customerName} checked out`);
+                    }}
+                  />
                 );
               })}
             </div>
-          )}
-        </section>
+          </section>
+        )}
+
+        {/* ── Equipment Rental ─────────────────────────────────── */}
+        {visibleEquip.length > 0 && (
+          <section>
+            <h2 className="text-sm font-semibold mb-3 text-amber-700 dark:text-amber-400">Equipment Rental</h2>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {availableEquip.map(e => (
+                <EquipmentCard
+                  key={e.id}
+                  equip={e}
+                  cur={cur}
+                  isManager={isManager}
+                  onRent={() => setRentingEquip(e)}
+                  onEdit={() => setEditingEquip(e)}
+                  onArchive={() => archiveEquipment(e)}
+                />
+              ))}
+              {availableEquip.length === 0 && (
+                <p className="text-sm text-muted-foreground col-span-full py-1">All equipment is currently in use.</p>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* ── Available spaces ─────────────────────────────────── */}
+        {available.length > 0 && (
+          <section>
+            <h2 className="text-sm font-semibold mb-3 text-emerald-700 dark:text-emerald-400">Available</h2>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {available.map(s => (
+                <AvailableCard
+                  key={s.id}
+                  space={s}
+                  cur={cur}
+                  isManager={isManager}
+                  onCheckIn={() => setCheckingIn(s)}
+                  onEdit={() => setEditingSpace(s)}
+                  onArchive={() => archiveSpace(s)}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {allSpaces.length === 0 && visibleEquip.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-24 gap-3 text-muted-foreground">
+            <Monitor size={36} strokeWidth={1.2} />
+            <p className="text-sm">No spaces yet.{isManager ? ' Add one above.' : ''}</p>
+          </div>
+        )}
+
       </div>
+
+      {checkingIn && (
+        <CheckInDialog
+          space={checkingIn}
+          cur={cur}
+          onClose={() => setCheckingIn(null)}
+          onConfirm={(customerName, rate, bookingEndsAt, customerId) => {
+            const product: Product = {
+              id: `${checkingIn.id}-${rate.period}`,
+              name: `${checkingIn.name} — ${PERIOD_LABEL[rate.period]}`,
+              price: rate.price,
+              category: 'desks',
+              description: '',
+              stock: null,
+              lowStockAt: null,
+              sendToKitchen: false,
+            };
+            const tab: Tab = {
+              id: newId('tab'),
+              customerName,
+              type: 'desk',
+              label: checkingIn.name,
+              items: [{ id: newId('li'), productId: product.id, product, qty: 1 }],
+              openedAt: new Date(),
+              status: 'open',
+              bookingEndsAt,
+              ...(customerId ? { customerId } : {}),
+            };
+            getStore().tabs.set(prev => [tab, ...prev]);
+            getStore().log('tab.create', `${customerName} checked in to ${checkingIn.name} (${PERIOD_LABEL[rate.period]})`, me?.id);
+            toast.success(`${customerName} checked in`);
+            setCheckingIn(null);
+          }}
+        />
+      )}
+
+      {(addingSpace || editingSpace) && (
+        <SpaceDialog
+          space={editingSpace}
+          cur={cur}
+          onClose={() => { setAddingSpace(false); setEditingSpace(null); }}
+          onSave={saveSpace}
+        />
+      )}
+
+      {rentingEquip && (
+        <RentDialog
+          equip={rentingEquip}
+          cur={cur}
+          availableSpaces={spaces.filter(s => !s.archived && !activeByLabel.has(s.name))}
+          onClose={() => setRentingEquip(null)}
+          onConfirm={(customerName, hours, equipTotal, space, deskTotal, bookingEndsAt, customerId) => {
+            const equipProduct: Product = {
+              id: `equip:${rentingEquip.id}`,
+              name: `${rentingEquip.name} (${hours}hr)`,
+              price: equipTotal,
+              category: 'equipment-rental',
+              description: '',
+              stock: null,
+              lowStockAt: null,
+              sendToKitchen: false,
+            };
+            const items: Tab['items'] = [
+              { id: newId('li'), productId: equipProduct.id, product: equipProduct, qty: 1 },
+            ];
+            if (deskTotal > 0) {
+              const deskPeriodLabel = bookingEndsAt
+                ? (() => {
+                    // find which period was used from the duration
+                    const ms = bookingEndsAt.getTime() - Date.now();
+                    const match = (Object.entries(PERIOD_DURATION_MS) as [CoworkRatePeriod, number][])
+                      .sort((a, b) => Math.abs(a[1] - ms) - Math.abs(b[1] - ms))[0];
+                    return PERIOD_LABEL[match[0]];
+                  })()
+                : `${hours}hr`;
+              const deskProduct: Product = {
+                id: `${space.id}-${bookingEndsAt ? 'dedicated' : 'hourly'}`,
+                name: `${space.name} — ${deskPeriodLabel}`,
+                price: deskTotal,
+                category: 'desks',
+                description: '',
+                stock: null,
+                lowStockAt: null,
+                sendToKitchen: false,
+              };
+              items.push({ id: newId('li'), productId: deskProduct.id, product: deskProduct, qty: 1 });
+            }
+            const tab: Tab = {
+              id: newId('tab'),
+              customerName,
+              type: 'desk',
+              label: space.name,
+              items,
+              openedAt: new Date(),
+              status: 'open',
+              bookingEndsAt,
+              ...(customerId ? { customerId } : {}),
+            };
+            getStore().tabs.set(prev => [tab, ...prev]);
+            getStore().log('rental.create', `${customerName} rented ${rentingEquip.name} at ${space.name} for ${hours}hr`, me?.id);
+            toast.success(`${rentingEquip.name} rented to ${customerName} at ${space.name}`);
+            setRentingEquip(null);
+          }}
+        />
+      )}
+
+      {(addingEquip || editingEquip) && (
+        <EquipmentDialog
+          equip={editingEquip}
+          cur={cur}
+          onClose={() => { setAddingEquip(false); setEditingEquip(null); }}
+          onSave={saveEquipment}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ── Available card ─────────────────────────────────────────────── */
+function AvailableCard({ space, cur, isManager, onCheckIn, onEdit, onArchive }: {
+  space: CoworkSpace; cur: string; isManager: boolean;
+  onCheckIn: () => void; onEdit: () => void; onArchive: () => void;
+}) {
+  const enabledHotRates       = space.rates?.filter(r => r.enabled) ?? [];
+  const enabledDedicatedRates = (space.dedicatedRates ?? []).filter(r => r.enabled);
+  const hasBoth               = enabledHotRates.length > 0 && enabledDedicatedRates.length > 0;
+  const spaceType             = normalizeType(space.type);
+  const Icon                  = spaceType === 'private-office' ? Building2 : Monitor;
+  const ratePillCls           = 'text-[10px] font-medium px-1.5 py-0.5 rounded bg-white/70 dark:bg-white/10 border border-border text-muted-foreground';
+  return (
+    <div className="flex flex-col rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-900/10 p-4 gap-3">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
+            <Icon size={16} />
+          </div>
+          <div>
+            <p className="text-sm font-semibold leading-tight">{space.name}</p>
+            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${TYPE_COLOR[spaceType]}`}>
+              {TYPE_LABEL[spaceType]}
+            </span>
+          </div>
+        </div>
+        {isManager && (
+          <div className="flex gap-0.5">
+            <button onClick={onEdit} className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer">
+              <Pencil size={12} />
+            </button>
+            <button onClick={onArchive} className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 cursor-pointer">
+              <Trash2 size={12} />
+            </button>
+          </div>
+        )}
+      </div>
+      {hasBoth ? (
+        <div className="space-y-1.5">
+          <div>
+            <p className="text-[9px] font-semibold text-sky-600 dark:text-sky-400 uppercase tracking-wide mb-1">Hot Desk</p>
+            <div className="flex flex-wrap gap-1">
+              {enabledHotRates.map(r => (
+                <span key={r.period} className={ratePillCls}>{PERIOD_LABEL[r.period]} {cur}{r.price.toLocaleString()}</span>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="text-[9px] font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide mb-1">Dedicated</p>
+            <div className="flex flex-wrap gap-1">
+              {enabledDedicatedRates.map(r => (
+                <span key={r.period} className={ratePillCls}>{PERIOD_LABEL[r.period]} {cur}{r.price.toLocaleString()}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : enabledHotRates.length > 0 ? (
+        <div className="flex flex-wrap gap-1">
+          {enabledHotRates.map(r => (
+            <span key={r.period} className={ratePillCls}>{PERIOD_LABEL[r.period]} {cur}{r.price.toLocaleString()}</span>
+          ))}
+        </div>
+      ) : null}
+      <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Available</span>
+      <button
+        onClick={onCheckIn}
+        className="w-full h-9 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+      >
+        <UserPlus size={13} /> Check In
+      </button>
+    </div>
+  );
+}
+
+/* ── Active card ────────────────────────────────────────────────── */
+function ActiveCard({ space, tab, cur, isManager, customer, onEdit, onCheckOut }: {
+  space: CoworkSpace; tab: Tab; cur: string; isManager: boolean;
+  customer?: import('@/lib/types').Customer | null;
+  onEdit: () => void; onCheckOut: () => void;
+}) {
+  const total = tabGrandTotal(tab.items, tab.discount);
+  const rateName = tab.items[0]?.product.name.replace(`${space.name} — `, '') ?? '';
+  const spaceType = normalizeType(space.type);
+  const Icon = spaceType === 'private-office' ? Building2 : Monitor;
+  const isDedicated = !!tab.bookingEndsAt;
+  const bookingLabel = spaceType === 'desk' ? BOOKING_TYPE_LABEL[isDedicated ? 'dedicated' : 'hot'] : TYPE_LABEL[spaceType];
+  const bookingColor = spaceType === 'desk' ? BOOKING_TYPE_COLOR[isDedicated ? 'dedicated' : 'hot'] : TYPE_COLOR[spaceType];
+  const endsAt = tab.bookingEndsAt ? new Date(tab.bookingEndsAt) : null;
+  const isExpired = endsAt && endsAt < new Date();
+  const discountPill = customer?.discount
+    ? customer.discount.type === 'pct'
+      ? `${customer.discount.value}% off`
+      : `${cur}${customer.discount.value} off`
+    : null;
+
+  function fmtEnd(d: Date) {
+    return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+
+  return (
+    <div className={`flex flex-col rounded-2xl border p-4 gap-3 ${
+      isExpired
+        ? 'border-rose-200 dark:border-rose-800 bg-rose-50/60 dark:bg-rose-900/10'
+        : 'border-sky-200 dark:border-sky-800 bg-sky-50/60 dark:bg-sky-900/10'
+    }`}>
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className={`flex items-center justify-center w-9 h-9 rounded-xl ${
+            isExpired ? 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400'
+                      : 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400'
+          }`}>
+            <Icon size={16} />
+          </div>
+          <div>
+            <p className="text-sm font-semibold leading-tight">{space.name}</p>
+            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${bookingColor}`}>
+              {bookingLabel}
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          {isExpired
+            ? <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400">Expired</span>
+            : <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400">Active</span>
+          }
+          {isManager && (
+            <button onClick={onEdit} className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer">
+              <Pencil size={12} />
+            </button>
+          )}
+        </div>
+      </div>
+      <div>
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm font-semibold">{tab.customerName}</p>
+          {customer?.vip && <Star size={12} className="text-amber-400 fill-amber-400 shrink-0" />}
+        </div>
+        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+          {rateName && <p className="text-xs text-muted-foreground">{rateName}</p>}
+          {discountPill && (
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 shrink-0">
+              {discountPill}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+          {isDedicated && endsAt ? (
+            <span className={`flex items-center gap-1 ${isExpired ? 'text-rose-600 dark:text-rose-400 font-medium' : ''}`}>
+              <Clock size={11} />
+              {isExpired ? `Expired ${fmtEnd(endsAt)}` : `Until ${fmtEnd(endsAt)}`}
+            </span>
+          ) : (
+            <span className="flex items-center gap-1"><Clock size={11} /> {formatElapsed(tab.openedAt)}</span>
+          )}
+          <span className="flex items-center gap-1"><DollarSign size={11} /> {cur}{total.toFixed(2)}</span>
+        </div>
+      </div>
+      <button
+        onClick={onCheckOut}
+        className={`w-full h-9 rounded-xl text-xs font-semibold text-white active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+          isExpired ? 'bg-rose-600 hover:bg-rose-700' : 'bg-sky-600 hover:bg-sky-700'
+        }`}
+      >
+        <Lock size={13} /> Check Out
+      </button>
+    </div>
+  );
+}
+
+/* ── Check-in dialog ────────────────────────────────────────────── */
+function CheckInDialog({ space, cur, onClose, onConfirm }: {
+  space: CoworkSpace; cur: string;
+  onClose: () => void;
+  onConfirm: (customerName: string, rate: CoworkSpaceRate, bookingEndsAt?: Date, customerId?: string) => void;
+}) {
+  const enabledHotRates       = space.rates?.filter(r => r.enabled) ?? [];
+  const enabledDedicatedRates = (space.dedicatedRates ?? []).filter(r => r.enabled);
+  const hasBothTypes          = enabledHotRates.length > 0 && enabledDedicatedRates.length > 0;
+
+  const [name,       setName]       = useState('');
+  const [customerId, setCustomerId] = useState<string | undefined>();
+  const [bookingType, setBookingType] = useState<'hot' | 'dedicated'>('hot');
+  const [rateIdx,    setRateIdx]    = useState(0);
+
+  const activeRates = (hasBothTypes && bookingType === 'dedicated') ? enabledDedicatedRates : enabledHotRates;
+  const isDedicated = hasBothTypes && bookingType === 'dedicated';
+
+  function switchBookingType(t: 'hot' | 'dedicated') {
+    setBookingType(t);
+    setRateIdx(0);
+  }
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) { toast.error('Customer name required'); return; }
+    const rate = activeRates[rateIdx];
+    if (!rate) { toast.error('No rates available — edit this space to add rates'); return; }
+    const bookingEndsAt = isDedicated
+      ? new Date(Date.now() + PERIOD_DURATION_MS[rate.period])
+      : undefined;
+    onConfirm(name.trim(), rate, bookingEndsAt, customerId);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <form onSubmit={submit} className="relative w-full max-w-sm glass-strong rounded-3xl p-6 shadow-2xl space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Check In</h2>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground cursor-pointer"><X size={18} /></button>
+        </div>
+        <p className="text-sm text-muted-foreground -mt-2">{space.name} · {TYPE_LABEL[normalizeType(space.type)]}</p>
+
+        <label className="block space-y-1.5">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Customer name</span>
+          <CustomerPicker
+            value={name}
+            customerId={customerId}
+            onChange={(n, id) => { setName(n); setCustomerId(id); }}
+            placeholder="Search or type a name…"
+            autoFocus
+          />
+        </label>
+
+        {/* Booking type toggle — only shown when desk has both rate tables */}
+        {hasBothTypes && (
+          <div className="space-y-1.5">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Booking Type</span>
+            <div className="grid grid-cols-2 gap-2">
+              {(['hot', 'dedicated'] as const).map(t => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => switchBookingType(t)}
+                  className={`h-9 rounded-xl text-sm font-medium border transition-colors cursor-pointer ${
+                    bookingType === t
+                      ? 'border-primary/50 bg-primary/10 text-primary'
+                      : 'border-border bg-black/3 dark:bg-white/3 text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
+                >
+                  {BOOKING_TYPE_LABEL[t]}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeRates.length > 0 ? (
+          <div className="space-y-1.5">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Rate</span>
+            <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+              {activeRates.map((r, i) => (
+                <label key={r.period} className={`flex items-center justify-between gap-3 px-3 py-2 rounded-xl border cursor-pointer transition-colors ${rateIdx === i ? 'border-primary bg-primary/5' : 'border-border bg-black/3 dark:bg-white/3 hover:bg-black/5 dark:hover:bg-white/5'}`}>
+                  <div className="flex items-center gap-2">
+                    <input type="radio" name="rate" checked={rateIdx === i} onChange={() => setRateIdx(i)} className="accent-primary" />
+                    <span className="text-sm font-medium">{PERIOD_LABEL[r.period]}</span>
+                  </div>
+                  <span className="text-sm font-semibold tabular-nums shrink-0">{cur}{r.price.toLocaleString()}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/10 rounded-xl px-3 py-2.5">
+            No rates enabled. Edit this space to add pricing.
+          </p>
+        )}
+
+        <div className="flex gap-2 pt-1">
+          <button type="button" onClick={onClose} className="flex-1 h-11 rounded-2xl text-sm font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 active:scale-95 transition-all cursor-pointer">Cancel</button>
+          <button type="submit" disabled={activeRates.length === 0} className="flex-1 h-11 rounded-2xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 transition-all cursor-pointer disabled:opacity-40">Check In</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+/* ── Space add/edit dialog ──────────────────────────────────────── */
+function SpaceDialog({ space, cur, onClose, onSave }: {
+  space: CoworkSpace | null; cur: string;
+  onClose: () => void;
+  onSave: (s: CoworkSpace) => void;
+}) {
+  const isNew = !space;
+  const [name,             setName]             = useState(space?.name ?? '');
+  const [type,             setType]             = useState<CoworkSpaceType>(space ? normalizeType(space.type) : 'desk');
+  const [desc,             setDesc]             = useState(space?.description ?? '');
+  const [rates,            setRates]            = useState<CoworkSpaceRate[]>(space?.rates ?? defaultRates('desk'));
+  const [dedicatedEnabled, setDedicatedEnabled] = useState<boolean>((space?.dedicatedRates?.filter(r => r.enabled).length ?? 0) > 0);
+  const [dedicatedRates,   setDedicatedRates]   = useState<CoworkSpaceRate[]>(space?.dedicatedRates ?? defaultDedicatedRates());
+
+  function handleTypeChange(t: CoworkSpaceType) {
+    setType(t);
+    if (isNew) { setRates(defaultRates(t)); setDedicatedRates(defaultDedicatedRates()); }
+  }
+
+  function patchRate(period: CoworkRatePeriod, patch: Partial<CoworkSpaceRate>) {
+    setRates(prev => prev.map(r => r.period === period ? { ...r, ...patch } : r));
+  }
+  function patchDedicatedRate(period: CoworkRatePeriod, patch: Partial<CoworkSpaceRate>) {
+    setDedicatedRates(prev => prev.map(r => r.period === period ? { ...r, ...patch } : r));
+  }
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) { toast.error('Name required'); return; }
+    onSave({
+      id: space?.id ?? newId('sp'),
+      name: name.trim(),
+      type,
+      description: desc.trim() || undefined,
+      rates,
+      dedicatedRates: (type === 'desk' && dedicatedEnabled) ? dedicatedRates : undefined,
+      archived: space?.archived,
+    });
+  }
+
+  const inputCls = 'w-full h-10 px-3 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <form
+        onSubmit={submit}
+        className="relative w-full max-w-lg glass-strong rounded-3xl shadow-2xl flex flex-col max-h-[92vh]"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-border">
+          <h2 className="text-lg font-semibold">{isNew ? 'Add Space' : `Edit ${space.name}`}</h2>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground cursor-pointer"><X size={18} /></button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+
+          {/* Name + type */}
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block space-y-1.5">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Name</span>
+              <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Desk 9" className={inputCls} />
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Type</span>
+              <select value={type} onChange={e => handleTypeChange(e.target.value as CoworkSpaceType)} className={inputCls}>
+                <option value="desk">Desk</option>
+                <option value="private-office">Private Office</option>
+              </select>
+            </label>
+          </div>
+
+          <label className="block space-y-1.5">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Description (optional)</span>
+            <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="e.g. Window seat, standing desk" className={inputCls} />
+          </label>
+
+          {/* Hot Desk Rates */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                {type === 'desk' ? 'Hot Desk Rates' : 'Rates'}
+              </span>
+              <span className="text-[10px] text-muted-foreground">Toggle to enable · set price per period</span>
+            </div>
+            <div className="rounded-xl border border-border bg-white/50 dark:bg-white/3 divide-y divide-border">
+              {rates.map(r => (
+                <div key={r.period} className={`flex items-center gap-3 px-3 py-2.5 transition-opacity ${r.enabled ? '' : 'opacity-50'}`}>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={r.enabled}
+                    onClick={() => patchRate(r.period, { enabled: !r.enabled })}
+                    className={`relative w-9 h-5 rounded-full transition-colors shrink-0 cursor-pointer ${r.enabled ? 'bg-primary' : 'bg-border'}`}
+                  >
+                    <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${r.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                  </button>
+                  <span className="text-sm font-medium w-24 shrink-0">{PERIOD_LABEL[r.period]}</span>
+                  <div className="flex items-center gap-1 flex-1">
+                    <span className="text-sm text-muted-foreground shrink-0">{cur}</span>
+                    <input
+                      type="number" min={0} step={1} value={r.price || ''}
+                      onChange={e => patchRate(r.period, { price: parseFloat(e.target.value) || 0 })}
+                      disabled={!r.enabled} placeholder="0"
+                      className="flex-1 h-9 px-3 rounded-xl text-sm tabular-nums bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Dedicated Desk Rates — desks only */}
+          {type === 'desk' && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={dedicatedEnabled}
+                    onClick={() => setDedicatedEnabled(v => !v)}
+                    className={`relative w-9 h-5 rounded-full transition-colors shrink-0 cursor-pointer ${dedicatedEnabled ? 'bg-indigo-500' : 'bg-border'}`}
+                  >
+                    <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${dedicatedEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                  </button>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Dedicated Desk Rates</span>
+                </div>
+                <span className="text-[10px] text-muted-foreground">Block-booking, higher price</span>
+              </div>
+              {dedicatedEnabled && (
+                <div className="rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/40 dark:bg-indigo-900/10 divide-y divide-indigo-100 dark:divide-indigo-900">
+                  {dedicatedRates.map(r => (
+                    <div key={r.period} className={`flex items-center gap-3 px-3 py-2.5 transition-opacity ${r.enabled ? '' : 'opacity-50'}`}>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={r.enabled}
+                        onClick={() => patchDedicatedRate(r.period, { enabled: !r.enabled })}
+                        className={`relative w-9 h-5 rounded-full transition-colors shrink-0 cursor-pointer ${r.enabled ? 'bg-indigo-500' : 'bg-border'}`}
+                      >
+                        <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${r.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                      </button>
+                      <span className="text-sm font-medium w-24 shrink-0">{PERIOD_LABEL[r.period]}</span>
+                      <div className="flex items-center gap-1 flex-1">
+                        <span className="text-sm text-muted-foreground shrink-0">{cur}</span>
+                        <input
+                          type="number" min={0} step={1} value={r.price || ''}
+                          onChange={e => patchDedicatedRate(r.period, { price: parseFloat(e.target.value) || 0 })}
+                          disabled={!r.enabled} placeholder="0"
+                          className="flex-1 h-9 px-3 rounded-xl text-sm tabular-nums bg-white/60 dark:bg-white/5 border border-indigo-200 dark:border-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:cursor-not-allowed"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-2 px-6 py-4 border-t border-border">
+          <button type="button" onClick={onClose} className="flex-1 h-11 rounded-2xl text-sm font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 active:scale-95 transition-all cursor-pointer">Cancel</button>
+          <button type="submit" className="flex-1 h-11 rounded-2xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 transition-all cursor-pointer">Save</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+/* ── Helpers ────────────────────────────────────────────────────── */
+
+function calcRentalTotal(tiers: EquipmentTier[], hours: number): number {
+  let total = 0;
+  for (let h = 1; h <= hours; h++) {
+    total += tiers[Math.min(h - 1, tiers.length - 1)]?.price ?? 0;
+  }
+  return total;
+}
+
+/* ── Equipment card (available) ─────────────────────────────────── */
+function EquipmentCard({ equip: e, cur, isManager, onRent, onEdit, onArchive }: {
+  equip: Equipment; cur: string; isManager: boolean;
+  onRent: () => void; onEdit: () => void; onArchive: () => void;
+}) {
+  return (
+    <div className="flex flex-col rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-900/10 p-4 gap-3">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
+            <Package size={16} />
+          </div>
+          <div>
+            <p className="text-sm font-semibold leading-tight">{e.name}</p>
+            {e.description && <p className="text-xs text-muted-foreground mt-0.5">{e.description}</p>}
+          </div>
+        </div>
+        {isManager && (
+          <div className="flex gap-0.5">
+            <button onClick={onEdit} className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer">
+              <Pencil size={12} />
+            </button>
+            <button onClick={onArchive} className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 cursor-pointer">
+              <Trash2 size={12} />
+            </button>
+          </div>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {e.tiers.map((t, i) => (
+          <span key={i} className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-white/70 dark:bg-white/10 border border-border text-muted-foreground">
+            {e.tiers.length === 1 ? 'Per hr' : i === e.tiers.length - 1 ? `Hr ${i + 1}+` : `Hr ${i + 1}`}: {cur}{t.price}
+          </span>
+        ))}
+      </div>
+      <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Available</span>
+      <button
+        onClick={onRent}
+        className="w-full h-9 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+      >
+        <Package size={13} /> Rent
+      </button>
+    </div>
+  );
+}
+
+/* ── Equipment card (active rental) ─────────────────────────────── */
+function ActiveEquipCard({ equip: e, tab, cur, isManager, onEdit, onReturn }: {
+  equip: Equipment; tab: Tab; cur: string; isManager: boolean;
+  onEdit: () => void; onReturn: () => void;
+}) {
+  const total = tabGrandTotal(tab.items, tab.discount);
+  return (
+    <div className="flex flex-col rounded-2xl border border-sky-200 dark:border-sky-800 bg-sky-50/60 dark:bg-sky-900/10 p-4 gap-3">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400">
+            <Package size={16} />
+          </div>
+          <div>
+            <p className="text-sm font-semibold leading-tight">{e.name}</p>
+            {e.description && <p className="text-xs text-muted-foreground mt-0.5">{e.description}</p>}
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400">Active</span>
+          {isManager && (
+            <button onClick={onEdit} className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer">
+              <Pencil size={12} />
+            </button>
+          )}
+        </div>
+      </div>
+      <div>
+        <p className="text-sm font-semibold">{tab.customerName}</p>
+        <p className="text-xs text-muted-foreground">at {tab.label}</p>
+        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1"><Clock size={11} /> {formatElapsed(tab.openedAt)}</span>
+          <span className="flex items-center gap-1"><DollarSign size={11} /> {cur}{total.toFixed(2)}</span>
+        </div>
+      </div>
+      <button
+        onClick={onReturn}
+        className="w-full h-9 rounded-xl text-xs font-semibold bg-sky-600 hover:bg-sky-700 text-white active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+      >
+        <Lock size={13} /> Return
+      </button>
+    </div>
+  );
+}
+
+/* ── Rent dialog ─────────────────────────────────────────────────── */
+function RentDialog({ equip: e, cur, availableSpaces, onClose, onConfirm }: {
+  equip: Equipment; cur: string; availableSpaces: CoworkSpace[];
+  onClose: () => void;
+  onConfirm: (customerName: string, hours: number, equipTotal: number, space: CoworkSpace, deskTotal: number, bookingEndsAt?: Date, customerId?: string) => void;
+}) {
+  const [name,             setName]             = useState('');
+  const [customerId,       setCustomerId]       = useState<string | undefined>();
+  const [hours,            setHours]            = useState(1);
+  const [spaceId,          setSpaceId]          = useState(availableSpaces[0]?.id ?? '');
+  const [deskBookingType,  setDeskBookingType]  = useState<'hot' | 'dedicated'>('hot');
+  const [dedicatedRateIdx, setDedicatedRateIdx] = useState(0);
+
+  const selectedSpace         = availableSpaces.find(s => s.id === spaceId) ?? availableSpaces[0];
+  const enabledDedicatedRates = (selectedSpace?.dedicatedRates ?? []).filter(r => r.enabled);
+  const hasDedicatedOption    = enabledDedicatedRates.length > 0;
+  const isDedicatedDesk       = hasDedicatedOption && deskBookingType === 'dedicated';
+  const hourlyRate            = selectedSpace?.rates?.find(r => r.period === 'hourly' && r.enabled)?.price ?? 0;
+  const equipTotal            = calcRentalTotal(e.tiers, hours);
+  const selectedDedicatedRate = enabledDedicatedRates[dedicatedRateIdx];
+  const deskTotal             = isDedicatedDesk ? (selectedDedicatedRate?.price ?? 0) : hourlyRate * hours;
+  const grandTotal            = equipTotal + deskTotal;
+  const noSpaces              = availableSpaces.length === 0;
+  const canSubmit             = name.trim().length > 0 && hours >= 1 && !noSpaces;
+
+  function handleSpaceChange(id: string) {
+    setSpaceId(id);
+    setDeskBookingType('hot');
+    setDedicatedRateIdx(0);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <form
+        onSubmit={ev => {
+          ev.preventDefault();
+          if (!canSubmit || !selectedSpace) return;
+          const bookingEndsAt = isDedicatedDesk && selectedDedicatedRate
+            ? new Date(Date.now() + PERIOD_DURATION_MS[selectedDedicatedRate.period])
+            : undefined;
+          onConfirm(name.trim(), hours, equipTotal, selectedSpace, deskTotal, bookingEndsAt, customerId);
+        }}
+        className="relative w-full max-w-sm glass-strong rounded-3xl p-6 shadow-2xl space-y-4"
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400">
+              <Package size={16} strokeWidth={2} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold">Rent Equipment</h2>
+              <p className="text-xs text-muted-foreground">{e.name}</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close" className="flex items-center justify-center w-8 h-8 rounded-xl text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer">
+            <X size={16} />
+          </button>
+        </div>
+
+        {noSpaces ? (
+          <p className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/10 rounded-xl px-3 py-2.5">
+            No desks or offices available right now. Equipment rental requires a space.
+          </p>
+        ) : (
+          <>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Customer name</label>
+              <CustomerPicker
+                value={name}
+                customerId={customerId}
+                onChange={(n, id) => { setName(n); setCustomerId(id); }}
+                placeholder="Search or type a name…"
+                autoFocus
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Desk / Office</label>
+                <select
+                  value={spaceId}
+                  onChange={ev => handleSpaceChange(ev.target.value)}
+                  className="w-full h-10 px-3 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  {availableSpaces.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Equipment Hours</label>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setHours(h => Math.max(1, h - 1))}
+                    className="flex items-center justify-center w-10 h-10 rounded-xl border border-border bg-white/50 dark:bg-white/5 text-foreground hover:bg-black/5 transition-colors cursor-pointer shrink-0"
+                  >
+                    <ChevronDown size={16} />
+                  </button>
+                  <span className="flex-1 text-center text-base font-bold tabular-nums">{hours}</span>
+                  <button
+                    type="button"
+                    onClick={() => setHours(h => h + 1)}
+                    className="flex items-center justify-center w-10 h-10 rounded-xl border border-border bg-white/50 dark:bg-white/5 text-foreground hover:bg-black/5 transition-colors cursor-pointer shrink-0"
+                  >
+                    <ChevronUp size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Desk booking type — only shown when space has dedicated rates */}
+            {hasDedicatedOption && (
+              <div className="space-y-1.5">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Desk Booking Type</span>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['hot', 'dedicated'] as const).map(t => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => { setDeskBookingType(t); setDedicatedRateIdx(0); }}
+                      className={`h-9 rounded-xl text-sm font-medium border transition-colors cursor-pointer ${
+                        deskBookingType === t
+                          ? 'border-primary/50 bg-primary/10 text-primary'
+                          : 'border-border bg-black/3 dark:bg-white/3 text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5'
+                      }`}
+                    >
+                      {BOOKING_TYPE_LABEL[t]}
+                    </button>
+                  ))}
+                </div>
+                {isDedicatedDesk && (
+                  <div className="space-y-1 pt-1">
+                    {enabledDedicatedRates.map((r, i) => (
+                      <label key={r.period} className={`flex items-center justify-between gap-3 px-3 py-2 rounded-xl border cursor-pointer transition-colors ${dedicatedRateIdx === i ? 'border-primary bg-primary/5' : 'border-border bg-black/3 dark:bg-white/3 hover:bg-black/5 dark:hover:bg-white/5'}`}>
+                        <div className="flex items-center gap-2">
+                          <input type="radio" name="ded-rate" checked={dedicatedRateIdx === i} onChange={() => setDedicatedRateIdx(i)} className="accent-primary" />
+                          <span className="text-sm font-medium">{PERIOD_LABEL[r.period]}</span>
+                        </div>
+                        <span className="text-sm font-semibold tabular-nums shrink-0">{cur}{r.price.toLocaleString()}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Price breakdown */}
+            <div className="rounded-xl border border-border bg-white/40 dark:bg-white/3 divide-y divide-border text-sm">
+              {Array.from({ length: hours }, (_, i) => {
+                const price = e.tiers[Math.min(i, e.tiers.length - 1)]?.price ?? 0;
+                return (
+                  <div key={`eq-${i}`} className="flex justify-between px-3 py-1.5">
+                    <span className="text-muted-foreground">{e.name} — hr {i + 1}</span>
+                    <span className="font-medium tabular-nums">{cur}{price.toFixed(2)}</span>
+                  </div>
+                );
+              })}
+              {deskTotal > 0 && (
+                <div className="flex justify-between px-3 py-1.5">
+                  <span className="text-muted-foreground">
+                    {selectedSpace?.name} — {isDedicatedDesk ? `${PERIOD_LABEL[selectedDedicatedRate!.period]} (Dedicated)` : `${hours}hr`}
+                  </span>
+                  <span className="font-medium tabular-nums">{cur}{deskTotal.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between px-3 py-2 font-semibold">
+                <span>Total</span>
+                <span className="tabular-nums">{cur}{grandTotal.toFixed(2)}</span>
+              </div>
+            </div>
+          </>
+        )}
+
+        <div className="flex gap-2 pt-1">
+          <button type="button" onClick={onClose} className="flex-1 h-10 rounded-2xl text-sm font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 active:scale-95 transition-all cursor-pointer">Cancel</button>
+          <button type="submit" disabled={!canSubmit} className="flex-1 h-10 rounded-2xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer">Rent</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+/* ── Equipment add/edit dialog ──────────────────────────────────── */
+function EquipmentDialog({ equip, cur, onClose, onSave }: {
+  equip: Equipment | null; cur: string;
+  onClose: () => void;
+  onSave: (e: Equipment) => void;
+}) {
+  const isNew = !equip;
+  const [name, setName]   = useState(equip?.name ?? '');
+  const [desc, setDesc]   = useState(equip?.description ?? '');
+  const [tiers, setTiers] = useState<EquipmentTier[]>(equip?.tiers ?? [{ price: 10 }]);
+
+  function addTier() {
+    setTiers(prev => [...prev, { price: prev[prev.length - 1]?.price ?? 0 }]);
+  }
+  function removeTier(idx: number) {
+    if (tiers.length <= 1) return;
+    setTiers(prev => prev.filter((_, i) => i !== idx));
+  }
+  function patchTier(idx: number, price: number) {
+    setTiers(prev => prev.map((t, i) => i === idx ? { price } : t));
+  }
+
+  function submit(ev: React.FormEvent) {
+    ev.preventDefault();
+    if (!name.trim()) { toast.error('Name required'); return; }
+    if (tiers.some(t => t.price < 0)) { toast.error('Prices must be 0 or more'); return; }
+    onSave({ id: equip?.id ?? newId('eq'), name: name.trim(), description: desc.trim() || undefined, tiers, archived: equip?.archived });
+  }
+
+  const inputCls = 'w-full h-10 px-3 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <form onSubmit={submit} className="relative w-full max-w-md glass-strong rounded-3xl shadow-2xl flex flex-col max-h-[92vh]">
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-border">
+          <h2 className="text-lg font-semibold">{isNew ? 'Add Equipment' : `Edit ${equip.name}`}</h2>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground cursor-pointer"><X size={18} /></button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+          <label className="block space-y-1.5">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Name</span>
+            <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder="e.g. MacBook Pro" className={inputCls} />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Description (optional)</span>
+            <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="e.g. 16-inch, M3 Pro" className={inputCls} />
+          </label>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Hourly pricing</span>
+              <span className="text-[10px] text-muted-foreground">Last tier repeats for additional hours</span>
+            </div>
+            <div className="rounded-xl border border-border bg-white/50 dark:bg-white/3 divide-y divide-border">
+              {tiers.map((t, i) => (
+                <div key={i} className="flex items-center gap-3 px-3 py-2.5">
+                  <span className="text-sm font-medium w-20 shrink-0 text-muted-foreground">
+                    {tiers.length === 1 ? 'Per hour' : i === tiers.length - 1 ? `Hr ${i + 1}+` : `Hour ${i + 1}`}
+                  </span>
+                  <div className="flex items-center gap-1 flex-1">
+                    <span className="text-sm text-muted-foreground shrink-0">{cur}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      value={t.price || ''}
+                      onChange={e => patchTier(i, parseFloat(e.target.value) || 0)}
+                      placeholder="0"
+                      className="flex-1 h-9 px-3 rounded-xl text-sm tabular-nums bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                  </div>
+                  {tiers.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeTier(i)}
+                      className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 cursor-pointer shrink-0"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={addTier}
+              className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-medium border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-border hover:bg-black/3 dark:hover:bg-white/3 cursor-pointer w-full justify-center transition-colors"
+            >
+              <Plus size={12} /> Add pricing tier
+            </button>
+          </div>
+        </div>
+
+        <div className="flex gap-2 px-6 py-4 border-t border-border">
+          <button type="button" onClick={onClose} className="flex-1 h-11 rounded-2xl text-sm font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 active:scale-95 transition-all cursor-pointer">Cancel</button>
+          <button type="submit" className="flex-1 h-11 rounded-2xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 transition-all cursor-pointer">Save</button>
+        </div>
+      </form>
     </div>
   );
 }

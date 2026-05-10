@@ -5,6 +5,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { PinPad } from './PinPad';
 import {
   getCurrentStaffId, setCurrentStaffId, useSettings, useCurrentStaff,
@@ -13,6 +14,8 @@ import { Sidebar } from '@/components/shell/Sidebar';
 import { MobileNav } from '@/components/shell/MobileNav';
 
 export function AuthShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isReceiptPage = pathname?.startsWith('/receipt/');
   const [unlocked, setUnlocked] = useState<boolean>(() => !!getCurrentStaffId());
   const settings = useSettings();
   const me = useCurrentStaff();
@@ -43,8 +46,13 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
     };
   }, [unlocked, settings.device.idleLockMinutes]);
 
-  if (!unlocked) {
+  if (!unlocked && !isReceiptPage) {
     return <PinPad onUnlock={() => setUnlocked(true)} />;
+  }
+
+  // Receipt pages are PIN-free — they open in a new tab and are read-only
+  if (isReceiptPage) {
+    return <>{children}</>;
   }
 
   return (

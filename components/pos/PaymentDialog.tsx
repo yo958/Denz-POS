@@ -1,8 +1,10 @@
 'use client';
 
-import { CreditCard, Banknote, X, Check } from 'lucide-react';
+import { CreditCard, QrCode, Banknote, X, Check, Tag } from 'lucide-react';
 import type { PaymentMethod, Tab } from '@/lib/types';
-import { tabGrandTotal, tabCardFee, CARD_FEE_RATE } from '@/lib/domain/tabs';
+import {
+  tabSubtotal, tabDiscountAmount, tabTax, tabGrandTotal, tabCardFee, CARD_FEE_RATE,
+} from '@/lib/domain/tabs';
 import { useSettings } from '@/lib/hooks/useStore';
 
 interface PaymentDialogProps {
@@ -21,18 +23,33 @@ export function PaymentDialog({
   const settings = useSettings();
   if (!open || !tab || !method || method === 'room') return null;
 
-  const isCard = method === 'card';
-  const baseTotal = tabGrandTotal(tab.items, tab.discount, settings.taxRate);
-  const cardFee = isCard ? tabCardFee(tab.items, tab.discount, settings.taxRate) : 0;
-  const total = baseTotal + cardFee;
-  const change = method === 'cash' ? Math.max(0, cashTendered - total) : 0;
-  const canConfirm = isCard || cashTendered >= total;
+  const taxRate   = settings.taxEnabled === false ? 0 : settings.taxRate;
+  const isCard    = method === 'card';
+  const isQR      = method === 'qr';
+  const isCash    = method === 'cash';
+
+  const subtotal  = tabSubtotal(tab.items);
+  const discount  = tabDiscountAmount(tab.items, tab.discount);
+  const tax       = tabTax(tab.items, tab.discount, taxRate);
+  const baseTotal = tabGrandTotal(tab.items, tab.discount, taxRate);
+  const cardFee   = isCard ? tabCardFee(tab.items, tab.discount, taxRate) : 0;
+  const total     = baseTotal + cardFee;
+  const change    = isCash ? Math.max(0, cashTendered - total) : 0;
+  const canConfirm = !isCash || cashTendered >= total;
   const cur = settings.currency;
+
+  const methodIcon = isCard ? <CreditCard size={18} strokeWidth={2} /> : isQR ? <QrCode size={18} strokeWidth={2} /> : <Banknote size={18} strokeWidth={2} />;
+  const methodLabel = isCard ? 'Card' : isQR ? 'QR' : 'Cash';
+  const methodColors = isCard
+    ? 'bg-primary/10 text-primary'
+    : isQR
+    ? 'bg-violet-100 dark:bg-violet-900/20 text-violet-700 dark:text-violet-400'
+    : 'bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Payment confirmation">
       <div className="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-sm glass-strong rounded-3xl p-6 shadow-2xl space-y-5">
+      <div className="relative w-full max-w-sm bg-background rounded-3xl p-6 shadow-2xl space-y-5 border border-border">
         <div className="flex items-start justify-between">
           <div>
             <h2 className="text-lg font-semibold">Confirm Payment</h2>
@@ -43,18 +60,33 @@ export function PaymentDialog({
           </button>
         </div>
 
-        <div className={`flex items-center justify-center gap-2 py-3 rounded-2xl ${
-          isCard ? 'bg-primary/10 text-primary' : 'bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400'
-        }`}>
-          {isCard ? <CreditCard size={18} strokeWidth={2} /> : <Banknote size={18} strokeWidth={2} />}
-          <span className="font-semibold">{isCard ? 'Card' : 'Cash'} Payment</span>
+        <div className={`flex items-center justify-center gap-2 py-3 rounded-2xl ${methodColors}`}>
+          {methodIcon}
+          <span className="font-semibold">{methodLabel} Payment</span>
         </div>
 
         <div className="space-y-2 text-sm">
           <div className="flex justify-between text-muted-foreground">
             <span>Subtotal</span>
-            <span className="tabular-nums">{cur}{baseTotal.toFixed(2)}</span>
+            <span className="tabular-nums">{cur}{subtotal.toFixed(2)}</span>
           </div>
+
+          {discount > 0 && (
+            <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
+              <span className="flex items-center gap-1">
+                <Tag size={11} strokeWidth={2} />
+                {tab.discount!.type === 'pct' ? `Discount (${tab.discount!.value}%)` : 'Discount'}
+              </span>
+              <span className="tabular-nums">−{cur}{discount.toFixed(2)}</span>
+            </div>
+          )}
+
+          {settings.taxEnabled !== false && (
+            <div className="flex justify-between text-muted-foreground">
+              <span>{settings.taxLabel} ({Math.round(settings.taxRate * 100)}%)</span>
+              <span className="tabular-nums">{cur}{tax.toFixed(2)}</span>
+            </div>
+          )}
 
           {isCard && (
             <div className="flex justify-between text-amber-600 dark:text-amber-400">
@@ -68,7 +100,7 @@ export function PaymentDialog({
             <span className="tabular-nums">{cur}{total.toFixed(2)}</span>
           </div>
 
-          {!isCard && (
+          {isCash && (
             <>
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Cash Tendered</span>
@@ -94,7 +126,7 @@ export function PaymentDialog({
           )}
         </div>
 
-        {!isCard && (
+        {isCash && (
           <div className="flex gap-2">
             {[Math.ceil(total / 10) * 10, Math.ceil(total / 20) * 20, Math.ceil(total / 50) * 50].map(amt => (
               <button

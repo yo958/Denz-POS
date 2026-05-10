@@ -3,6 +3,9 @@
 // ─────────────────────────────────────────────────────────────────
 
 import type {
+  CoworkSpace,
+  Customer,
+  Equipment,
   Product,
   Tab,
   Settings,
@@ -160,3 +163,9 @@ export const SEED_SETTINGS: Settings = {
     kdsSound: true,
   },
 };
+
+export const SEED_CUSTOMERS: Customer[] = [];
+
+export const SEED_SPACES: CoworkSpace[] = [];
+
+export const SEED_EQUIPMENT: Equipment[] = [];

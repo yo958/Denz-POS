@@ -1,6 +1,6 @@
 'use client';
 
-import { CreditCard, Banknote, BedDouble, Tag, Printer, ChefHat, RotateCcw } from 'lucide-react';
+import { CreditCard, QrCode, Banknote, BedDouble, Tag, Printer, ChefHat, RotateCcw } from 'lucide-react';
 import type { PaymentMethod, Tab } from '@/lib/types';
 import {
   tabSubtotal, tabDiscountAmount, tabTax, tabGrandTotal, tabRefundedAmount,
@@ -95,13 +95,20 @@ export function PaymentBar({
         </div>
       ) : (
         <>
-          <div className={`grid gap-2 ${hideCharge ? 'grid-cols-2' : 'grid-cols-3'}`}>
+          <div className={`grid gap-2 ${hideCharge ? 'grid-cols-3' : 'grid-cols-4'}`}>
             <button
               onClick={() => onPay('card')}
               className="flex flex-col items-center justify-center gap-1 h-14 rounded-2xl bg-primary text-primary-foreground font-medium text-xs hover:opacity-90 active:scale-95 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               <CreditCard size={16} strokeWidth={2} />
               Card
+            </button>
+            <button
+              onClick={() => onPay('qr')}
+              className="flex flex-col items-center justify-center gap-1 h-14 rounded-2xl border border-border bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-400 font-medium text-xs hover:bg-violet-100 dark:hover:bg-violet-900/30 active:scale-95 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              <QrCode size={16} strokeWidth={2} />
+              QR
             </button>
             <button
               onClick={() => onPay('cash')}
@@ -164,6 +171,7 @@ export function PaymentBar({
 function methodLabel(m?: PaymentMethod): string {
   switch (m) {
     case 'card': return 'Card';
+    case 'qr':   return 'QR';
     case 'cash': return 'Cash';
     case 'room': return 'Room charge';
     default:     return '—';

@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Receipt, Pencil, Check, X } from 'lucide-react';
+import { Receipt, Pencil, Check, X, Star } from 'lucide-react';
+import { CustomerPicker } from '@/components/customers/CustomerPicker';
 import { LineItem } from './LineItem';
 import { PaymentBar } from './PaymentBar';
 import { getStore } from '@/lib/store/store';
-import { useCurrentStaff } from '@/lib/hooks/useStore';
+import { useCurrentStaff, useCustomers, useSettings } from '@/lib/hooks/useStore';
+import { countryFlag, countryLabel } from '@/lib/countries';
 import { lineKey } from '@/lib/domain/tabs';
 import { toast } from '@/components/ui/toast';
 import type { PaymentMethod, Tab } from '@/lib/types';
@@ -87,32 +89,52 @@ interface CartHeaderProps { tab: Tab; readonly: boolean }
 
 function CartHeader({ tab, readonly }: CartHeaderProps) {
   const me = useCurrentStaff();
+  const customers = useCustomers();
+  const cur = useSettings().currency;
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(tab.customerName);
-  const [label, setLabel] = useState(tab.label);
-  const nameRef = useRef<HTMLInputElement>(null);
+  const [name, setName]       = useState(tab.customerName);
+  const [customerId, setCustomerId] = useState<string | undefined>(tab.customerId);
+  const [label, setLabel]     = useState(tab.label);
+  const labelRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { setName(tab.customerName); setLabel(tab.label); setEditing(false); }, [tab.id, tab.customerName, tab.label]);
-  useEffect(() => { if (editing) nameRef.current?.focus(); }, [editing]);
+  useEffect(() => {
+    setName(tab.customerName);
+    setCustomerId(tab.customerId);
+    setLabel(tab.label);
+    setEditing(false);
+  }, [tab.id, tab.customerName, tab.label, tab.customerId]);
 
   function save() {
     const n = name.trim();
     const l = label.trim();
     if (!n) { toast.error('Customer name required'); return; }
     if (!l) { toast.error('Label required'); return; }
-    if (n === tab.customerName && l === tab.label) { setEditing(false); return; }
-    getStore().tabs.set(prev => prev.map(t => t.id === tab.id ? { ...t, customerName: n, label: l } : t));
+    const noChange = n === tab.customerName && l === tab.label && customerId === tab.customerId;
+    if (noChange) { setEditing(false); return; }
+    const customerDiscount = customerId
+      ? customers.find(c => c.id === customerId)?.discount
+      : undefined;
+    getStore().tabs.set(prev => prev.map(t => {
+      if (t.id !== tab.id) return t;
+      const updated = { ...t, customerName: n, label: l, customerId: customerId ?? undefined };
+      if (customerId !== tab.customerId) {
+        updated.discount = customerDiscount ?? undefined;
+      }
+      return updated;
+    }));
     getStore().log('tab.update', `${tab.id} → ${n} · ${l}`, me?.id);
     toast.success('Tab updated');
     setEditing(false);
   }
   function cancel() {
-    setName(tab.customerName); setLabel(tab.label); setEditing(false);
+    setName(tab.customerName); setCustomerId(tab.customerId); setLabel(tab.label); setEditing(false);
   }
-  function onKey(e: React.KeyboardEvent) {
+  function onLabelKey(e: React.KeyboardEvent) {
     if (e.key === 'Enter') { e.preventDefault(); save(); }
     if (e.key === 'Escape') { e.preventDefault(); cancel(); }
   }
+
+  const linkedCustomer = customers.find(c => c.id === tab.customerId);
 
   const statusBadge = tab.status === 'open'
     ? null
@@ -125,20 +147,20 @@ function CartHeader({ tab, readonly }: CartHeaderProps) {
   if (editing) {
     return (
       <div className="px-4 pt-4 pb-3 border-b border-border space-y-2">
-        <input
-          ref={nameRef}
+        <CustomerPicker
           value={name}
-          onChange={e => setName(e.target.value)}
-          onKeyDown={onKey}
+          customerId={customerId}
+          onChange={(n, id) => { setName(n); setCustomerId(id); }}
           placeholder="Customer name"
-          aria-label="Customer name"
-          className="w-full h-9 px-3 rounded-xl text-sm font-semibold bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring"
+          autoFocus
+          inputClassName="w-full h-9 px-3 rounded-xl text-sm font-semibold bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring"
         />
         <div className="flex gap-2">
           <input
+            ref={labelRef}
             value={label}
             onChange={e => setLabel(e.target.value)}
-            onKeyDown={onKey}
+            onKeyDown={onLabelKey}
             placeholder="Table 4 / Desk 7 / …"
             aria-label="Tab label"
             className="flex-1 h-8 px-3 rounded-xl text-xs bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring"
@@ -154,23 +176,45 @@ function CartHeader({ tab, readonly }: CartHeaderProps) {
     );
   }
 
+  const discountPill = linkedCustomer?.discount
+    ? linkedCustomer.discount.type === 'pct'
+      ? `${linkedCustomer.discount.value}% off`
+      : `${cur}${linkedCustomer.discount.value} off`
+    : null;
+
   return (
     <div className="px-4 pt-4 pb-3 border-b border-border">
       <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <h2 className="text-base font-semibold leading-tight truncate">{tab.customerName}</h2>
+            {linkedCustomer?.vip && <Star size={13} className="text-amber-400 fill-amber-400 shrink-0" />}
+            {linkedCustomer?.country && (
+              <span className="relative group shrink-0 cursor-default">
+                <span className="text-base leading-none">{countryFlag(linkedCustomer.country)}</span>
+                <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap rounded-lg bg-foreground text-background text-[11px] font-medium px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-50">
+                  {countryLabel(linkedCustomer.country).replace(/^\S+\s/, '')}
+                </span>
+              </span>
+            )}
             {statusBadge}
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5 truncate">
-            <span className="capitalize">{tab.type}</span> · {tab.label}
-          </p>
+          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+            <p className="text-xs text-muted-foreground truncate">
+              <span className="capitalize">{tab.type}</span> · {tab.label}
+            </p>
+            {discountPill && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 shrink-0">
+                {discountPill}
+              </span>
+            )}
+          </div>
         </div>
         {!readonly && (
           <button
             onClick={() => setEditing(true)}
             aria-label="Edit tab name"
-            className="flex items-center justify-center w-8 h-8 rounded-xl text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="flex items-center justify-center w-8 h-8 rounded-xl text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring shrink-0"
           >
             <Pencil size={13} />
           </button>

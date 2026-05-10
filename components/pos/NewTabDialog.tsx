@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Coffee, Monitor, BedDouble } from 'lucide-react';
 import type { TabType } from '@/lib/types';
+import { CustomerPicker } from '@/components/customers/CustomerPicker';
 
 interface NewTabDialogProps {
   open: boolean;
   onClose: () => void;
-  onCreate: (name: string, type: TabType, label: string) => void;
+  onCreate: (name: string, type: TabType, label: string, customerId?: string) => void;
 }
 
 const TYPES: { value: TabType; label: string; icon: typeof Coffee; placeholder: string }[] = [
@@ -17,17 +18,17 @@ const TYPES: { value: TabType; label: string; icon: typeof Coffee; placeholder: 
 ];
 
 export function NewTabDialog({ open, onClose, onCreate }: NewTabDialogProps) {
-  const [name,  setName]  = useState('');
-  const [type,  setType]  = useState<TabType>('cafe');
-  const [label, setLabel] = useState('');
-  const nameRef = useRef<HTMLInputElement>(null);
+  const [name,       setName]       = useState('');
+  const [customerId, setCustomerId] = useState<string | undefined>();
+  const [type,       setType]       = useState<TabType>('cafe');
+  const [label,      setLabel]      = useState('');
 
   useEffect(() => {
     if (open) {
       setName('');
+      setCustomerId(undefined);
       setType('cafe');
       setLabel('');
-      setTimeout(() => nameRef.current?.focus(), 50);
     }
   }, [open]);
 
@@ -39,7 +40,7 @@ export function NewTabDialog({ open, onClose, onCreate }: NewTabDialogProps) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canCreate) return;
-    onCreate(name.trim(), type, label.trim() || placeholder);
+    onCreate(name.trim(), type, label.trim() || placeholder, customerId);
   }
 
   return (
@@ -77,25 +78,17 @@ export function NewTabDialog({ open, onClose, onCreate }: NewTabDialogProps) {
           </button>
         </div>
 
-        {/* Customer name */}
+        {/* Customer picker */}
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Customer Name
           </label>
-          <input
-            ref={nameRef}
-            type="text"
+          <CustomerPicker
             value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="e.g. Emma K."
-            required
-            className="
-              w-full h-10 px-3 rounded-xl text-sm
-              bg-black/5 dark:bg-white/5 border border-border
-              placeholder:text-muted-foreground text-foreground
-              focus:outline-none focus:ring-2 focus:ring-ring
-              transition-all duration-150
-            "
+            customerId={customerId}
+            onChange={(n, id) => { setName(n); setCustomerId(id); }}
+            placeholder="Search or type a name…"
+            autoFocus
           />
         </div>
 
@@ -105,13 +98,13 @@ export function NewTabDialog({ open, onClose, onCreate }: NewTabDialogProps) {
             Type
           </span>
           <div className="grid grid-cols-3 gap-2">
-            {TYPES.map(({ value, label: tLabel, icon: Icon }) => {
-              const active = type === value;
+            {TYPES.map(({ value: v, label: tLabel, icon: Icon }) => {
+              const active = type === v;
               return (
                 <button
-                  key={value}
+                  key={v}
                   type="button"
-                  onClick={() => setType(value)}
+                  onClick={() => setType(v)}
                   className={`
                     flex flex-col items-center gap-1.5 py-3 rounded-2xl border text-sm font-medium
                     transition-all duration-150 cursor-pointer

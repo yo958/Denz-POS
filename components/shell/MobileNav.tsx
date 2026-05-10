@@ -8,16 +8,17 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutGrid, BookOpen, BedDouble, BarChart2, Settings,
-  Laptop, ChefHat, History, LogOut,
+  Laptop, ChefHat, History, LogOut, Users,
 } from 'lucide-react';
 import { setCurrentStaffId, useCurrentStaff } from '@/lib/hooks/useStore';
 
 const NAV = [
   { href: '/',          icon: LayoutGrid, label: 'POS',     managerOnly: false },
   { href: '/coworking', icon: Laptop,     label: 'Desks',   managerOnly: false },
-  { href: '/menu',      icon: BookOpen,   label: 'Menu',    managerOnly: false },
-  { href: '/rooms',     icon: BedDouble,  label: 'Rooms',   managerOnly: false },
-  { href: '/kds',       icon: ChefHat,    label: 'Kitchen', managerOnly: false },
+  { href: '/menu',      icon: BookOpen,   label: 'Menu',    managerOnly: true  },
+  { href: '/rooms',     icon: BedDouble,  label: 'Rooms',     managerOnly: false },
+  { href: '/customers', icon: Users,      label: 'Customers', managerOnly: false },
+  { href: '/kds',       icon: ChefHat,    label: 'Kitchen',   managerOnly: false },
   { href: '/history',   icon: History,    label: 'History', managerOnly: true  },
   { href: '/reports',   icon: BarChart2,  label: 'Reports', managerOnly: true  },
   { href: '/settings',  icon: Settings,   label: 'Settings',managerOnly: true  },

@@ -1,6 +1,6 @@
 {
   "name": "denz-pos",
-  "version": "0.3.1",
+  "version": "0.7.0",
   "private": true,
   "scripts": {
     "dev": "next dev",

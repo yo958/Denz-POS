@@ -4,8 +4,8 @@
 
 export type TabType = 'cafe' | 'desk' | 'room';
 export type TabStatus = 'open' | 'paid' | 'refunded';
-export type PaymentMethod = 'card' | 'cash' | 'room';
-export type ProductCategory = 'food' | 'drinks' | 'desks' | 'rooms';
+export type PaymentMethod = 'card' | 'qr' | 'cash' | 'room';
+export type ProductCategory = 'food' | 'drinks' | 'desks' | 'rooms' | 'equipment-rental';
 export type StaffRole = 'manager' | 'staff';
 
 /* ── Discount ─────────────────────────────────────────────────── */
@@ -138,10 +138,14 @@ export interface Tab {
   discount?: Discount;
   /** If charged to a room, this is the parent stay. */
   stayId?: string;
+  /** Linked customer profile id (set when staff picks from CustomerPicker). */
+  customerId?: string;
   voids?: VoidEntry[];
   refunds?: Refund[];
   /** Latest "send to kitchen" timestamp. */
   kitchenSentAt?: Date;
+  /** For dedicated-desk bookings: when the booked period expires. */
+  bookingEndsAt?: Date;
 }
 
 /* ── Stay (folio) ─────────────────────────────────────────────── */
@@ -158,8 +162,64 @@ export interface Stay {
   checkOutAt?: Date;
   /** Long-running tab that all charges flow into. */
   folioTabId: string;
+  /** Linked customer profile id. */
+  customerId?: string;
   status: StayStatus;
   notes?: string;
+}
+
+/* ── Coworking spaces ─────────────────────────────────────────── */
+export type CoworkSpaceType = 'desk' | 'private-office';
+export type CoworkRatePeriod = 'hourly' | 'daily' | 'weekly' | '2-weeks' | 'monthly' | '3-months' | '6-months' | 'yearly';
+
+export interface CoworkSpaceRate {
+  period: CoworkRatePeriod;
+  price: number;
+  enabled: boolean;
+}
+
+export interface CoworkSpace {
+  id: string;
+  name: string;
+  type: CoworkSpaceType;
+  description?: string;
+  /** Hot desk / walk-in rates. */
+  rates: CoworkSpaceRate[];
+  /** If present (and has enabled entries), desk also supports dedicated (block) bookings at these rates. */
+  dedicatedRates?: CoworkSpaceRate[];
+  archived?: boolean;
+}
+
+/* ── Equipment Rental ─────────────────────────────────────────── */
+export interface EquipmentTier {
+  price: number; // price for this hour slot; the last entry repeats for all additional hours
+}
+
+export interface Equipment {
+  id: string;
+  name: string;
+  description?: string;
+  tiers: EquipmentTier[]; // tiers[0] = hr 1, tiers[1] = hr 2, … last tier repeats
+  archived?: boolean;
+}
+
+/* ── Customer ─────────────────────────────────────────────────── */
+export interface Customer {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+  jobRole?: string;
+  /** Profile photo — data URL or hosted path. */
+  image?: string;
+  discount?: Discount;
+  vip?: boolean;
+  visitorType?: 'local' | 'tourist' | 'expat' | 'semi-expat';
+  country?: string;
+  notes?: string;
+  createdAt: Date;
+  archived?: boolean;
 }
 
 /* ── Staff ────────────────────────────────────────────────────── */
@@ -196,6 +256,7 @@ export interface KitchenTicketItem {
   productName: string;
   qty: number;
   note?: string;
+  modifiers?: Pick<SelectedModifier, 'groupName' | 'name'>[];
 }
 export interface KitchenTicket {
   id: string;
@@ -216,6 +277,8 @@ export type AuditAction =
   | 'modifier.create' | 'modifier.update' | 'modifier.delete'
   | 'shift.open' | 'shift.close'
   | 'staff.create' | 'staff.update' | 'staff.delete'
+  | 'customer.create' | 'customer.update' | 'customer.delete'
+  | 'equipment.create' | 'equipment.update' | 'equipment.delete' | 'rental.create'
   | 'settings.update' | 'data.export' | 'data.import' | 'data.wipe';
 export interface AuditEntry {
   id: string;

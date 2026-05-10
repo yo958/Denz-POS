@@ -4,13 +4,13 @@
 // ─────────────────────────────────────────────────────────────────
 
 import type {
-  AuditAction, AuditEntry, KitchenTicket, ModifierGroup, Product, Settings, Shift,
-  Staff, Stay, Tab,
+  AuditAction, AuditEntry, CoworkSpace, Customer, Equipment, KitchenTicket, ModifierGroup, Product,
+  Settings, Shift, Staff, Stay, Tab,
 } from '../types';
 import { StorageSlice } from './storage';
 import {
-  SEED_AUDIT, SEED_MODIFIER_GROUPS, SEED_PRODUCTS, SEED_SETTINGS, SEED_SHIFT, SEED_STAFF,
-  SEED_STAYS, SEED_TABS, SEED_TICKETS,
+  SEED_AUDIT, SEED_CUSTOMERS, SEED_EQUIPMENT, SEED_MODIFIER_GROUPS, SEED_PRODUCTS, SEED_SETTINGS, SEED_SHIFT,
+  SEED_SPACES, SEED_STAFF, SEED_STAYS, SEED_TABS, SEED_TICKETS,
 } from './seed';
 import { newId } from '../domain/id';
 import { db, ensureAuth } from '../firebase';
@@ -29,8 +29,11 @@ class Store {
   readonly tabs     = new StorageSlice<Tab[]>('denz.tabs',       CURRENT_SCHEMA, () => SEED_TABS);
   readonly stays    = new StorageSlice<Stay[]>('denz.stays',     CURRENT_SCHEMA, () => SEED_STAYS);
   readonly shift    = new StorageSlice<Shift | null>('denz.shift', CURRENT_SCHEMA, () => SEED_SHIFT);
-  readonly tickets  = new StorageSlice<KitchenTicket[]>('denz.tickets', CURRENT_SCHEMA, () => SEED_TICKETS);
-  readonly audit    = new StorageSlice<AuditEntry[]>('denz.audit', CURRENT_SCHEMA, () => SEED_AUDIT);
+  readonly tickets   = new StorageSlice<KitchenTicket[]>('denz.tickets',   CURRENT_SCHEMA, () => SEED_TICKETS);
+  readonly audit     = new StorageSlice<AuditEntry[]>('denz.audit',       CURRENT_SCHEMA, () => SEED_AUDIT);
+  readonly customers  = new StorageSlice<Customer[]>('denz.customers',    CURRENT_SCHEMA, () => SEED_CUSTOMERS);
+  readonly spaces     = new StorageSlice<CoworkSpace[]>('denz.spaces',    CURRENT_SCHEMA, () => SEED_SPACES);
+  readonly equipment  = new StorageSlice<Equipment[]>('denz.equipment',   CURRENT_SCHEMA, () => SEED_EQUIPMENT);
 
   /** Map of storage key -> slice for cross-tab sync. */
   private readonly slicesByKey: Map<string, { refresh(): void }>;
@@ -45,8 +48,11 @@ class Store {
       [this.tabs.storageKey,     this.tabs],
       [this.stays.storageKey,    this.stays],
       [this.shift.storageKey,    this.shift],
-      [this.tickets.storageKey,  this.tickets],
-      [this.audit.storageKey,    this.audit],
+      [this.tickets.storageKey,   this.tickets],
+      [this.audit.storageKey,     this.audit],
+      [this.customers.storageKey,  this.customers],
+      [this.spaces.storageKey,     this.spaces],
+      [this.equipment.storageKey,  this.equipment],
     ];
     this.slicesByKey = new Map(entries);
 
@@ -62,6 +68,9 @@ class Store {
         this.shift.connectFirestore(FS('shift'));
         this.tickets.connectFirestore(FS('tickets'));
         this.audit.connectFirestore(FS('audit'));
+        this.customers.connectFirestore(FS('customers'));
+        this.spaces.connectFirestore(FS('spaces'));
+        this.equipment.connectFirestore(FS('equipment'));
       });
     }
 
@@ -78,7 +87,7 @@ class Store {
       };
       for (const slice of [
         this.settings, this.staff, this.products, this.modifierGroups, this.tabs,
-        this.stays, this.shift, this.tickets, this.audit,
+        this.stays, this.shift, this.tickets, this.audit, this.customers, this.spaces, this.equipment,
       ]) {
         wrap(slice as unknown as StorageSlice<unknown>);
       }

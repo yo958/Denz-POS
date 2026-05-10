@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { TrendingUp, ShoppingBag, Clock, DollarSign, Coffee, Monitor, BedDouble, RotateCcw, CreditCard, Banknote } from 'lucide-react';
+import { TrendingUp, ShoppingBag, Clock, DollarSign, Coffee, Monitor, BedDouble, RotateCcw, CreditCard, QrCode, Banknote } from 'lucide-react';
 import { useTabs, useShift, useSettings, useCurrentStaff } from '@/lib/hooks/useStore';
 import { lineUnitPrice, tabGrandTotal, tabRefundedAmount, tabCardFee } from '@/lib/domain/tabs';
 import { buildZReport } from '@/lib/domain/shift';
@@ -25,9 +25,10 @@ const TYPE_META: Record<TabType, { label: string; icon: typeof Coffee; color: st
 };
 
 const METHOD_META: Record<PaymentMethod, { label: string; icon: typeof CreditCard }> = {
-  card: { label: 'Card', icon: CreditCard },
-  cash: { label: 'Cash', icon: Banknote },
-  room: { label: 'Room', icon: BedDouble },
+  card: { label: 'Card',      icon: CreditCard },
+  qr:   { label: 'QR',       icon: QrCode },
+  cash: { label: 'Cash',     icon: Banknote },
+  room: { label: 'Room',     icon: BedDouble },
 };
 
 export default function ReportsPage() {
@@ -60,7 +61,7 @@ export default function ReportsPage() {
     const totalItems = inRange.reduce((s, t) => s + t.items.reduce((s2, li) => s2 + li.qty, 0), 0);
 
     const byType: Record<TabType, number> = { cafe: 0, desk: 0, room: 0 };
-    const byMethod: Record<PaymentMethod, number> = { card: 0, cash: 0, room: 0 };
+    const byMethod: Record<PaymentMethod, number> = { card: 0, qr: 0, cash: 0, room: 0 };
     for (const t of paid) {
       // Bucket revenue by each line item's product category, not the tab type,
       // since one tab can mix cafe items with desk/room charges.
@@ -165,7 +166,7 @@ export default function ReportsPage() {
 
         <section>
           <h2 className="text-sm font-semibold mb-3">By Payment Method</h2>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {(Object.entries(stats.byMethod) as [PaymentMethod, number][]).map(([m, v]) => {
               const { label, icon: Icon } = METHOD_META[m];
               return (
@@ -189,6 +190,7 @@ export default function ReportsPage() {
               <span className="text-muted-foreground">Opening float</span><span className="text-right tabular-nums">{cur}{z.shift.openingFloat.toFixed(2)}</span>
               <span className="text-muted-foreground">Cash sales</span>   <span className="text-right tabular-nums">{cur}{z.totalsByMethod.cash.toFixed(2)}</span>
               <span className="text-muted-foreground">Card sales</span>   <span className="text-right tabular-nums">{cur}{z.totalsByMethod.card.toFixed(2)}</span>
+              <span className="text-muted-foreground">QR sales</span>     <span className="text-right tabular-nums">{cur}{z.totalsByMethod.qr.toFixed(2)}</span>
               <span className="text-muted-foreground">Room charges</span> <span className="text-right tabular-nums">{cur}{z.totalsByMethod.room.toFixed(2)}</span>
               <span className="text-muted-foreground">Refunds</span>      <span className="text-right tabular-nums text-rose-600 dark:text-rose-400">−{cur}{z.refundsTotal.toFixed(2)}</span>
               <span className="font-semibold">Net sales</span>            <span className="text-right font-semibold tabular-nums">{cur}{z.netSales.toFixed(2)}</span>

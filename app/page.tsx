@@ -12,7 +12,7 @@ import { ChargeToRoomDialog } from '@/components/pos/ChargeToRoomDialog';
 import { RefundDialog } from '@/components/pos/RefundDialog';
 import { VoidDialog } from '@/components/pos/VoidDialog';
 import { ProductOptionsDialog } from '@/components/pos/ProductOptionsDialog';
-import { useTabs, useStays, useCurrentStaff, useSettings } from '@/lib/hooks/useStore';
+import { useTabs, useStays, useCurrentStaff, useSettings, useCustomers } from '@/lib/hooks/useStore';
 import { getStore } from '@/lib/store/store';
 import {
   effectiveQty, lineKey, lineUnitPrice, modifiersStableKey,
@@ -28,6 +28,7 @@ export default function POSPage() {
   const stays = useStays();
   const me = useCurrentStaff();
   const cur = useSettings().currency;
+  const customers = useCustomers();
   const store = getStore();
 
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
@@ -76,7 +77,10 @@ export default function POSPage() {
   }, [tabs, newTabOpen, paymentOpen, discountOpen, voidOpen, refundOpen, chargeRoomOpen]);
 
   /* ── Tab CRUD ──────────────────────────────────────── */
-  function handleNewTab(name: string, type: TabType, label: string) {
+  function handleNewTab(name: string, type: TabType, label: string, customerId?: string) {
+    const customerDiscount = customerId
+      ? customers.find(c => c.id === customerId)?.discount
+      : undefined;
     const tab: Tab = {
       id: newId('tab'),
       customerName: name,
@@ -85,6 +89,8 @@ export default function POSPage() {
       items: [],
       openedAt: new Date(),
       status: 'open',
+      ...(customerId ? { customerId } : {}),
+      ...(customerDiscount ? { discount: customerDiscount } : {}),
     };
     store.tabs.set(prev => [tab, ...prev]);
     store.log('tab.create', `${type} · ${name} · ${label}`, me?.id);
@@ -217,7 +223,8 @@ export default function POSPage() {
     }));
 
     store.log('tab.pay', `${activeTab.customerName} · ${activeTab.label} · ${method} · ${cur}${total.toFixed(2)}`, me?.id);
-    toast.success(`Paid ${cur}${total.toFixed(2)} via ${method === 'card' ? 'card' : 'cash'}`);
+    const methodName = method === 'card' ? 'card' : method === 'qr' ? 'QR' : 'cash';
+    toast.success(`Paid ${cur}${total.toFixed(2)} via ${methodName}`);
     setPaymentOpen(false);
     setPaymentMethod(null);
     setCashTendered(0);
@@ -349,6 +356,7 @@ export default function POSPage() {
         productName: x.li.product.name,
         qty: x.diff,
         note: x.li.note,
+        modifiers: x.li.modifiers?.map(m => ({ groupName: m.groupName, name: m.name })),
       })),
       createdAt: new Date(),
       status: 'new',

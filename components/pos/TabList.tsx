@@ -4,6 +4,7 @@ import { Plus } from 'lucide-react';
 import type { Tab } from '@/lib/types';
 import { TabListItem } from './TabListItem';
 import { getStore } from '@/lib/store/store';
+import { useCustomers } from '@/lib/hooks/useStore';
 import { confirm } from '@/components/ui/confirm-dialog';
 
 interface TabListProps {
@@ -14,6 +15,7 @@ interface TabListProps {
 }
 
 export function TabList({ tabs, activeTabId, onSelectTab, onNewTab }: TabListProps) {
+  const customers = useCustomers();
   const open = tabs.filter(t => t.status === 'open');
   // Only show settled tabs from today; older tabs live on the History page.
   const startOfToday = new Date();
@@ -73,6 +75,7 @@ export function TabList({ tabs, activeTabId, onSelectTab, onNewTab }: TabListPro
             key={tab.id}
             tab={tab}
             active={tab.id === activeTabId}
+            customer={customers.find(c => c.id === tab.customerId) ?? null}
             onClick={() => onSelectTab(tab.id)}
             onDelete={() => handleDelete(tab)}
           />
