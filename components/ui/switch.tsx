@@ -30,7 +30,7 @@ export function Switch({ checked, onChange, label, disabled = false, size = 'md'
   return (
     <label
       htmlFor={id}
-      className={`inline-flex items-center gap-3 select-none ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+      className={`flex items-center gap-3 select-none ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
     >
       <span
         role="switch"
