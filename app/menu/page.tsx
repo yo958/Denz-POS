@@ -103,9 +103,25 @@ export default function MenuPage() {
         </div>
       </header>
 
+      {/* Category quick-jump bar */}
+      {grouped.some(g => g.products.length > 0) && (
+        <div className="flex items-center gap-2 px-6 py-2 border-b border-border bg-background/60">
+          {grouped.map(({ category, products: list }) => (
+            <button
+              key={category}
+              onClick={() => document.getElementById(`cat-${category}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-opacity cursor-pointer ${CATEGORY_COLOR[category] ?? ''} hover:opacity-80`}
+            >
+              {CATEGORY_LABEL[category]}
+              <span className="opacity-70">{list.length}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto p-6 space-y-6 max-w-4xl">
         {grouped.map(({ category, products: list }) => (
-          <section key={category}>
+          <section key={category} id={`cat-${category}`}>
             <div className="flex items-center gap-2 mb-3">
               <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${CATEGORY_COLOR[category] ?? ''}`}>{CATEGORY_LABEL[category]}</span>
               <span className="text-xs text-muted-foreground">{list.length}</span>

@@ -86,7 +86,10 @@ function mapRow(headers: string[], cells: string[]): RowResult {
   const glyph = glyphRaw || null;
 
   const kitchenRaw = get('send_to_kitchen').toLowerCase();
-  const sendToKitchen = kitchenRaw === '' || kitchenRaw === 'true' || kitchenRaw === 'yes' || kitchenRaw === '1';
+  // When blank: default true for food, false for drinks (matching manual product behaviour)
+  const sendToKitchen = kitchenRaw === ''
+    ? category === 'food'
+    : kitchenRaw === 'true' || kitchenRaw === 'yes' || kitchenRaw === '1';
 
   return {
     ok: true,

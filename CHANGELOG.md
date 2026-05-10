@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.9.3] - 2026-05-10
+### Fixed
+- **Menu page — category jump bar** — added Food / Drinks pill buttons below the header that instantly scroll to the right section; useful when the menu has many items and drinks are hidden below a long food list
+- **CSV import — KDS default for drinks** — drinks imported without a `send_to_kitchen` column now correctly default to `false` (not sent to kitchen), matching the manual product behaviour; food still defaults to `true`
+
 ## [0.9.2] - 2026-05-10
 ### Changed
 - **Modifier groups — names only in Settings** — removed the global price field from modifier group options; prices are now set per product, not per group
