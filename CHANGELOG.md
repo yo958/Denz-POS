@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.9.4] - 2026-05-10
+### Changed
+- **Menu item editor — toggle switches** — replaced all checkboxes in the product edit dialog with modern pill-style toggle switches: Track cost price, Manage stock, Send to kitchen (KDS), and per-modifier-option visibility toggles all use the new `Switch` component
+
 ## [0.9.3] - 2026-05-10
 ### Fixed
 - **Menu page — category jump bar** — added Food / Drinks pill buttons below the header that instantly scroll to the right section; useful when the menu has many items and drinks are hidden below a long food list

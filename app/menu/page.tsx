@@ -8,6 +8,7 @@ import { newId } from '@/lib/domain/id';
 import { confirm } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/toast';
 import { CsvImportDialog } from '@/components/menu/CsvImportDialog';
+import { Switch } from '@/components/ui/switch';
 import type { Product, ProductCategory } from '@/lib/types';
 
 const CATEGORY_LABEL: Partial<Record<ProductCategory, string>> = {
@@ -292,15 +293,11 @@ function ProductDialog({ product, onClose, onSave }: ProductDialogProps) {
           </div>
         </div>
 
-        <label className="flex items-center gap-2 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={form.cost != null}
-            onChange={e => setForm({ ...form, cost: e.target.checked ? (form.cost ?? 0) : null })}
-            className="w-4 h-4 accent-primary"
-          />
-          <span className="text-sm">Track cost price</span>
-        </label>
+        <Switch
+          checked={form.cost != null}
+          onChange={on => setForm({ ...form, cost: on ? (form.cost ?? 0) : null })}
+          label="Track cost price"
+        />
 
         {form.cost != null && (
           <Field label="Cost price">
@@ -310,19 +307,15 @@ function ProductDialog({ product, onClose, onSave }: ProductDialogProps) {
 
         {canTrackStock && (
           <>
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={tracksStock}
-                onChange={e => setForm({
-                  ...form,
-                  stock: e.target.checked ? (form.stock ?? 0) : null,
-                  lowStockAt: e.target.checked ? form.lowStockAt : null,
-                })}
-                className="w-4 h-4 accent-primary"
-              />
-              <span className="text-sm">Manage stock for this item</span>
-            </label>
+            <Switch
+              checked={tracksStock}
+              onChange={on => setForm({
+                ...form,
+                stock: on ? (form.stock ?? 0) : null,
+                lowStockAt: on ? form.lowStockAt : null,
+              })}
+              label="Manage stock for this item"
+            />
 
             {tracksStock && (
               <div className="grid grid-cols-2 gap-3">
@@ -337,10 +330,11 @@ function ProductDialog({ product, onClose, onSave }: ProductDialogProps) {
           </>
         )}
 
-        <label className="flex items-center gap-2 cursor-pointer select-none">
-          <input type="checkbox" checked={form.sendToKitchen} onChange={e => setForm({ ...form, sendToKitchen: e.target.checked })} className="w-4 h-4 accent-primary" />
-          <span className="text-sm">Send to kitchen (KDS)</span>
-        </label>
+        <Switch
+          checked={form.sendToKitchen}
+          onChange={on => setForm({ ...form, sendToKitchen: on })}
+          label="Send to kitchen (KDS)"
+        />
 
         {groups.filter(g => !g.archived).length > 0 && (
           <div className="space-y-2">
@@ -414,12 +408,10 @@ function ProductDialog({ product, onClose, onSave }: ProductDialogProps) {
                       const price = groupPrices[o.id] ?? 0;
                       return (
                         <div key={o.id} className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
+                          <Switch
+                            size="sm"
                             checked={isEnabled}
-                            onChange={e => setEnabled(o.id, e.target.checked)}
-                            aria-label={`Show ${o.name}`}
-                            className="w-4 h-4 accent-primary"
+                            onChange={on => setEnabled(o.id, on)}
                           />
                           <span className={`flex-1 text-sm truncate transition-opacity ${!isEnabled ? 'opacity-40' : ''}`}>{o.name}</span>
                           <input
