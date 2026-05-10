@@ -4,6 +4,10 @@ import { useState, useEffect } from 'react';
 import { X, Coffee, Monitor, BedDouble } from 'lucide-react';
 import type { TabType } from '@/lib/types';
 import { CustomerPicker } from '@/components/customers/CustomerPicker';
+import { Switch } from '@/components/ui/switch';
+import { getStore } from '@/lib/store/store';
+import { newId } from '@/lib/domain/id';
+import { useCurrentStaff } from '@/lib/hooks/useStore';
 
 interface NewTabDialogProps {
   open: boolean;
@@ -18,10 +22,16 @@ const TYPES: { value: TabType; label: string; icon: typeof Coffee; placeholder: 
 ];
 
 export function NewTabDialog({ open, onClose, onCreate }: NewTabDialogProps) {
-  const [name,       setName]       = useState('');
-  const [customerId, setCustomerId] = useState<string | undefined>();
-  const [type,       setType]       = useState<TabType>('cafe');
-  const [label,      setLabel]      = useState('');
+  const me = useCurrentStaff();
+  const [name,            setName]            = useState('');
+  const [customerId,      setCustomerId]       = useState<string | undefined>();
+  const [type,            setType]             = useState<TabType>('cafe');
+  const [label,           setLabel]            = useState('');
+  const [saveAsCustomer,  setSaveAsCustomer]   = useState(false);
+
+  // Show the "save as customer" toggle only when a free-text name is entered
+  // (i.e. no existing customer was picked from the dropdown)
+  const showSaveToggle = name.trim().length > 0 && !customerId;
 
   useEffect(() => {
     if (open) {
@@ -29,6 +39,7 @@ export function NewTabDialog({ open, onClose, onCreate }: NewTabDialogProps) {
       setCustomerId(undefined);
       setType('cafe');
       setLabel('');
+      setSaveAsCustomer(false);
     }
   }, [open]);
 
@@ -40,7 +51,19 @@ export function NewTabDialog({ open, onClose, onCreate }: NewTabDialogProps) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canCreate) return;
-    onCreate(name.trim(), type, label.trim() || placeholder, customerId);
+    let resolvedCustomerId = customerId;
+    // If "Save as new customer" is on and no existing customer was picked, create one now
+    if (saveAsCustomer && !customerId) {
+      const newCustomer = {
+        id: newId('cust'),
+        name: name.trim(),
+        createdAt: new Date(),
+      };
+      getStore().customers.set(prev => [...prev, newCustomer]);
+      getStore().log('customer.create', newCustomer.name, me?.id);
+      resolvedCustomerId = newCustomer.id;
+    }
+    onCreate(name.trim(), type, label.trim() || placeholder, resolvedCustomerId);
   }
 
   return (
@@ -79,17 +102,25 @@ export function NewTabDialog({ open, onClose, onCreate }: NewTabDialogProps) {
         </div>
 
         {/* Customer picker */}
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Customer Name
           </label>
           <CustomerPicker
             value={name}
             customerId={customerId}
-            onChange={(n, id) => { setName(n); setCustomerId(id); }}
+            onChange={(n, id) => { setName(n); setCustomerId(id); setSaveAsCustomer(false); }}
             placeholder="Search or type a name…"
             autoFocus
           />
+          {showSaveToggle && (
+            <Switch
+              checked={saveAsCustomer}
+              onChange={setSaveAsCustomer}
+              label="Save as new customer"
+              size="sm"
+            />
+          )}
         </div>
 
         {/* Type selector */}

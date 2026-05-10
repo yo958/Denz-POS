@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Receipt, Pencil, Check, X, Star } from 'lucide-react';
+import { Receipt, Pencil, Check, X, Star, UserPlus } from 'lucide-react';
+import { newId } from '@/lib/domain/id';
 import { CustomerPicker } from '@/components/customers/CustomerPicker';
 import { LineItem } from './LineItem';
 import { PaymentBar } from './PaymentBar';
@@ -211,13 +212,32 @@ function CartHeader({ tab, readonly }: CartHeaderProps) {
           </div>
         </div>
         {!readonly && (
-          <button
-            onClick={() => setEditing(true)}
-            aria-label="Edit tab name"
-            className="flex items-center justify-center w-8 h-8 rounded-xl text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring shrink-0"
-          >
-            <Pencil size={13} />
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            {/* Save to customers — shown only when tab is not yet linked to a customer */}
+            {!tab.customerId && (
+              <button
+                onClick={() => {
+                  const newCustomer = { id: newId('cust'), name: tab.customerName, createdAt: new Date() };
+                  getStore().customers.set(prev => [...prev, newCustomer]);
+                  getStore().tabs.set(prev => prev.map(t => t.id === tab.id ? { ...t, customerId: newCustomer.id } : t));
+                  getStore().log('customer.create', newCustomer.name, me?.id);
+                  toast.success(`${tab.customerName} saved to customers`);
+                }}
+                aria-label="Save to customers"
+                title="Save to customers"
+                className="flex items-center justify-center w-8 h-8 rounded-xl text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              >
+                <UserPlus size={13} />
+              </button>
+            )}
+            <button
+              onClick={() => setEditing(true)}
+              aria-label="Edit tab name"
+              className="flex items-center justify-center w-8 h-8 rounded-xl text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              <Pencil size={13} />
+            </button>
+          </div>
         )}
       </div>
     </div>

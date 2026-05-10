@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.9.6] - 2026-05-10
+### Added
+- **New tab — "Save as new customer" toggle** — when you type a free-text name in the New Tab dialog (not picked from the existing customer list), a small toggle appears: "Save as new customer". Turning it on creates a Customer record and links it to the tab in one step, without needing to navigate to the Customers page
+- **Open tab — "Save to customers" button** — a `UserPlus` icon button now appears next to the pencil in the cart header for any tab that isn't yet linked to a customer. One click creates the customer from the tab name and links them instantly; the button disappears once linked
+
 ## [0.9.5] - 2026-05-10
 ### Fixed
 - **Menu item editor — scrollable dialog** — dialog now caps at 90% of the viewport height with a scrollable body; title stays pinned at the top and Cancel/Save buttons stay pinned at the bottom so they're always reachable regardless of how many modifier groups are attached
