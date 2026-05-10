@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Monitor, Lock, Clock, DollarSign, Plus, Pencil, Trash2, Star, UserPlus, X, Building2, Package, ChevronUp, ChevronDown } from 'lucide-react';
+import { Monitor, Lock, Clock, DollarSign, Plus, Pencil, Trash2, Star, UserPlus, X, Building2, Package, ChevronUp, ChevronDown, Copy } from 'lucide-react';
 import { useTabs, useSettings, useSpaces, useEquipment, useCurrentStaff, useCustomers } from '@/lib/hooks/useStore';
 import { tabGrandTotal, formatElapsed } from '@/lib/domain/tabs';
 import { getStore } from '@/lib/store/store';
@@ -148,6 +148,18 @@ export default function CoWorkingPage() {
     }
     setEditingSpace(null);
     setAddingSpace(false);
+  }
+
+  function duplicateSpace(s: CoworkSpace) {
+    const copy: CoworkSpace = {
+      ...s,
+      id: newId('space'),
+      name: `${s.name} (copy)`,
+    };
+    getStore().spaces.set(prev => [...prev, copy]);
+    // Open the editor immediately so the user can rename it
+    setEditingSpace(copy);
+    toast.success(`"${copy.name}" duplicated — rename it below`);
   }
 
   async function archiveEquipment(e: Equipment) {
@@ -317,6 +329,7 @@ export default function CoWorkingPage() {
                   isManager={isManager}
                   onCheckIn={() => setCheckingIn(s)}
                   onEdit={() => setEditingSpace(s)}
+                  onDuplicate={() => duplicateSpace(s)}
                   onArchive={() => archiveSpace(s)}
                 />
               ))}
@@ -451,9 +464,9 @@ export default function CoWorkingPage() {
 }
 
 /* ── Available card ─────────────────────────────────────────────── */
-function AvailableCard({ space, cur, isManager, onCheckIn, onEdit, onArchive }: {
+function AvailableCard({ space, cur, isManager, onCheckIn, onEdit, onDuplicate, onArchive }: {
   space: CoworkSpace; cur: string; isManager: boolean;
-  onCheckIn: () => void; onEdit: () => void; onArchive: () => void;
+  onCheckIn: () => void; onEdit: () => void; onDuplicate: () => void; onArchive: () => void;
 }) {
   const enabledHotRates       = space.rates?.filter(r => r.enabled) ?? [];
   const enabledDedicatedRates = (space.dedicatedRates ?? []).filter(r => r.enabled);
@@ -477,10 +490,13 @@ function AvailableCard({ space, cur, isManager, onCheckIn, onEdit, onArchive }: 
         </div>
         {isManager && (
           <div className="flex gap-0.5">
-            <button onClick={onEdit} className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer">
+            <button onClick={onEdit} aria-label="Edit space" className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer">
               <Pencil size={12} />
             </button>
-            <button onClick={onArchive} className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 cursor-pointer">
+            <button onClick={onDuplicate} aria-label="Duplicate space" title="Duplicate" className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-900/20 cursor-pointer">
+              <Copy size={12} />
+            </button>
+            <button onClick={onArchive} aria-label="Remove space" className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 cursor-pointer">
               <Trash2 size={12} />
             </button>
           </div>
