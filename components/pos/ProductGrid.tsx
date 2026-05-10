@@ -11,9 +11,10 @@ interface ProductGridProps {
   searchQuery: string;
   onAddProduct: (product: Product) => void;
   hasActiveTab: boolean;
+  addedCounts: Record<string, number>;
 }
 
-export function ProductGrid({ searchQuery, onAddProduct, hasActiveTab }: ProductGridProps) {
+export function ProductGrid({ searchQuery, onAddProduct, hasActiveTab, addedCounts }: ProductGridProps) {
   const products = useProducts();
   const [category, setCategory] = useState<ProductCategory | 'all'>('all');
 
@@ -38,7 +39,7 @@ export function ProductGrid({ searchQuery, onAddProduct, hasActiveTab }: Product
         {filtered.length === 0 ? (
           <p className="text-center text-sm text-muted-foreground py-12">No products found</p>
         ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
             {filtered.map(product => {
               const out = isOutOfStock(product);
               const low = isLowStock(product);
@@ -47,6 +48,7 @@ export function ProductGrid({ searchQuery, onAddProduct, hasActiveTab }: Product
                   key={product.id}
                   product={product}
                   onAdd={onAddProduct}
+                  addedCount={addedCounts[product.id] ?? 0}
                   disabled={!hasActiveTab || out}
                   outOfStock={out}
                   lowStock={low}

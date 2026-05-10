@@ -49,6 +49,9 @@ export default function POSPage() {
   // Product modifiers picker
   const [optionsProduct, setOptionsProduct] = useState<Product | null>(null);
 
+  // Tracks cumulative add count per product to trigger card flash animations
+  const [addedCounts, setAddedCounts] = useState<Record<string, number>>({});
+
   const activeTab = tabs.find(t => t.id === activeTabId) ?? null;
 
   /* ── Keyboard shortcuts ────────────────────────────── */
@@ -136,6 +139,7 @@ export default function POSPage() {
       items[idx] = { ...items[idx], qty: items[idx].qty + 1 };
       return { ...t, items };
     }));
+    setAddedCounts(prev => ({ ...prev, [product.id]: (prev[product.id] ?? 0) + 1 }));
   }
 
   function handleQtyChange(key: string, qty: number) {
@@ -428,10 +432,11 @@ export default function POSPage() {
             searchQuery={searchQuery}
             onAddProduct={handleAddProduct}
             hasActiveTab={!!activeTab && activeTab.status === 'open'}
+            addedCounts={addedCounts}
           />
         </div>
 
-        <aside className={`${mobileView === 'cart' ? 'flex' : 'hidden'} md:flex w-full md:w-[360px] shrink-0 md:border-l border-border flex-col overflow-hidden pt-11 md:pt-0`}>
+        <aside className={`${mobileView === 'cart' ? 'flex' : 'hidden'} md:flex w-full md:w-[260px] lg:w-[340px] shrink-0 md:border-l border-border flex-col overflow-hidden pt-11 md:pt-0`}>
           <Cart
             tab={activeTab}
             onQtyChange={handleQtyChange}

@@ -95,24 +95,24 @@ export function PaymentBar({
         </div>
       ) : (
         <>
-          <div className={`grid gap-2 ${hideCharge ? 'grid-cols-3' : 'grid-cols-4'}`}>
+          <div className={`grid gap-2 ${hideCharge ? 'grid-cols-3' : 'grid-cols-2 lg:grid-cols-4'}`}>
             <button
               onClick={() => onPay('card')}
-              className="flex flex-col items-center justify-center gap-1 h-14 rounded-2xl bg-primary text-primary-foreground font-medium text-xs hover:opacity-90 active:scale-95 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              className="flex flex-col items-center justify-center gap-1 h-16 lg:h-14 rounded-2xl bg-primary text-primary-foreground font-medium text-xs hover:opacity-90 active:scale-95 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               <CreditCard size={16} strokeWidth={2} />
               Card
             </button>
             <button
               onClick={() => onPay('qr')}
-              className="flex flex-col items-center justify-center gap-1 h-14 rounded-2xl border border-border bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-400 font-medium text-xs hover:bg-violet-100 dark:hover:bg-violet-900/30 active:scale-95 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              className="flex flex-col items-center justify-center gap-1 h-16 lg:h-14 rounded-2xl border border-border bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-400 font-medium text-xs hover:bg-violet-100 dark:hover:bg-violet-900/30 active:scale-95 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               <QrCode size={16} strokeWidth={2} />
               QR
             </button>
             <button
               onClick={() => onPay('cash')}
-              className="flex flex-col items-center justify-center gap-1 h-14 rounded-2xl border border-border bg-white/50 dark:bg-white/5 font-medium text-xs hover:bg-black/5 dark:hover:bg-white/8 active:scale-95 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              className="flex flex-col items-center justify-center gap-1 h-16 lg:h-14 rounded-2xl border border-border bg-white/50 dark:bg-white/5 font-medium text-xs hover:bg-black/5 dark:hover:bg-white/8 active:scale-95 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               <Banknote size={16} strokeWidth={2} />
               Cash
@@ -120,7 +120,7 @@ export function PaymentBar({
             {!hideCharge && (
               <button
                 onClick={() => onPay('room')}
-                className="flex flex-col items-center justify-center gap-1 h-14 rounded-2xl border border-border bg-white/50 dark:bg-white/5 font-medium text-xs hover:bg-black/5 dark:hover:bg-white/8 active:scale-95 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                className="flex flex-col items-center justify-center gap-1 h-16 lg:h-14 rounded-2xl border border-border bg-white/50 dark:bg-white/5 font-medium text-xs hover:bg-black/5 dark:hover:bg-white/8 active:scale-95 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
                 <BedDouble size={16} strokeWidth={2} />
                 Room
@@ -131,7 +131,7 @@ export function PaymentBar({
           <div className="flex gap-2 pt-1">
             <button
               onClick={onDiscount}
-              className={`flex-1 h-8 rounded-xl text-xs font-medium border transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+              className={`flex-1 h-10 rounded-xl text-xs font-medium border transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
                 hasDiscount
                   ? 'border-emerald-400/50 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/10 hover:bg-emerald-100 dark:hover:bg-emerald-900/20'
                   : 'border-border text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5'
@@ -144,7 +144,7 @@ export function PaymentBar({
             <button
               onClick={onSendKitchen}
               disabled={unsentItemsCount === 0}
-              className={`flex-1 h-8 rounded-xl text-xs font-medium border transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring flex items-center justify-center gap-1 ${
+              className={`flex-1 h-10 rounded-xl text-xs font-medium border transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring flex items-center justify-center gap-1 ${
                 unsentItemsCount > 0
                   ? 'border-amber-400/50 text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/10 hover:bg-amber-100 dark:hover:bg-amber-900/20'
                   : 'border-border text-muted-foreground opacity-60 cursor-not-allowed'
@@ -156,7 +156,7 @@ export function PaymentBar({
             </button>
             <button
               onClick={onPrint}
-              className="flex-1 h-8 rounded-xl text-xs font-medium border border-border text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring flex items-center justify-center gap-1"
+              className="flex-1 h-10 rounded-xl text-xs font-medium border border-border text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring flex items-center justify-center gap-1"
             >
               <Printer size={11} strokeWidth={2} />
               Print

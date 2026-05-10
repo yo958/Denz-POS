@@ -83,12 +83,17 @@ export function ProductOptionsDialog({ product, onClose, onConfirm }: ProductOpt
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
+      {/*
+        overflow-hidden is critical: it forces the browser to clip children at
+        max-h, which gives the flex-1 scroll area a definite bounded height.
+        Without it, max-h doesn't constrain the inner flex layout.
+      */}
       <div
-        className="relative w-full sm:max-w-md glass-strong rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[90vh]"
+        className="relative w-full sm:max-w-xl glass-strong rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[92dvh] sm:max-h-[88dvh] overflow-hidden"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         {/* Header */}
-        <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-3 border-b border-border">
+        <div className="shrink-0 flex items-start justify-between gap-3 px-5 pt-5 pb-3 border-b border-border">
           <div className="min-w-0">
             <h2 className="text-base font-semibold truncate">{product.name}</h2>
             <p className="text-xs text-muted-foreground truncate">{product.description}</p>
@@ -96,69 +101,74 @@ export function ProductOptionsDialog({ product, onClose, onConfirm }: ProductOpt
           <button
             onClick={onClose}
             aria-label="Close"
-            className="flex items-center justify-center w-8 h-8 rounded-xl text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer touch-manipulation"
+            className="flex items-center justify-center w-8 h-8 rounded-xl text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer touch-manipulation shrink-0"
           >
             <X size={16} strokeWidth={2} />
           </button>
         </div>
 
-        {/* Groups */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-          {productGroups.map(g => (
-            <div key={g.id} className="space-y-2">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold">{g.name}</h3>
-                {g.type === 'single' && g.required && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">REQUIRED</span>
-                )}
-                {g.type === 'multi' && (
-                  <span className="text-[10px] font-medium text-muted-foreground">optional · pick any</span>
-                )}
+        {/* Groups — this area scrolls */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-4 space-y-5">
+          {productGroups.map(g => {
+            const opts = g.options.filter(o => !o.archived);
+            // Use 2 columns when there are 3+ options and all names are short enough
+            const twoCol = opts.length >= 3 && opts.every(o => o.name.length <= 22);
+            return (
+              <div key={g.id} className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold">{g.name}</h3>
+                  {g.type === 'single' && g.required && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">REQUIRED</span>
+                  )}
+                  {g.type === 'multi' && (
+                    <span className="text-[10px] font-medium text-muted-foreground">optional · pick any</span>
+                  )}
+                </div>
+                <div className={`grid gap-1.5 ${twoCol ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                  {opts.map(opt => {
+                    const isChecked = g.type === 'single'
+                      ? singles[g.id] === opt.id
+                      : !!multis[g.id]?.has(opt.id);
+                    const effDelta = deltaFor(g.id, opt);
+                    return (
+                      <label
+                        key={opt.id}
+                        className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border cursor-pointer touch-manipulation select-none transition-colors ${
+                          isChecked
+                            ? 'border-primary/50 bg-primary/10'
+                            : 'border-border bg-white/60 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8'
+                        }`}
+                      >
+                        <input
+                          type={g.type === 'single' ? 'radio' : 'checkbox'}
+                          name={`mg-${g.id}`}
+                          checked={isChecked}
+                          onChange={() => {
+                            if (g.type === 'single') {
+                              setSingles(prev => ({ ...prev, [g.id]: opt.id }));
+                            } else {
+                              setMultis(prev => {
+                                const next = new Set(prev[g.id] ?? []);
+                                if (next.has(opt.id)) next.delete(opt.id); else next.add(opt.id);
+                                return { ...prev, [g.id]: next };
+                              });
+                            }
+                          }}
+                          className="w-4 h-4 accent-primary shrink-0"
+                        />
+                        <span className="flex-1 text-sm leading-tight">{opt.name}</span>
+                        {effDelta !== 0 && (
+                          <span className="text-xs font-semibold tabular-nums text-muted-foreground shrink-0">
+                            {effDelta > 0 ? '+' : '−'}{cur}{Math.abs(effDelta).toFixed(2)}
+                          </span>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
-              <div className="grid grid-cols-1 gap-2">
-                {g.options.filter(o => !o.archived).map(opt => {
-                  const isChecked = g.type === 'single'
-                    ? singles[g.id] === opt.id
-                    : !!multis[g.id]?.has(opt.id);
-                  const effDelta = deltaFor(g.id, opt);
-                  return (
-                    <label
-                      key={opt.id}
-                      className={`flex items-center gap-3 px-3 py-3 rounded-2xl border cursor-pointer touch-manipulation select-none transition-colors ${
-                        isChecked
-                          ? 'border-primary/50 bg-primary/10'
-                          : 'border-border bg-white/60 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8'
-                      }`}
-                    >
-                      <input
-                        type={g.type === 'single' ? 'radio' : 'checkbox'}
-                        name={`mg-${g.id}`}
-                        checked={isChecked}
-                        onChange={() => {
-                          if (g.type === 'single') {
-                            setSingles(prev => ({ ...prev, [g.id]: opt.id }));
-                          } else {
-                            setMultis(prev => {
-                              const next = new Set(prev[g.id] ?? []);
-                              if (next.has(opt.id)) next.delete(opt.id); else next.add(opt.id);
-                              return { ...prev, [g.id]: next };
-                            });
-                          }
-                        }}
-                        className="w-4 h-4 accent-primary"
-                      />
-                      <span className="flex-1 text-sm">{opt.name}</span>
-                      {effDelta !== 0 && (
-                        <span className="text-xs font-semibold tabular-nums text-muted-foreground">
-                          {effDelta > 0 ? '+' : '−'}{cur}{Math.abs(effDelta).toFixed(2)}
-                        </span>
-                      )}
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+            );
+          })}
 
           <div className="space-y-1.5">
             <label htmlFor="line-note" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Note (optional)</label>
@@ -173,7 +183,7 @@ export function ProductOptionsDialog({ product, onClose, onConfirm }: ProductOpt
         </div>
 
         {/* Footer */}
-        <div className="flex items-center gap-3 px-5 py-4 border-t border-border">
+        <div className="shrink-0 flex items-center gap-3 px-5 py-4 border-t border-border">
           <div className="flex flex-col leading-tight">
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Unit price</span>
             <span className="text-base font-bold tabular-nums">{cur}{unitPrice.toFixed(2)}</span>

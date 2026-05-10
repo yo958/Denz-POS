@@ -129,6 +129,11 @@
   html {
     @apply font-sans;
   }
+  /* Remove 300ms tap delay on touch devices */
+  button, a, [role="button"], input, select, textarea {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 
 /* ── Glass utilities ─────────────────────────────────────── */

@@ -45,7 +45,7 @@ export function TabList({ tabs, activeTabId, onSelectTab, onNewTab }: TabListPro
 
   return (
     <aside className="
-      flex flex-col w-full md:w-[280px] shrink-0 h-full
+      flex flex-col w-full md:w-[200px] lg:w-[260px] shrink-0 h-full
       md:border-r border-border overflow-hidden
     ">
       {/* Header */}

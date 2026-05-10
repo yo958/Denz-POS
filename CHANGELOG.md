@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.8.0] - 2026-05-10
+### Added
+- **Manager Dashboard** — new `/dashboard` page (manager-only, first in sidebar) with a full live overview of everything across the system:
+  - Revenue today, outstanding amount, open/paid tab counts
+  - Desk availability (X of Y available) and equipment rentals in/out
+  - Room occupancy grid — each room shown as FREE / OCCUPIED / CHECK OUT TODAY with guest name and dates
+  - Kitchen queue status tiles: Waiting · Preparing · Ready · Done today, plus a live list of waiting tickets with customer, items, and queue time
+  - Active coworking sessions — who is at which desk, duration, running tab total
+  - Equipment rentals — what is out, who has it, and what is available
+  - Payment method breakdown (cash/card/QR/room) with transaction counts and totals
+  - Revenue by category (cafe/coworking/rooms)
+  - Paid today grid — recently closed tabs
+  - New customers this week with VIP and discount indicators
+  - Customer overview stats panel (total active, VIP count, discount holders, new today/week)
+  - Shift status header — open duration and opener's name, or a warning if no shift is open
+- **Modifier dialog scroll fix** — `overflow-hidden` on dialog container ensures `max-h` properly constrains the flex layout; scroll area now works regardless of how many modifier groups a product has
+- **Wider modifier dialog** — increased to `sm:max-w-xl`; options with 3+ short names render in a two-column grid to reduce vertical height
+- **Product card flash redesign** — flash border is always reserved as `border-2` (invisible by default, `border-background` colour) so it switches to green on add without any layout shift; ring and scale effects removed; flash colour changed from red to emerald green; green tick icon removed
+- **Tablet layout optimisation** — sidebar collapses to icon-only (56 px) at `md`, full width at `lg`; TabList and Cart narrowed to fit 768 px viewports without overflow
+- **Tab list item layout** — customer name on its own full-width row to prevent truncation; label + price on second row; elapsed time + item list below
+
+### Fixed
+- Modifier product cards now correctly flash green after the options dialog is confirmed (add-count state lifted to parent; `addedCounts` prop threaded through `ProductGrid` → `ProductCard`)
+
 ## [0.7.0] - 2026-05-10
 ### Added
 - **QR payment method** — split from Card; QR carries 0% fee, Card retains 5% fee; QR button shown in payment bar with violet styling

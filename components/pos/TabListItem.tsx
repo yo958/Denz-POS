@@ -49,7 +49,7 @@ export function TabListItem({ tab, active, customer, onClick, onDelete }: TabLis
       onClick={onClick}
       aria-pressed={active}
       className={`
-        group relative w-full text-left px-4 py-3 rounded-2xl border transition-all duration-150
+        group relative w-full text-left px-3 py-2.5 rounded-2xl border transition-all duration-150
         cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring
         ${active
           ? 'border-primary/40 bg-primary/8 dark:bg-primary/10 ring-1 ring-primary/30'
@@ -58,33 +58,32 @@ export function TabListItem({ tab, active, customer, onClick, onDelete }: TabLis
         ${tab.status === 'paid' ? 'opacity-60' : ''}
       `}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className={`flex items-center justify-center w-7 h-7 rounded-lg shrink-0 ${TYPE_COLOR[tab.type]}`}>
-            <Icon size={13} strokeWidth={2} />
-          </span>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1 min-w-0">
-                <p className="text-sm font-medium truncate">{tab.customerName}</p>
-                {customer?.vip && <Star size={10} className="text-amber-400 fill-amber-400 shrink-0" />}
-              </div>
-            <p className="text-xs text-muted-foreground">{tab.label}</p>
+      <div className="flex items-center gap-2 min-w-0">
+        <span className={`flex items-center justify-center w-7 h-7 rounded-lg shrink-0 ${TYPE_COLOR[tab.type]}`}>
+          <Icon size={13} strokeWidth={2} />
+        </span>
+        <div className="min-w-0 flex-1">
+          {/* Name row — full width so it never gets squeezed */}
+          <div className="flex items-center gap-1 min-w-0">
+            <p className="text-sm font-semibold truncate leading-tight">{tab.customerName}</p>
+            {customer?.vip && <Star size={10} className="text-amber-400 fill-amber-400 shrink-0" />}
           </div>
-        </div>
-        <div className="text-right shrink-0">
-          <p className="text-sm font-semibold tabular-nums">{cur}{total.toFixed(2)}</p>
-          <p className="text-xs text-muted-foreground tabular-nums">
-            {dateLabel}
-            {dateLabel && <span className="mx-1 opacity-50">·</span>}
-            {elapsed}
+          {/* Label · price · elapsed on one line */}
+          <div className="flex items-center justify-between gap-1 mt-0.5">
+            <p className="text-xs text-muted-foreground truncate">{tab.label}</p>
+            <p className="text-xs font-semibold tabular-nums shrink-0">{cur}{total.toFixed(2)}</p>
+          </div>
+          {/* Time + items */}
+          <p className="text-xs text-muted-foreground tabular-nums mt-0.5">
+            {dateLabel && <>{dateLabel}<span className="mx-1 opacity-50">·</span></>}{elapsed}
           </p>
+          {tab.items.length > 0 && (
+            <p className="mt-0.5 text-xs text-muted-foreground truncate">
+              {tab.items.map(li => li.product.name).join(', ')}
+            </p>
+          )}
         </div>
       </div>
-      {tab.items.length > 0 && (
-        <p className="mt-1.5 text-xs text-muted-foreground truncate pl-9">
-          {tab.items.map(li => li.product.name).join(', ')}
-        </p>
-      )}
       {onDelete && (
         <span
           role="button"

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Plus, Check } from 'lucide-react';
 import { useSettings } from '@/lib/hooks/useStore';
 import type { Product } from '@/lib/types';
 
@@ -22,47 +21,55 @@ const CATEGORY_GLYPH: Record<string, string> = {
 interface ProductCardProps {
   product: Product;
   onAdd: (product: Product) => void;
+  /** Cumulative add count from parent — increments each time this product is confirmed added. */
+  addedCount?: number;
   disabled?: boolean;
   outOfStock?: boolean;
   lowStock?: boolean;
 }
 
-export function ProductCard({ product, onAdd, disabled, outOfStock, lowStock }: ProductCardProps) {
+export function ProductCard({ product, onAdd, addedCount = 0, disabled, outOfStock, lowStock }: ProductCardProps) {
   const cur = useSettings().currency;
-  const [addedAt, setAddedAt] = useState(0);
-  const [count, setCount] = useState(0);
+  const [justAdded, setJustAdded] = useState(false);
+  const [flashKey, setFlashKey] = useState(0);
+  const prevCount = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
-  function handleAdd() {
-    onAdd(product);
-    setCount(c => c + 1);
-    setAddedAt(Date.now());
+  // Fire flash whenever the parent increments addedCount
+  useEffect(() => {
+    if (addedCount <= prevCount.current) return;
+    prevCount.current = addedCount;
+    setJustAdded(true);
+    setFlashKey(k => k + 1);
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => { setAddedAt(0); setCount(0); }, 1200);
-  }
-
-  const justAdded = addedAt !== 0;
+    timer.current = setTimeout(() => setJustAdded(false), 1200);
+  }, [addedCount]);
 
   return (
-    <div
+    <button
+      onClick={() => onAdd(product)}
+      disabled={!!disabled}
+      aria-label={`Add ${product.name}`}
       className={`
-        group relative flex flex-col rounded-2xl border overflow-hidden
+        group relative flex flex-col rounded-2xl border-2 overflow-hidden text-left w-full
         bg-white/60 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/8
-        transition-all duration-200
-        ${justAdded ? 'border-primary ring-2 ring-primary/40 scale-[1.015]' : 'border-border'}
+        active:scale-[0.97] touch-manipulation select-none
+        transition-all duration-200 cursor-pointer
+        focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring
+        ${justAdded ? 'border-emerald-500' : 'border-background'}
         ${disabled ? 'opacity-50 pointer-events-none' : ''}
       `}
     >
       {/* "+N added" floater */}
       {justAdded && (
         <span
-          key={addedAt}
-          className="absolute top-2 left-1/2 -translate-x-1/2 z-20 text-[11px] font-bold px-2 py-0.5 rounded-full bg-primary text-primary-foreground shadow-md pointer-events-none"
+          key={flashKey}
+          className="absolute top-2 left-1/2 -translate-x-1/2 z-20 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500 text-white shadow-md pointer-events-none"
           style={{ animation: 'addedPop 1.2s ease-out forwards' }}
         >
-          +{count} added
+          +{addedCount} added
         </span>
       )}
 
@@ -94,22 +101,8 @@ export function ProductCard({ product, onAdd, disabled, outOfStock, lowStock }: 
         </p>
         <div className="flex items-center justify-between mt-2">
           <span className="text-sm font-bold tabular-nums">{cur}{product.price}</span>
-          <button
-            onClick={handleAdd}
-            aria-label={`Add ${product.name}`}
-            className={`
-              flex items-center justify-center w-9 h-9 rounded-xl
-              text-primary-foreground touch-manipulation select-none
-              hover:opacity-90 active:scale-90
-              transition-all duration-200 cursor-pointer
-              focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring
-              ${justAdded ? 'bg-emerald-500' : 'bg-primary'}
-            `}
-          >
-            {justAdded ? <Check size={16} strokeWidth={3} /> : <Plus size={16} strokeWidth={2.5} />}
-          </button>
         </div>
       </div>
-    </div>
+    </button>
   );
 }
