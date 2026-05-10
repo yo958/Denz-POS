@@ -287,7 +287,7 @@ export interface KitchenTicket {
 
 /* ── Audit log ────────────────────────────────────────────────── */
 export type AuditAction =
-  | 'tab.create' | 'tab.update' | 'tab.pay' | 'tab.void' | 'tab.refund' | 'tab.kitchen-send'
+  | 'tab.create' | 'tab.update' | 'tab.pay' | 'tab.void' | 'tab.refund' | 'tab.kitchen-send' | 'tab.desk-added'
   | 'stay.checkin' | 'stay.checkout' | 'stay.charge'
   | 'product.create' | 'product.update' | 'product.delete' | 'product.stock'
   | 'modifier.create' | 'modifier.update' | 'modifier.delete'
