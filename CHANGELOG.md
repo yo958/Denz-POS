@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.9.8] - 2026-05-10
+### Fixed
+- **Coworking space editor — toggle rendering** — replaced all four custom `absolute`-positioned toggle buttons with the same `inline-flex items-center` approach used by the Switch component; fixes the stretched/broken appearance on disabled rate rows and the dedicated desk toggle
+
 ## [0.9.7] - 2026-05-10
 ### Added
 - **Coworking — per-hour pricing tiers** — the "Per Hour" rate row in the space editor now has a "Per-hr tiers" button (appears when hourly is enabled). Click it to expand into individual hour slots (Hour 1, Hour 2, Hour 3+, etc.) with add/remove tier controls — identical to the equipment rental system. Click "Flat rate" to collapse back to a single price. Billing automatically uses the tiers when set.

@@ -850,9 +850,9 @@ function SpaceDialog({ space, cur, onClose, onSave }: {
                         role="switch"
                         aria-checked={r.enabled}
                         onClick={() => patchRate(r.period, { enabled: !r.enabled })}
-                        className={`relative w-9 h-5 rounded-full transition-colors shrink-0 cursor-pointer ${r.enabled ? 'bg-primary' : 'bg-border'}`}
+                        className={`inline-flex items-center w-10 h-[22px] rounded-full border-2 border-transparent transition-colors duration-200 shrink-0 cursor-pointer ${r.enabled ? 'bg-primary' : 'bg-black/15 dark:bg-white/20'}`}
                       >
-                        <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${r.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                        <span className={`w-[18px] h-[18px] rounded-full bg-white shadow-sm transition-transform duration-200 ${r.enabled ? 'translate-x-[20px]' : 'translate-x-0.5'}`} />
                       </button>
                       <span className="text-sm font-medium w-24 shrink-0">{PERIOD_LABEL[r.period]}</span>
                       {/* For hourly with tiers: show summary; otherwise show flat price input */}
@@ -936,9 +936,9 @@ function SpaceDialog({ space, cur, onClose, onSave }: {
                     role="switch"
                     aria-checked={dedicatedEnabled}
                     onClick={() => setDedicatedEnabled(v => !v)}
-                    className={`relative w-9 h-5 rounded-full transition-colors shrink-0 cursor-pointer ${dedicatedEnabled ? 'bg-indigo-500' : 'bg-border'}`}
+                    className={`inline-flex items-center w-10 h-[22px] rounded-full border-2 border-transparent transition-colors duration-200 shrink-0 cursor-pointer ${dedicatedEnabled ? 'bg-indigo-500' : 'bg-black/15 dark:bg-white/20'}`}
                   >
-                    <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${dedicatedEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    <span className={`w-[18px] h-[18px] rounded-full bg-white shadow-sm transition-transform duration-200 ${dedicatedEnabled ? 'translate-x-[20px]' : 'translate-x-0.5'}`} />
                   </button>
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Dedicated Desk Rates</span>
                 </div>
@@ -953,9 +953,9 @@ function SpaceDialog({ space, cur, onClose, onSave }: {
                         role="switch"
                         aria-checked={r.enabled}
                         onClick={() => patchDedicatedRate(r.period, { enabled: !r.enabled })}
-                        className={`relative w-9 h-5 rounded-full transition-colors shrink-0 cursor-pointer ${r.enabled ? 'bg-indigo-500' : 'bg-border'}`}
+                        className={`inline-flex items-center w-10 h-[22px] rounded-full border-2 border-transparent transition-colors duration-200 shrink-0 cursor-pointer ${r.enabled ? 'bg-indigo-500' : 'bg-black/15 dark:bg-white/20'}`}
                       >
-                        <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${r.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                        <span className={`w-[18px] h-[18px] rounded-full bg-white shadow-sm transition-transform duration-200 ${r.enabled ? 'translate-x-[20px]' : 'translate-x-0.5'}`} />
                       </button>
                       <span className="text-sm font-medium w-24 shrink-0">{PERIOD_LABEL[r.period]}</span>
                       <div className="flex items-center gap-1 flex-1">
