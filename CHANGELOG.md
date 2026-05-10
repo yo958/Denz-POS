@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.9.1] - 2026-05-10
+### Added
+- **Permanent delete for menu items** — Trash icon on each menu item row lets managers permanently remove a product; requires manager PIN confirmation and shows a danger warning that the action cannot be undone
+
 ## [0.9.0] - 2026-05-10
 ### Added
 - **Product search in menu grid** — full-width search bar now lives directly above the category chips in the POS product area, making it immediately obvious and easy to reach; replaces the small tucked-away search in the top bar

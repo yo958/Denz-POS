@@ -47,6 +47,20 @@ export default function MenuPage() {
     toast.success(p.archived ? 'Restored' : 'Archived');
   }
 
+  async function handleDelete(p: Product) {
+    const ok = await confirm({
+      title: `Permanently delete "${p.name}"?`,
+      message: 'This cannot be undone. The item will be removed from the menu and all modifier group links will be lost.',
+      confirmLabel: 'Delete permanently',
+      requireManagerPin: true,
+      danger: true,
+    });
+    if (!ok) return;
+    getStore().products.set(prev => prev.filter(x => x.id !== p.id));
+    getStore().log('product.delete', `Deleted ${p.name}`, me?.id);
+    toast.success(`"${p.name}" deleted`);
+  }
+
   function handleImport(imported: Product[]) {
     const store = getStore();
     store.products.set(prev => [...prev, ...imported]);
@@ -122,6 +136,9 @@ export default function MenuPage() {
                       </button>
                       <button onClick={() => handleArchive(p)} aria-label={p.archived ? `Restore ${p.name}` : `Archive ${p.name}`} className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer">
                         {p.archived ? <ArchiveRestore size={13} /> : <Archive size={13} />}
+                      </button>
+                      <button onClick={() => handleDelete(p)} aria-label={`Delete ${p.name}`} className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors cursor-pointer">
+                        <Trash2 size={13} />
                       </button>
                     </div>
                   );
