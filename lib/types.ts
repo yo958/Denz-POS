@@ -227,6 +227,8 @@ export interface Customer {
   jobRole?: string;
   /** Profile photo — data URL or hosted path. */
   image?: string;
+  /** ID / passport scan — data URL. Stored locally, never leaves the device. */
+  idImage?: string;
   discount?: Discount;
   vip?: boolean;
   visitorType?: 'local' | 'tourist' | 'expat' | 'semi-expat';

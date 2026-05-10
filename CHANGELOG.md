@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.0.4] - 2026-05-10
+### Added
+- **Customer editor — ID / passport upload** — a dashed document-upload area appears below the Notes field when editing a customer; click to upload a photo of their ID or passport (stored as a data URL, never leaves the device). Once uploaded a thumbnail preview fills the area, hovering shows a "Replace" overlay, and "View" opens a full-screen lightbox for easy reading. "Remove" clears it. The `idImage` field is added to the `Customer` type.
+
 ## [1.0.3] - 2026-05-10
 ### Added
 - **Rooms — permanent delete** — hovering a room card now shows a red trash icon (manager-only) alongside the existing edit and archive buttons; requires manager PIN confirmation and is blocked if the room has an active guest checked in

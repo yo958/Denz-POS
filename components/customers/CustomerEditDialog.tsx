@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import {
-  X, Phone, Mail, Globe, Briefcase, Star, Image as ImageIcon, MapPin,
+  X, Phone, Mail, Globe, Briefcase, Star, Image as ImageIcon, MapPin, CreditCard, ZoomIn,
 } from 'lucide-react';
 import { toast } from '@/components/ui/toast';
 import type { Customer, Discount } from '@/lib/types';
@@ -21,7 +21,9 @@ export function CustomerEditDialog({ customer, onClose, onSave }: CustomerEditDi
   const [discountEnabled, setDiscountEnabled] = useState(!!customer.discount);
   const [discountType, setDiscountType] = useState<'pct' | 'fixed'>(customer.discount?.type ?? 'pct');
   const [discountValue, setDiscountValue] = useState<number>(customer.discount?.value ?? 10);
-  const imgRef = useRef<HTMLInputElement>(null);
+  const imgRef   = useRef<HTMLInputElement>(null);
+  const idImgRef = useRef<HTMLInputElement>(null);
+  const [idLightbox, setIdLightbox] = useState(false);
 
   function handleImageFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -29,6 +31,16 @@ export function CustomerEditDialog({ customer, onClose, onSave }: CustomerEditDi
     const reader = new FileReader();
     reader.onload = () => setForm(f => ({ ...f, image: reader.result as string }));
     reader.readAsDataURL(file);
+  }
+
+  function handleIdImageFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setForm(f => ({ ...f, idImage: reader.result as string }));
+    reader.readAsDataURL(file);
+    // reset so re-selecting the same file triggers onChange
+    e.target.value = '';
   }
 
   function submit(e: React.FormEvent) {
@@ -234,6 +246,59 @@ export function CustomerEditDialog({ customer, onClose, onSave }: CustomerEditDi
           />
         </Field>
 
+        {/* ID / Passport */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+              <CreditCard size={11} /> ID / Passport
+            </span>
+            {form.idImage && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIdLightbox(true)}
+                  className="text-xs text-primary hover:opacity-80 cursor-pointer flex items-center gap-1"
+                >
+                  <ZoomIn size={11} /> View
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, idImage: undefined }))}
+                  className="text-xs text-rose-500 hover:text-rose-600 cursor-pointer"
+                >
+                  Remove
+                </button>
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => idImgRef.current?.click()}
+            className={`relative w-full rounded-2xl border-2 border-dashed overflow-hidden flex items-center justify-center cursor-pointer transition-colors ${
+              form.idImage
+                ? 'border-transparent h-36'
+                : 'border-border hover:border-primary/50 h-24 bg-black/3 dark:bg-white/3'
+            }`}
+          >
+            {form.idImage ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={form.idImage} alt="ID document" className="w-full h-full object-cover" />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 hover:opacity-100 transition-opacity">
+                  <span className="text-white text-xs font-medium flex items-center gap-1.5"><ImageIcon size={13} /> Replace</span>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center gap-1.5 text-muted-foreground py-2">
+                <CreditCard size={20} strokeWidth={1.5} />
+                <span className="text-xs">Click to upload ID / passport photo</span>
+                <span className="text-[10px] opacity-60">Stored locally on this device only</span>
+              </div>
+            )}
+          </button>
+          <input ref={idImgRef} type="file" accept="image/*" onChange={handleIdImageFile} className="hidden" />
+        </div>
+
         <div className="flex gap-2 pt-1">
           <button
             type="button"
@@ -250,6 +315,29 @@ export function CustomerEditDialog({ customer, onClose, onSave }: CustomerEditDi
           </button>
         </div>
       </form>
+
+      {/* ID image lightbox */}
+      {idLightbox && form.idImage && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80"
+          onClick={() => setIdLightbox(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setIdLightbox(false)}
+            className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 cursor-pointer"
+          >
+            <X size={18} />
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={form.idImage}
+            alt="ID document"
+            className="max-w-full max-h-full rounded-2xl shadow-2xl object-contain"
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }
