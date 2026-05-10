@@ -229,8 +229,14 @@ function ProductDialog({ product, onClose, onSave }: ProductDialogProps) {
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <form onSubmit={submit} className="relative w-full max-w-md glass-strong rounded-3xl p-6 shadow-2xl space-y-4">
-        <h2 className="text-lg font-semibold">{product ? 'Edit item' : 'Add item'}</h2>
+      <form onSubmit={submit} className="relative w-full max-w-md glass-strong rounded-3xl shadow-2xl flex flex-col max-h-[90dvh]">
+        {/* Sticky header */}
+        <div className="shrink-0 px-6 pt-6 pb-4 border-b border-border">
+          <h2 className="text-lg font-semibold">{product ? 'Edit item' : 'Add item'}</h2>
+        </div>
+
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-4 space-y-4">
 
         <Field label="Name">
           <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} autoFocus className={inputCls} />
@@ -436,7 +442,10 @@ function ProductDialog({ product, onClose, onSave }: ProductDialogProps) {
           </div>
         )}
 
-        <div className="flex gap-2 pt-2">
+        </div>{/* end scrollable body */}
+
+        {/* Sticky footer */}
+        <div className="shrink-0 flex gap-2 px-6 py-4 border-t border-border">
           <button type="button" onClick={onClose} className="flex-1 h-11 rounded-2xl text-sm font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8 active:scale-95 transition-all cursor-pointer">Cancel</button>
           <button type="submit" className="flex-1 h-11 rounded-2xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 transition-all cursor-pointer">{product ? 'Save' : 'Add'}</button>
         </div>

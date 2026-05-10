@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.9.5] - 2026-05-10
+### Fixed
+- **Menu item editor — scrollable dialog** — dialog now caps at 90% of the viewport height with a scrollable body; title stays pinned at the top and Cancel/Save buttons stay pinned at the bottom so they're always reachable regardless of how many modifier groups are attached
+
 ## [0.9.4] - 2026-05-10
 ### Changed
 - **Menu item editor — toggle switches** — replaced all checkboxes in the product edit dialog with modern pill-style toggle switches: Track cost price, Manage stock, Send to kitchen (KDS), and per-modifier-option visibility toggles all use the new `Switch` component
