@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Pencil, Archive, ArchiveRestore, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Archive, ArchiveRestore, Trash2, Upload } from 'lucide-react';
 import { useProducts, useCurrentStaff, useSettings, useModifierGroups } from '@/lib/hooks/useStore';
 import { getStore } from '@/lib/store/store';
 import { newId } from '@/lib/domain/id';
 import { confirm } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/toast';
+import { CsvImportDialog } from '@/components/menu/CsvImportDialog';
 import type { Product, ProductCategory } from '@/lib/types';
 
 const CATEGORY_LABEL: Partial<Record<ProductCategory, string>> = {
@@ -25,6 +26,7 @@ export default function MenuPage() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [creating, setCreating] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const visible = products.filter(p => showArchived || !p.archived);
   const grouped = CATEGORY_ORDER.map(cat => ({
@@ -43,6 +45,13 @@ export default function MenuPage() {
     getStore().products.set(prev => prev.map(x => x.id === p.id ? { ...x, archived: !p.archived } : x));
     getStore().log(p.archived ? 'product.update' : 'product.delete', `${p.archived ? 'Restored' : 'Archived'} ${p.name}`, me?.id);
     toast.success(p.archived ? 'Restored' : 'Archived');
+  }
+
+  function handleImport(imported: Product[]) {
+    const store = getStore();
+    store.products.set(prev => [...prev, ...imported]);
+    store.log('product.create', `Bulk import: ${imported.length} items`, me?.id);
+    toast.success(`Imported ${imported.length} item${imported.length !== 1 ? 's' : ''}`);
   }
 
   function handleSave(form: Product) {
@@ -70,6 +79,9 @@ export default function MenuPage() {
         <div className="flex items-center gap-2">
           <button onClick={() => setShowArchived(s => !s)} className="h-9 px-3 rounded-xl text-xs font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8 cursor-pointer">
             {showArchived ? 'Hide archived' : 'Show archived'}
+          </button>
+          <button onClick={() => setImportOpen(true)} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-sm font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+            <Upload size={14} strokeWidth={2} /> Import CSV
           </button>
           <button onClick={() => setCreating(true)} className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 active:scale-95 transition-all duration-150 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
             <Plus size={15} strokeWidth={2.5} /> Add Item
@@ -125,6 +137,12 @@ export default function MenuPage() {
           product={editing}
           onClose={() => { setEditing(null); setCreating(false); }}
           onSave={handleSave}
+        />
+      )}
+      {importOpen && (
+        <CsvImportDialog
+          onClose={() => setImportOpen(false)}
+          onImport={handleImport}
         />
       )}
     </div>

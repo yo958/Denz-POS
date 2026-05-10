@@ -32,7 +32,6 @@ export default function POSPage() {
   const store = getStore();
 
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [mobileView, setMobileView] = useState<'tabs' | 'menu' | 'cart'>('tabs');
 
   // Dialog state
@@ -77,7 +76,7 @@ export default function POSPage() {
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [tabs, newTabOpen, paymentOpen, discountOpen, voidOpen, refundOpen, chargeRoomOpen]);
+  }, [tabs, newTabOpen, paymentOpen, discountOpen, voidOpen, refundOpen, chargeRoomOpen, mobileView]);
 
   /* ── Tab CRUD ──────────────────────────────────────── */
   function handleNewTab(name: string, type: TabType, label: string, customerId?: string) {
@@ -390,11 +389,7 @@ export default function POSPage() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
-      <Topbar
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        onNewTab={() => setNewTabOpen(true)}
-      />
+      <Topbar onNewTab={() => setNewTabOpen(true)} />
 
       <main className="flex flex-1 min-h-0 overflow-hidden">
         {/* Mobile view switcher */}
@@ -429,7 +424,6 @@ export default function POSPage() {
 
         <div className={`${mobileView === 'menu' ? 'flex' : 'hidden'} md:flex flex-1 min-w-0 overflow-hidden flex-col w-full pt-11 md:pt-0`}>
           <ProductGrid
-            searchQuery={searchQuery}
             onAddProduct={handleAddProduct}
             hasActiveTab={!!activeTab && activeTab.status === 'open'}
             addedCounts={addedCounts}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, Plus, DoorOpen, DoorClosed } from 'lucide-react';
+import { Plus, DoorOpen, DoorClosed } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { useShift, useTabs, useCurrentStaff, useSettings } from '@/lib/hooks/useStore';
 import { getStore } from '@/lib/store/store';
@@ -11,12 +11,10 @@ import { confirm } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/toast';
 
 interface TopbarProps {
-  searchQuery: string;
-  onSearchChange: (q: string) => void;
   onNewTab: () => void;
 }
 
-export function Topbar({ searchQuery, onSearchChange, onNewTab }: TopbarProps) {
+export function Topbar({ onNewTab }: TopbarProps) {
   const shift = useShift();
   const tabs = useTabs();
   const me = useCurrentStaff();
@@ -28,18 +26,6 @@ export function Topbar({ searchQuery, onSearchChange, onNewTab }: TopbarProps) {
   return (
     <>
       <header className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b border-border glass-strong">
-        <div className="relative flex-1 max-w-xs">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={e => onSearchChange(e.target.value)}
-            placeholder="Search products…"
-            aria-label="Search products"
-            className="w-full h-9 pl-9 pr-3 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border placeholder:text-muted-foreground text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all duration-150"
-          />
-        </div>
-
         <div className="flex items-center gap-3 ml-auto">
           <span className="hidden sm:block text-sm text-muted-foreground select-none">{dateStr}</span>
 

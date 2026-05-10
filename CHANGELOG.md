@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.9.0] - 2026-05-10
+### Added
+- **Product search in menu grid** — full-width search bar now lives directly above the category chips in the POS product area, making it immediately obvious and easy to reach; replaces the small tucked-away search in the top bar
+  - Clear (×) button appears when text is entered
+  - Switching category tabs auto-clears the search to avoid double-filtering confusion
+  - Empty state shows a search icon and the query ("No results for 'latte'") with a one-tap "Clear search" link
+  - Press `/` keyboard shortcut still focuses the input from anywhere on the page
+- **Bulk CSV import for menu items** — "Import CSV" button on the Menu page lets managers upload a spreadsheet to add food and drink items in bulk
+  - Drag-and-drop or click-to-browse file picker
+  - Column reference table explains all supported fields inline
+  - Downloadable template (`menu-import-template.csv`) with example rows
+  - Live preview table after upload: valid rows shown in green, invalid rows highlighted in red with the specific error
+  - Only valid rows are imported; invalid rows are skipped with a count shown
+  - Supported columns: `name`, `price`, `category` (required) · `description`, `stock`, `low_stock_at`, `cost`, `glyph`, `send_to_kitchen` (optional)
+
+### Changed
+- Search removed from the top bar; the bar now contains only date, shift toggle, theme switcher, and New Tab button
+
 ## [0.8.0] - 2026-05-10
 ### Added
 - **Manager Dashboard** — new `/dashboard` page (manager-only, first in sidebar) with a full live overview of everything across the system:
