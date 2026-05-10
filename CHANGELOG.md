@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.0.5] - 2026-05-10
+### Fixed
+- **POS Desks chip — now triggers proper coworking check-in** — tapping a desk card on the Tabs page now opens the full Check In dialog (customer name, rate, booking type) instead of adding a line item to the current tab. This creates a `type: desk` tab with the correct space label, so the booking appears immediately on the Coworking tab as an active session. `CheckInDialog` extracted to `components/coworking/CheckInDialog.tsx` and shared between both pages.
+
 ## [1.0.4] - 2026-05-10
 ### Added
 - **Customer editor — ID / passport upload** — a dashed document-upload area appears below the Notes field when editing a customer; click to upload a photo of their ID or passport (stored as a data URL, never leaves the device). Once uploaded a thumbnail preview fills the area, hovering shows a "Replace" overlay, and "View" opens a full-screen lightbox for easy reading. "Remove" clears it. The `idImage` field is added to the `Customer` type.

@@ -12,7 +12,8 @@ import { ChargeToRoomDialog } from '@/components/pos/ChargeToRoomDialog';
 import { RefundDialog } from '@/components/pos/RefundDialog';
 import { VoidDialog } from '@/components/pos/VoidDialog';
 import { ProductOptionsDialog } from '@/components/pos/ProductOptionsDialog';
-import { useTabs, useStays, useCurrentStaff, useSettings, useCustomers } from '@/lib/hooks/useStore';
+import { useTabs, useStays, useCurrentStaff, useSettings, useCustomers, useSpaces } from '@/lib/hooks/useStore';
+import { CheckInDialog, PERIOD_LABEL } from '@/components/coworking/CheckInDialog';
 import { getStore } from '@/lib/store/store';
 import {
   effectiveQty, lineKey, lineUnitPrice, modifiersStableKey,
@@ -21,7 +22,7 @@ import {
 import { decrementForTab, restock } from '@/lib/domain/inventory';
 import { confirm } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/toast';
-import type { Discount, KitchenTicket, PaymentMethod, Product, SelectedModifier, Stay, Tab, TabType } from '@/lib/types';
+import type { CoworkSpace, CoworkSpaceRate, Discount, KitchenTicket, PaymentMethod, Product, SelectedModifier, Stay, Tab, TabType } from '@/lib/types';
 
 export default function POSPage() {
   const tabs = useTabs();
@@ -29,6 +30,7 @@ export default function POSPage() {
   const me = useCurrentStaff();
   const cur = useSettings().currency;
   const customers = useCustomers();
+  const spaces = useSpaces();
   const store = getStore();
 
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
@@ -47,6 +49,9 @@ export default function POSPage() {
 
   // Product modifiers picker
   const [optionsProduct, setOptionsProduct] = useState<Product | null>(null);
+
+  // Coworking check-in triggered from the POS Desks chip
+  const [checkingInSpace, setCheckingInSpace] = useState<CoworkSpace | null>(null);
 
   // Tracks cumulative add count per product to trigger card flash animations
   const [addedCounts, setAddedCounts] = useState<Record<string, number>>({});
@@ -103,6 +108,12 @@ export default function POSPage() {
   }
 
   function handleAddProduct(product: Product) {
+    // Desk products are CoworkSpace cards — open the check-in flow instead of
+    // adding a line item. The product id is the space id (set in ProductGrid).
+    if (product.category === 'desks') {
+      const space = spaces.find(s => s.id === product.id);
+      if (space) { setCheckingInSpace(space); return; }
+    }
     if (!activeTab) return;
     if (product.modifierGroupIds && product.modifierGroupIds.length > 0) {
       setOptionsProduct(product);
@@ -491,6 +502,43 @@ export default function POSPage() {
           setOptionsProduct(null);
         }}
       />
+
+      {/* Coworking check-in triggered from the POS Desks chip */}
+      {checkingInSpace && (
+        <CheckInDialog
+          space={checkingInSpace}
+          cur={cur}
+          onClose={() => setCheckingInSpace(null)}
+          onConfirm={(customerName, rate, bookingEndsAt, customerId) => {
+            const product: Product = {
+              id: `${checkingInSpace.id}-${rate.period}`,
+              name: `${checkingInSpace.name} — ${PERIOD_LABEL[rate.period]}`,
+              price: rate.price,
+              category: 'desks',
+              description: '',
+              stock: null,
+              lowStockAt: null,
+              sendToKitchen: false,
+            };
+            const tab: Tab = {
+              id: newId('tab'),
+              customerName,
+              type: 'desk',
+              label: checkingInSpace.name,
+              items: [{ id: newId('li'), productId: product.id, product, qty: 1 }],
+              openedAt: new Date(),
+              status: 'open',
+              bookingEndsAt,
+              ...(customerId ? { customerId } : {}),
+            };
+            store.tabs.set(prev => [tab, ...prev]);
+            store.log('tab.create', `${customerName} checked in to ${checkingInSpace.name} (${PERIOD_LABEL[rate.period]})`, me?.id);
+            toast.success(`${customerName} checked in to ${checkingInSpace.name}`);
+            setCheckingInSpace(null);
+            setActiveTabId(tab.id);
+          }}
+        />
+      )}
     </div>
   );
 }
