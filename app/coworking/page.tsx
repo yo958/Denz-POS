@@ -162,6 +162,17 @@ export default function CoWorkingPage() {
     toast.success(`"${copy.name}" duplicated — rename it below`);
   }
 
+  function duplicateEquipment(e: Equipment) {
+    const copy: Equipment = {
+      ...e,
+      id: newId('equip'),
+      name: `${e.name} (copy)`,
+    };
+    getStore().equipment.set(prev => [...prev, copy]);
+    setEditingEquip(copy);
+    toast.success(`"${copy.name}" duplicated — rename it below`);
+  }
+
   async function archiveEquipment(e: Equipment) {
     const ok = await confirm({ title: `Remove "${e.name}"?`, danger: true, confirmLabel: 'Remove' });
     if (!ok) return;
@@ -306,6 +317,7 @@ export default function CoWorkingPage() {
                   isManager={isManager}
                   onRent={() => setRentingEquip(e)}
                   onEdit={() => setEditingEquip(e)}
+                  onDuplicate={() => duplicateEquipment(e)}
                   onArchive={() => archiveEquipment(e)}
                 />
               ))}
@@ -1012,9 +1024,9 @@ function calcRentalTotal(tiers: EquipmentTier[], hours: number): number {
 }
 
 /* ── Equipment card (available) ─────────────────────────────────── */
-function EquipmentCard({ equip: e, cur, isManager, onRent, onEdit, onArchive }: {
+function EquipmentCard({ equip: e, cur, isManager, onRent, onEdit, onDuplicate, onArchive }: {
   equip: Equipment; cur: string; isManager: boolean;
-  onRent: () => void; onEdit: () => void; onArchive: () => void;
+  onRent: () => void; onEdit: () => void; onDuplicate: () => void; onArchive: () => void;
 }) {
   return (
     <div className="flex flex-col rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-900/10 p-4 gap-3">
@@ -1030,10 +1042,13 @@ function EquipmentCard({ equip: e, cur, isManager, onRent, onEdit, onArchive }: 
         </div>
         {isManager && (
           <div className="flex gap-0.5">
-            <button onClick={onEdit} className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer">
+            <button onClick={onEdit} aria-label="Edit equipment" className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer">
               <Pencil size={12} />
             </button>
-            <button onClick={onArchive} className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 cursor-pointer">
+            <button onClick={onDuplicate} aria-label="Duplicate equipment" title="Duplicate" className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-900/20 cursor-pointer">
+              <Copy size={12} />
+            </button>
+            <button onClick={onArchive} aria-label="Remove equipment" className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 cursor-pointer">
               <Trash2 size={12} />
             </button>
           </div>

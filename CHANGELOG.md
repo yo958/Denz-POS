@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.0.1] - 2026-05-10
+### Added
+- **Coworking — duplicate equipment** — equipment rental cards now have the same Copy button (pencil → copy → trash); clones the item with all its hour tiers and opens the editor to rename it
+
 ## [1.0.0] - 2026-05-10
 ### Added
 - **Coworking — duplicate space** — each available space card now has a Copy button (pencil → copy → trash) that instantly clones the space with all its rates, tiers, and dedicated desk settings; the duplicate is named "Space Name (copy)" and opens in the editor so you can rename it straight away
