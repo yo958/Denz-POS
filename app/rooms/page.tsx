@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { BedDouble, User, CalendarDays, Receipt, LogOut, Plus, Pencil, Archive, ArchiveRestore } from 'lucide-react';
+import { BedDouble, User, CalendarDays, Receipt, LogOut, Plus, Pencil, Archive, ArchiveRestore, Trash2 } from 'lucide-react';
 import { useProducts, useStays, useTabs, useCurrentStaff, useSettings } from '@/lib/hooks/useStore';
 import { getStore } from '@/lib/store/store';
 import { newId } from '@/lib/domain/id';
@@ -60,6 +60,25 @@ export default function RoomsPage() {
     store.stays.set(prev => prev.map(s => s.id === stay.id ? { ...s, status: 'checked-out', checkOutAt: new Date() } : s));
     store.log('stay.checkout', `${stay.guestName} · ${stay.roomName}`, me?.id);
     toast.success(`${stay.guestName} checked out`);
+  }
+
+  async function handleDelete(room: Product) {
+    const stay = findActiveStayByRoom(stays, room.id);
+    if (stay) {
+      toast.error('Check out the current guest before deleting.');
+      return;
+    }
+    const ok = await confirm({
+      title: `Permanently delete "${room.name}"?`,
+      message: 'This cannot be undone. All room data will be removed.',
+      danger: true,
+      confirmLabel: 'Delete',
+      requireManagerPin: true,
+    });
+    if (!ok) return;
+    store.products.set(prev => prev.filter(p => p.id !== room.id));
+    store.log('product.delete', `Deleted room ${room.name}`, me?.id);
+    toast.success(`${room.name} deleted`);
   }
 
   function handleSave(form: Product) {
@@ -156,6 +175,16 @@ export default function RoomsPage() {
                       >
                         {room.archived ? <ArchiveRestore size={12} /> : <Archive size={12} />}
                       </button>
+                      {me?.role === 'manager' && (
+                        <button
+                          onClick={() => handleDelete(room)}
+                          aria-label={`Delete ${room.name}`}
+                          title="Permanently delete"
+                          className="flex items-center justify-center w-7 h-7 rounded-lg bg-white/80 dark:bg-black/60 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/60 transition-colors cursor-pointer shadow-sm"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
                     </div>
                   </div>
                   <div className="flex flex-col gap-3 p-4">

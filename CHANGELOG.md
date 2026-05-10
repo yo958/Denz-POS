@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.0.3] - 2026-05-10
+### Added
+- **Rooms — permanent delete** — hovering a room card now shows a red trash icon (manager-only) alongside the existing edit and archive buttons; requires manager PIN confirmation and is blocked if the room has an active guest checked in
+
 ## [1.0.2] - 2026-05-10
 ### Added
 - **Coworking — space capacity / multiple occupancy** — each space can now have a slot count set in the editor ("Multiple occupancy" toggle → "Total slots" number). When enabled, the available card shows a dot-bar (blue = occupied, green = free) and "X of Y free"; check-in stays open until all slots are taken. Each booking gets its own active card and independent check-out. Spaces without the toggle stay single-occupancy. Equipment rental's available-space picker also respects remaining capacity.
