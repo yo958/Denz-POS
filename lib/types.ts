@@ -196,6 +196,11 @@ export interface CoworkSpace {
   rates: CoworkSpaceRate[];
   /** If present (and has enabled entries), desk also supports dedicated (block) bookings at these rates. */
   dedicatedRates?: CoworkSpaceRate[];
+  /**
+   * Maximum simultaneous bookings. Undefined / 1 = single occupancy (default).
+   * When > 1, the space stays available until this many tabs are open.
+   */
+  capacity?: number;
   archived?: boolean;
 }
 

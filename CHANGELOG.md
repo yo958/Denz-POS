@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.0.2] - 2026-05-10
+### Added
+- **Coworking — space capacity / multiple occupancy** — each space can now have a slot count set in the editor ("Multiple occupancy" toggle → "Total slots" number). When enabled, the available card shows a dot-bar (blue = occupied, green = free) and "X of Y free"; check-in stays open until all slots are taken. Each booking gets its own active card and independent check-out. Spaces without the toggle stay single-occupancy. Equipment rental's available-space picker also respects remaining capacity.
+
 ## [1.0.1] - 2026-05-10
 ### Added
 - **Coworking — duplicate equipment** — equipment rental cards now have the same Copy button (pencil → copy → trash); clones the item with all its hour tiers and opens the editor to rename it

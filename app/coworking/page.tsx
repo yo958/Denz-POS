@@ -101,15 +101,23 @@ export default function CoWorkingPage() {
   const [editingEquip, setEditingEquip]   = useState<Equipment | null>(null);
   const [addingEquip, setAddingEquip]     = useState(false);
 
-  // Spaces — ALL open desk tabs mark their space occupied
-  const activeByLabel = new Map<string, Tab>();
+  // Spaces — track ALL open desk tabs per space name (supports multi-occupancy)
+  const activeTabsByLabel = new Map<string, Tab[]>();
   for (const t of tabs) {
-    if (t.type === 'desk' && t.status === 'open') activeByLabel.set(t.label, t);
+    if (t.type === 'desk' && t.status === 'open') {
+      const list = activeTabsByLabel.get(t.label) ?? [];
+      activeTabsByLabel.set(t.label, [...list, t]);
+    }
   }
-  const allSpaces  = spaces.filter(s => !s.archived);
-  const allActive  = allSpaces.filter(s =>  activeByLabel.has(s.name));
-  const filtered   = allSpaces.filter(s => filter === 'all' || normalizeType(s.type) === filter);
-  const available  = filtered.filter(s => !activeByLabel.has(s.name));
+  const allSpaces = spaces.filter(s => !s.archived);
+  // Spaces with at least one active booking
+  const allActive = allSpaces.filter(s => (activeTabsByLabel.get(s.name)?.length ?? 0) > 0);
+  const filtered  = allSpaces.filter(s => filter === 'all' || normalizeType(s.type) === filter);
+  // Space is available while active count < capacity (default capacity = 1)
+  const available = filtered.filter(s => {
+    const count = activeTabsByLabel.get(s.name)?.length ?? 0;
+    return count < (s.capacity ?? 1);
+  });
 
   // Equipment — detect active by product.id prefix 'equip:'
   const activeEquipIds  = new Set<string>();
@@ -129,7 +137,8 @@ export default function CoWorkingPage() {
   const availableEquip = visibleEquip.filter(e => !activeEquipIds.has(e.id));
   const activeEquip    = visibleEquip.filter(e =>  activeEquipIds.has(e.id));
 
-  const totalActive = allActive.length + activeEquip.length;
+  const activeDeskTabCount = Array.from(activeTabsByLabel.values()).reduce((n, arr) => n + arr.length, 0);
+  const totalActive = activeDeskTabCount + activeEquip.length;
 
   async function archiveSpace(s: CoworkSpace) {
     const ok = await confirm({ title: `Remove "${s.name}"?`, danger: true, confirmLabel: 'Remove' });
@@ -275,11 +284,10 @@ export default function CoWorkingPage() {
                   />
                 );
               })}
-              {allActive.map(s => {
-                const tab = activeByLabel.get(s.name)!;
-                return (
+              {allActive.flatMap(s =>
+                (activeTabsByLabel.get(s.name) ?? []).map(tab => (
                   <ActiveCard
-                    key={s.id}
+                    key={tab.id}
                     space={s}
                     tab={tab}
                     cur={cur}
@@ -298,8 +306,8 @@ export default function CoWorkingPage() {
                       toast.success(`${tab.customerName} checked out`);
                     }}
                   />
-                );
-              })}
+                ))
+              )}
             </div>
           </section>
         )}
@@ -339,6 +347,7 @@ export default function CoWorkingPage() {
                   space={s}
                   cur={cur}
                   isManager={isManager}
+                  activeCount={activeTabsByLabel.get(s.name)?.length ?? 0}
                   onCheckIn={() => setCheckingIn(s)}
                   onEdit={() => setEditingSpace(s)}
                   onDuplicate={() => duplicateSpace(s)}
@@ -406,7 +415,7 @@ export default function CoWorkingPage() {
         <RentDialog
           equip={rentingEquip}
           cur={cur}
-          availableSpaces={spaces.filter(s => !s.archived && !activeByLabel.has(s.name))}
+          availableSpaces={spaces.filter(s => !s.archived && (activeTabsByLabel.get(s.name)?.length ?? 0) < (s.capacity ?? 1))}
           onClose={() => setRentingEquip(null)}
           onConfirm={(customerName, hours, equipTotal, space, deskTotal, bookingEndsAt, customerId) => {
             const equipProduct: Product = {
@@ -476,8 +485,8 @@ export default function CoWorkingPage() {
 }
 
 /* ── Available card ─────────────────────────────────────────────── */
-function AvailableCard({ space, cur, isManager, onCheckIn, onEdit, onDuplicate, onArchive }: {
-  space: CoworkSpace; cur: string; isManager: boolean;
+function AvailableCard({ space, cur, isManager, activeCount, onCheckIn, onEdit, onDuplicate, onArchive }: {
+  space: CoworkSpace; cur: string; isManager: boolean; activeCount: number;
   onCheckIn: () => void; onEdit: () => void; onDuplicate: () => void; onArchive: () => void;
 }) {
   const enabledHotRates       = space.rates?.filter(r => r.enabled) ?? [];
@@ -540,7 +549,28 @@ function AvailableCard({ space, cur, isManager, onCheckIn, onEdit, onDuplicate, 
           ))}
         </div>
       ) : null}
-      <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Available</span>
+      {(() => {
+        const cap = space.capacity ?? 1;
+        const free = cap - activeCount;
+        if (cap > 1) {
+          return (
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                {free} of {cap} free
+              </span>
+              <div className="flex gap-0.5">
+                {Array.from({ length: cap }).map((_, i) => (
+                  <span
+                    key={i}
+                    className={`w-3 h-3 rounded-full ${i < activeCount ? 'bg-sky-400' : 'bg-emerald-400'}`}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        }
+        return <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Available</span>;
+      })()}
       <button
         onClick={onCheckIn}
         className="w-full h-9 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
@@ -767,6 +797,8 @@ function SpaceDialog({ space, cur, onClose, onSave }: {
   const [rates,            setRates]            = useState<CoworkSpaceRate[]>(space?.rates ?? defaultRates('desk'));
   const [dedicatedEnabled, setDedicatedEnabled] = useState<boolean>((space?.dedicatedRates?.filter(r => r.enabled).length ?? 0) > 0);
   const [dedicatedRates,   setDedicatedRates]   = useState<CoworkSpaceRate[]>(space?.dedicatedRates ?? defaultDedicatedRates());
+  const [multiOccupancy,   setMultiOccupancy]   = useState<boolean>((space?.capacity ?? 1) > 1);
+  const [capacity,         setCapacity]         = useState<number>(space?.capacity && space.capacity > 1 ? space.capacity : 3);
 
   function handleTypeChange(t: CoworkSpaceType) {
     setType(t);
@@ -816,6 +848,7 @@ function SpaceDialog({ space, cur, onClose, onSave }: {
       description: desc.trim() || undefined,
       rates,
       dedicatedRates: (type === 'desk' && dedicatedEnabled) ? dedicatedRates : undefined,
+      capacity: multiOccupancy ? Math.max(2, capacity) : undefined,
       archived: space?.archived,
     });
   }
@@ -857,6 +890,40 @@ function SpaceDialog({ space, cur, onClose, onSave }: {
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Description (optional)</span>
             <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="e.g. Window seat, standing desk" className={inputCls} />
           </label>
+
+          {/* Multiple occupancy */}
+          <div className="rounded-xl border border-border bg-white/50 dark:bg-white/3 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3">
+              <div>
+                <p className="text-sm font-medium">Multiple occupancy</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Allow several bookings at once (e.g. 3 identical hot desks)</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={multiOccupancy}
+                onClick={() => setMultiOccupancy(v => !v)}
+                className={`inline-flex items-center w-10 h-[22px] rounded-full border-2 border-transparent transition-colors duration-200 shrink-0 cursor-pointer ${multiOccupancy ? 'bg-primary' : 'bg-black/15 dark:bg-white/20'}`}
+              >
+                <span className={`w-[18px] h-[18px] rounded-full bg-white shadow-sm transition-transform duration-200 ${multiOccupancy ? 'translate-x-[20px]' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
+            {multiOccupancy && (
+              <div className="px-4 pb-3 border-t border-border">
+                <label className="block space-y-1.5 mt-3">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total slots (e.g. 3 desks)</span>
+                  <input
+                    type="number"
+                    min={2}
+                    max={99}
+                    value={capacity}
+                    onChange={e => setCapacity(Math.max(2, parseInt(e.target.value) || 2))}
+                    className={inputCls}
+                  />
+                </label>
+              </div>
+            )}
+          </div>
 
           {/* Hot Desk Rates */}
           <div className="space-y-2">
