@@ -1,32 +1,8 @@
 # Changelog
 
-## [0.9.8] - 2026-05-10
+## [0.9.9] - 2026-05-10
 ### Fixed
-- **Coworking space editor — toggle rendering** — replaced all four custom `absolute`-positioned toggle buttons with the same `inline-flex items-center` approach used by the Switch component; fixes the stretched/broken appearance on disabled rate rows and the dedicated desk toggle
-
-## [0.9.7] - 2026-05-10
-### Added
-- **Coworking — per-hour pricing tiers** — the "Per Hour" rate row in the space editor now has a "Per-hr tiers" button (appears when hourly is enabled). Click it to expand into individual hour slots (Hour 1, Hour 2, Hour 3+, etc.) with add/remove tier controls — identical to the equipment rental system. Click "Flat rate" to collapse back to a single price. Billing automatically uses the tiers when set.
-### Fixed
-- **Coworking space editor — rate row layout** — hourly row now cleanly expands into tier sub-rows below it rather than inline, keeping all other period rows in the same flat layout
-
-## [0.9.6] - 2026-05-10
-### Added
-- **New tab — "Save as new customer" toggle** — when you type a free-text name in the New Tab dialog (not picked from the existing customer list), a small toggle appears: "Save as new customer". Turning it on creates a Customer record and links it to the tab in one step, without needing to navigate to the Customers page
-- **Open tab — "Save to customers" button** — a `UserPlus` icon button now appears next to the pencil in the cart header for any tab that isn't yet linked to a customer. One click creates the customer from the tab name and links them instantly; the button disappears once linked
-
-## [0.9.5] - 2026-05-10
-### Fixed
-- **Menu item editor — scrollable dialog** — dialog now caps at 90% of the viewport height with a scrollable body; title stays pinned at the top and Cancel/Save buttons stay pinned at the bottom so they're always reachable regardless of how many modifier groups are attached
-
-## [0.9.4] - 2026-05-10
-### Changed
-- **Menu item editor — toggle switches** — replaced all checkboxes in the product edit dialog with modern pill-style toggle switches: Track cost price, Manage stock, Send to kitchen (KDS), and per-modifier-option visibility toggles all use the new `Switch` component
-
-## [0.9.3] - 2026-05-10
-### Fixed
-- **Menu page — category jump bar** — added Food / Drinks pill buttons below the header that instantly scroll to the right section; useful when the menu has many items and drinks are hidden below a long food list
-- **CSV import — KDS default for drinks** — drinks imported without a `send_to_kitchen` column now correctly default to `false` (not sent to kitchen), matching the manual product behaviour; food still defaults to `true`
+- **POS product grid — Desks tab now pulls from Coworking spaces** — the "Desks" category chip in the POS product grid now shows cards generated live from your Coworking spaces (via `useSpaces()`) instead of old static product-store records; price shown is the enabled hourly rate for that space. Legacy product-store items with category `desks` are hidden everywhere so deleted demo desks no longer appear. Rooms still come from the product store (managed on the Rooms tab) and are unaffected.
 
 ## [0.9.2] - 2026-05-10
 ### Changed

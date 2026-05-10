@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { Search, X } from 'lucide-react';
-import { useProducts } from '@/lib/hooks/useStore';
+import { useProducts, useSpaces } from '@/lib/hooks/useStore';
 import { isOutOfStock, isLowStock } from '@/lib/domain/inventory';
 import type { Product, ProductCategory } from '@/lib/types';
 import { CategoryChips } from './CategoryChips';
@@ -16,18 +16,54 @@ interface ProductGridProps {
 
 export function ProductGrid({ onAddProduct, hasActiveTab, addedCounts }: ProductGridProps) {
   const products = useProducts();
+  const spaces = useSpaces();
   const [category, setCategory] = useState<ProductCategory | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const filtered = products.filter(p => {
-    if (p.archived) return false;
-    const matchCat = category === 'all' || p.category === category;
-    const matchSearch = searchQuery === '' ||
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchCat && matchSearch;
-  });
+  // Synthesise Product-shaped objects from CoworkSpaces so the POS grid can
+  // render them without touching the product store. Price = enabled hourly rate
+  // (or the first enabled rate of any period, or 0 if nothing is enabled).
+  const deskProducts: Product[] = spaces
+    .filter(s => !s.archived)
+    .map(s => {
+      const hourly = s.rates.find(r => r.period === 'hourly' && r.enabled);
+      const anyRate = s.rates.find(r => r.enabled);
+      const price = hourly?.price ?? anyRate?.price ?? 0;
+      return {
+        id: s.id,
+        name: s.name,
+        price,
+        category: 'desks' as ProductCategory,
+        description: s.description ?? (s.type === 'private-office' ? 'Private Office' : 'Desk'),
+        stock: null,
+        lowStockAt: null,
+        sendToKitchen: false,
+        glyph: s.type === 'private-office' ? '🏢' : '🪑',
+      };
+    });
+
+  const filtered = (() => {
+    if (category === 'desks') {
+      // Desks come from CoworkSpaces, not the product store
+      const q = searchQuery.toLowerCase();
+      return deskProducts.filter(p =>
+        q === '' || p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q),
+      );
+    }
+
+    return products.filter(p => {
+      if (p.archived) return false;
+      // Legacy desk products in the product store are never shown — desks are
+      // now managed as CoworkSpaces and shown above.
+      if (p.category === 'desks') return false;
+      const matchCat = category === 'all' || p.category === category;
+      const matchSearch = searchQuery === '' ||
+        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.description.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchCat && matchSearch;
+    });
+  })();
 
   return (
     <div className="flex flex-col flex-1 h-full overflow-hidden">
