@@ -1,25 +1,34 @@
 'use client';
 
-import { Minus, Plus, Trash2, StickyNote } from 'lucide-react';
+import { Minus, Plus, Trash2, StickyNote, Tag } from 'lucide-react';
 import type { LineItem as LineItemType } from '@/lib/types';
-import { effectiveQty, formatMoney, lineKey, lineUnitPrice, modifiersSummary } from '@/lib/domain/tabs';
+import { effectiveQty, formatMoney, lineKey, lineUnitPrice, lineEffectiveUnitPrice, modifiersSummary } from '@/lib/domain/tabs';
 
 interface LineItemProps {
   item: LineItemType;
   onQtyChange: (lineKey: string, qty: number) => void;
   onVoid?: (lineKey: string) => void;
+  onLineDiscount?: (lineKey: string) => void;
   readonly?: boolean;
 }
 
-export function LineItem({ item, onQtyChange, onVoid, readonly }: LineItemProps) {
+export function LineItem({ item, onQtyChange, onVoid, onLineDiscount, readonly }: LineItemProps) {
   const qty = effectiveQty(item);
-  const unit = lineUnitPrice(item);
-  const lineTotal = unit * qty;
+  const baseUnit = lineUnitPrice(item);
+  const effectiveUnit = lineEffectiveUnitPrice(item);
+  const lineTotal = effectiveUnit * qty;
+  const hasItemDiscount = !!item.discount && item.discount.value > 0;
   const refunded = item.refundedQty ?? 0;
   const sent = item.sentToKitchenQty ?? 0;
   const unsent = Math.max(0, item.qty - sent);
   const modSummary = modifiersSummary(item.modifiers);
   const key = lineKey(item);
+
+  const discountLabel = hasItemDiscount
+    ? item.discount!.type === 'pct'
+      ? `${item.discount!.value}% off`
+      : `−${formatMoney(item.discount!.value)}`
+    : null;
 
   return (
     <div className="flex items-center gap-3 py-2.5 border-b border-border last:border-0">
@@ -29,12 +38,24 @@ export function LineItem({ item, onQtyChange, onVoid, readonly }: LineItemProps)
           {item.note && (
             <StickyNote size={11} strokeWidth={2} className="text-amber-600 dark:text-amber-400 shrink-0" />
           )}
+          {hasItemDiscount && (
+            <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+              {discountLabel}
+            </span>
+          )}
         </div>
         {modSummary && (
           <p className="text-[11px] text-muted-foreground/80 truncate leading-snug mt-0.5">{modSummary}</p>
         )}
         <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-          <span>{formatMoney(unit)} each</span>
+          {hasItemDiscount ? (
+            <>
+              <span className="line-through opacity-50">{formatMoney(baseUnit)}</span>
+              <span>{formatMoney(effectiveUnit)} each</span>
+            </>
+          ) : (
+            <span>{formatMoney(baseUnit)} each</span>
+          )}
           {item.product.sendToKitchen && unsent > 0 && (
             <span className="text-amber-600 dark:text-amber-400">· {unsent} new</span>
           )}
@@ -46,6 +67,22 @@ export function LineItem({ item, onQtyChange, onVoid, readonly }: LineItemProps)
 
       {!readonly && (
         <div className="flex items-center gap-1">
+          {/* Per-item discount button */}
+          {onLineDiscount && (
+            <button
+              onClick={() => onLineDiscount(key)}
+              aria-label={`Discount ${item.product.name}`}
+              title="Item discount"
+              className={`flex items-center justify-center w-7 h-7 rounded-lg transition-colors duration-150 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+                hasItemDiscount
+                  ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/20 hover:bg-emerald-200 dark:hover:bg-emerald-900/30'
+                  : 'text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/10'
+              }`}
+            >
+              <Tag size={12} strokeWidth={2} />
+            </button>
+          )}
+
           <button
             onClick={() => {
               if (item.qty <= 1 && onVoid) { onVoid(key); return; }

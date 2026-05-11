@@ -8,7 +8,9 @@ import { ProductGrid } from '@/components/pos/ProductGrid';
 import { Cart } from '@/components/pos/Cart';
 import { NewTabDialog } from '@/components/pos/NewTabDialog';
 import { PaymentDialog } from '@/components/pos/PaymentDialog';
+import { SplitPaymentDialog } from '@/components/pos/SplitPaymentDialog';
 import { DiscountDialog } from '@/components/pos/DiscountDialog';
+import { LineDiscountDialog } from '@/components/pos/LineDiscountDialog';
 import { ChargeToRoomDialog } from '@/components/pos/ChargeToRoomDialog';
 import { RefundDialog } from '@/components/pos/RefundDialog';
 import { VoidDialog } from '@/components/pos/VoidDialog';
@@ -18,12 +20,12 @@ import { CheckInDialog, PERIOD_LABEL } from '@/components/coworking/CheckInDialo
 import { getStore } from '@/lib/store/store';
 import {
   effectiveQty, lineKey, lineUnitPrice, modifiersStableKey,
-  newId, tabGrandTotal, tabSubtotal, tabCardFee,
+  newId, tabGrandTotal, tabSubtotal, tabCardFee, CARD_FEE_RATE, lineEffectiveUnitPrice,
 } from '@/lib/domain/tabs';
 import { decrementForTab, restock } from '@/lib/domain/inventory';
 import { confirm } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/toast';
-import type { CoworkSpace, CoworkSpaceRate, Discount, KitchenTicket, PaymentMethod, Product, SelectedModifier, Stay, Tab, TabType } from '@/lib/types';
+import type { CoworkSpace, CoworkSpaceRate, Discount, KitchenTicket, PaymentMethod, Product, SelectedModifier, SplitPaymentLine, Stay, Tab, TabType } from '@/lib/types';
 
 /* ── Desk rate picker (used when a POS tab is already active) ─────── */
 function DeskRatePickerDialog({ space, cur, onClose, onConfirm }: {
@@ -96,9 +98,12 @@ export default function POSPage() {
   // Dialog state
   const [newTabOpen, setNewTabOpen] = useState(false);
   const [discountOpen, setDiscountOpen] = useState(false);
+  const [lineDiscountOpen, setLineDiscountOpen] = useState(false);
+  const [lineDiscountKey, setLineDiscountKey] = useState<string | null>(null);
   const [voidOpen, setVoidOpen] = useState(false);
   const [refundOpen, setRefundOpen] = useState(false);
   const [chargeRoomOpen, setChargeRoomOpen] = useState(false);
+  const [splitOpen, setSplitOpen] = useState(false);
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
@@ -266,6 +271,32 @@ export default function POSPage() {
     toast.success(d ? 'Discount applied' : 'Discount removed');
   }
 
+  /* ── Per-line-item discount ────────────────────────── */
+  function handleLineDiscount(key: string) {
+    if (!activeTab) return;
+    setLineDiscountKey(key);
+    setLineDiscountOpen(true);
+  }
+
+  function handleApplyLineDiscount(d: Discount | null) {
+    if (!activeTab || !lineDiscountKey) return;
+    store.tabs.set(prev => prev.map(t => {
+      if (t.id !== activeTab.id) return t;
+      return {
+        ...t,
+        items: t.items.map(li =>
+          lineKey(li) === lineDiscountKey
+            ? { ...li, discount: d ?? undefined }
+            : li,
+        ),
+      };
+    }));
+    const li = activeTab.items.find(x => lineKey(x) === lineDiscountKey);
+    toast.success(d ? `Discount applied to ${li?.product.name ?? 'item'}` : 'Item discount removed');
+    setLineDiscountOpen(false);
+    setLineDiscountKey(null);
+  }
+
   /* ── Pay ───────────────────────────────────────────── */
   function handlePay(method: PaymentMethod) {
     if (!activeTab) return;
@@ -314,6 +345,46 @@ export default function POSPage() {
   function handleConfirmPayment() {
     if (!paymentMethod || !activeTab) return;
     settlePayment(paymentMethod, { tendered: cashTendered });
+  }
+
+  /* ── Split payment (cash + card) ───────────────────── */
+  function handleSplit() {
+    if (!activeTab) return;
+    if (activeTab.items.length === 0) { toast.error('Cart is empty'); return; }
+    setSplitOpen(true);
+  }
+
+  function settleSplitPayment(cashPortion: number, cashTendered: number) {
+    if (!activeTab) return;
+    const baseTotal   = tabGrandTotal(activeTab.items, activeTab.discount);
+    const cardPortion = Math.max(0, baseTotal - cashPortion);
+    const cardFee     = cardPortion * CARD_FEE_RATE;
+    const totalDue    = baseTotal + cardFee;
+    const change      = Math.max(0, cashTendered - cashPortion);
+
+    store.products.set(prev => decrementForTab(prev, activeTab.items));
+
+    const splitPayments: SplitPaymentLine[] = [
+      { method: 'cash', amount: cashPortion, cashTendered, changeGiven: change },
+      { method: 'card', amount: cardPortion },
+    ];
+
+    store.tabs.set(prev => prev.map(t => t.id !== activeTab.id ? t : {
+      ...t,
+      status: 'paid',
+      paymentMethod: 'split',
+      paidAt: new Date(),
+      paidByStaffId: me?.id,
+      splitPayments,
+    }));
+
+    store.log(
+      'tab.pay',
+      `${activeTab.customerName} · ${activeTab.label} · split · ${cur}${cashPortion.toFixed(2)} cash + ${cur}${(cardPortion + cardFee).toFixed(2)} card`,
+      me?.id,
+    );
+    toast.success(`Split: ${cur}${cashPortion.toFixed(2)} cash + ${cur}${(cardPortion + cardFee).toFixed(2)} card`);
+    setSplitOpen(false);
   }
 
   /* ── Charge to room ────────────────────────────────── */
@@ -375,8 +446,8 @@ export default function POSPage() {
       })
       .filter((x): x is { li: typeof activeTab.items[number]; qty: number } => !!x);
 
-    // Compute refund amount proportionally using line unit price.
-    const refundedSubtotal = resolved.reduce((s, x) => s + lineUnitPrice(x.li) * x.qty, 0);
+    // Compute refund amount proportionally using the effective (post-item-discount) unit price.
+    const refundedSubtotal = resolved.reduce((s, x) => s + lineEffectiveUnitPrice(x.li) * x.qty, 0);
     const fullSubtotal = tabSubtotal(activeTab.items);
     const ratio = fullSubtotal > 0 ? refundedSubtotal / fullSubtotal : 0;
     const amount = tabGrandTotal(activeTab.items, activeTab.discount) * ratio;
@@ -513,7 +584,9 @@ export default function POSPage() {
             tab={activeTab}
             onQtyChange={handleQtyChange}
             onVoidLine={handleVoidLine}
+            onLineDiscount={handleLineDiscount}
             onPay={handlePay}
+            onSplit={handleSplit}
             onDiscount={() => setDiscountOpen(true)}
             onSendKitchen={handleSendKitchen}
             onPrint={handlePrintReceipt}
@@ -537,11 +610,23 @@ export default function POSPage() {
         onConfirm={handleConfirmPayment}
         onClose={() => { setPaymentOpen(false); setPaymentMethod(null); }}
       />
+      <SplitPaymentDialog
+        open={splitOpen}
+        tab={activeTab}
+        onConfirm={settleSplitPayment}
+        onClose={() => setSplitOpen(false)}
+      />
       <DiscountDialog
         open={discountOpen}
         tab={activeTab}
         onApply={handleApplyDiscount}
         onClose={() => setDiscountOpen(false)}
+      />
+      <LineDiscountDialog
+        open={lineDiscountOpen}
+        lineItem={activeTab?.items.find(li => lineKey(li) === lineDiscountKey) ?? null}
+        onApply={handleApplyLineDiscount}
+        onClose={() => { setLineDiscountOpen(false); setLineDiscountKey(null); }}
       />
       <VoidDialog
         open={voidOpen}
@@ -588,6 +673,14 @@ export default function POSPage() {
               sendToKitchen: false,
             };
             addLineWithModifiers(deskProduct, []);
+            // If the active tab's label doesn't match a real space name, update it to the
+            // space name so the Coworking page can correctly match the tab to the space.
+            const labelMatchesSpace = spaces.some(s => s.name === activeTab.label);
+            if (!labelMatchesSpace) {
+              store.tabs.set(prev =>
+                prev.map(t => t.id === activeTab.id ? { ...t, label: deskRateSpace.name } : t),
+              );
+            }
             store.log('tab.desk-added', `${activeTab.customerName} · ${deskRateSpace.name} (${PERIOD_LABEL[rate.period]})`, me?.id);
             toast.success(`${deskRateSpace.name} added to tab`);
             setDeskRateSpace(null);

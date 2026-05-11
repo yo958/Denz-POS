@@ -4,8 +4,8 @@ import { useMemo, useState } from 'react';
 import { Search, Receipt, Coffee, Monitor, BedDouble, RotateCcw, Trash2, X, Printer, Tag, CreditCard, QrCode, Banknote, Star } from 'lucide-react';
 import { useTabs, useSettings, useCurrentStaff, useCustomers } from '@/lib/hooks/useStore';
 import {
-  tabSubtotal, tabDiscountAmount, tabTax, tabGrandTotal, tabCardFee,
-  tabRefundedAmount, lineUnitPrice, effectiveQty, modifiersSummary, CARD_FEE_RATE,
+  tabDiscountAmount, tabTax, tabGrandTotal, tabCardFee,
+  tabRefundedAmount, lineUnitPrice, lineEffectiveUnitPrice, effectiveQty, modifiersSummary, CARD_FEE_RATE,
   formatTime, formatDate,
 } from '@/lib/domain/tabs';
 import { getStore } from '@/lib/store/store';
@@ -18,8 +18,8 @@ const TYPE_COLOR: Record<TabType, string> = {
   desk: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
   room: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
 };
-const METHOD_ICON = { card: CreditCard, qr: QrCode, cash: Banknote, room: BedDouble } as const;
-const METHOD_LABEL: Record<string, string> = { card: 'Card', qr: 'QR', cash: 'Cash', room: 'Room charge' };
+const METHOD_ICON: Record<string, typeof CreditCard> = { card: CreditCard, qr: QrCode, cash: Banknote, room: BedDouble, split: CreditCard };
+const METHOD_LABEL: Record<string, string> = { card: 'Card', qr: 'QR', cash: 'Cash', room: 'Room charge', split: 'Split (Cash + Card)' };
 
 function startOfDayKey(d: Date) {
   const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime();
@@ -41,7 +41,11 @@ function OrderDetailPanel({ tab, onClose, onDelete, cur }: {
   const settings = useSettings();
   const customers = useCustomers();
   const taxRate    = settings.taxEnabled === false ? 0 : settings.taxRate;
-  const subtotal   = tabSubtotal(tab.items);
+  const subtotal   = tab.items.reduce((s, li) => s + lineUnitPrice(li) * Math.max(0, li.qty - (li.refundedQty ?? 0)), 0);
+  const lineDiscountTotal = tab.items.reduce((s, li) => {
+    const saving = lineUnitPrice(li) - lineEffectiveUnitPrice(li);
+    return s + saving * Math.max(0, li.qty - (li.refundedQty ?? 0));
+  }, 0);
   const discount   = tabDiscountAmount(tab.items, tab.discount);
   const tax        = tabTax(tab.items, tab.discount, taxRate);
   const baseTotal  = tabGrandTotal(tab.items, tab.discount, taxRate);
@@ -127,7 +131,7 @@ function OrderDetailPanel({ tab, onClose, onDelete, cur }: {
             <div className="rounded-2xl border border-border overflow-hidden divide-y divide-border">
               {tab.items.map((li, i) => {
                 const qty  = effectiveQty(li);
-                const unit = lineUnitPrice(li);
+                const unit = lineEffectiveUnitPrice(li);
                 const mods = modifiersSummary(li.modifiers);
                 return (
                   <div key={li.id ?? i} className="flex items-start gap-3 px-4 py-3">
@@ -153,6 +157,15 @@ function OrderDetailPanel({ tab, onClose, onDelete, cur }: {
               <span>Subtotal</span>
               <span className="tabular-nums">{cur}{subtotal.toFixed(2)}</span>
             </div>
+            {lineDiscountTotal > 0 && (
+              <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
+                <span className="flex items-center gap-1">
+                  <Tag size={11} strokeWidth={2} />
+                  Item discounts
+                </span>
+                <span className="tabular-nums">−{cur}{lineDiscountTotal.toFixed(2)}</span>
+              </div>
+            )}
             {discount > 0 && (
               <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
                 <span className="flex items-center gap-1">

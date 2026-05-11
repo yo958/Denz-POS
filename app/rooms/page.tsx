@@ -10,7 +10,7 @@ import { CheckInDialog } from '@/components/rooms/CheckInDialog';
 import { confirm } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/toast';
 import {
-  formatDate, formatElapsed, lineKey, lineUnitPrice, modifiersSummary, tabGrandTotal,
+  formatDate, formatElapsed, lineKey, lineUnitPrice, lineEffectiveUnitPrice, modifiersSummary, tabGrandTotal,
 } from '@/lib/domain/tabs';
 import type { Product, Stay } from '@/lib/types';
 
@@ -390,7 +390,7 @@ function FolioPanel({ stay, onClose }: { stay: Stay | null; onClose: () => void 
                   <span className="truncate block">{li.qty}× {li.product.name}</span>
                   {mods && <span className="block text-[11px] text-muted-foreground/80 truncate">{mods}</span>}
                 </span>
-                <span className="tabular-nums">{cur}{(lineUnitPrice(li) * li.qty).toFixed(2)}</span>
+                <span className="tabular-nums">{cur}{(lineEffectiveUnitPrice(li) * li.qty).toFixed(2)}</span>
               </div>
             );
           })}

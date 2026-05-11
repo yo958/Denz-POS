@@ -17,7 +17,9 @@ interface CartProps {
   tab: Tab | null;
   onQtyChange: (lineKey: string, qty: number) => void;
   onVoidLine: (lineKey: string) => void;
+  onLineDiscount: (lineKey: string) => void;
   onPay: (method: PaymentMethod) => void;
+  onSplit: () => void;
   onDiscount: () => void;
   onSendKitchen: () => void;
   onPrint: () => void;
@@ -26,7 +28,7 @@ interface CartProps {
 }
 
 export function Cart({
-  tab, onQtyChange, onVoidLine, onPay, onDiscount, onSendKitchen, onPrint, onRefund, hideCharge,
+  tab, onQtyChange, onVoidLine, onLineDiscount, onPay, onSplit, onDiscount, onSendKitchen, onPrint, onRefund, hideCharge,
 }: CartProps) {
   if (!tab) {
     return (
@@ -64,6 +66,7 @@ export function Cart({
               item={item}
               onQtyChange={onQtyChange}
               onVoid={onVoidLine}
+              onLineDiscount={isClosed ? undefined : onLineDiscount}
               readonly={isClosed}
             />
           ))
@@ -74,6 +77,7 @@ export function Cart({
         <PaymentBar
           tab={tab}
           onPay={onPay}
+          onSplit={onSplit}
           onDiscount={onDiscount}
           onSendKitchen={onSendKitchen}
           onPrint={onPrint}

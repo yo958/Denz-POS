@@ -1,15 +1,16 @@
 'use client';
 
-import { CreditCard, QrCode, Banknote, BedDouble, Tag, Printer, ChefHat, RotateCcw } from 'lucide-react';
+import { CreditCard, QrCode, Banknote, BedDouble, Tag, Printer, ChefHat, RotateCcw, SplitSquareVertical } from 'lucide-react';
 import type { PaymentMethod, Tab } from '@/lib/types';
 import {
-  tabSubtotal, tabDiscountAmount, tabTax, tabGrandTotal, tabRefundedAmount,
+  tabDiscountAmount, tabTax, tabGrandTotal, tabRefundedAmount, lineUnitPrice, lineEffectiveUnitPrice,
 } from '@/lib/domain/tabs';
 import { useSettings } from '@/lib/hooks/useStore';
 
 interface PaymentBarProps {
   tab: Tab;
   onPay: (method: PaymentMethod) => void;
+  onSplit: () => void;
   onDiscount: () => void;
   onSendKitchen: () => void;
   onPrint: () => void;
@@ -20,11 +21,17 @@ interface PaymentBarProps {
 }
 
 export function PaymentBar({
-  tab, onPay, onDiscount, onSendKitchen, onPrint, onRefund, hideCharge, unsentItemsCount,
+  tab, onPay, onSplit, onDiscount, onSendKitchen, onPrint, onRefund, hideCharge, unsentItemsCount,
 }: PaymentBarProps) {
   const settings  = useSettings();
   const taxRate   = settings.taxEnabled === false ? 0 : settings.taxRate;
-  const subtotal  = tabSubtotal(tab.items);
+  // Gross subtotal (before per-item discounts) — used as the "Subtotal" display label
+  const grossSubtotal = tab.items.reduce((s, li) => s + lineUnitPrice(li) * (Math.max(0, li.qty - (li.refundedQty ?? 0))), 0);
+  // Per-item discount total (the difference between gross and net subtotals)
+  const lineDiscountTotal = tab.items.reduce((s, li) => {
+    const saving = lineUnitPrice(li) - lineEffectiveUnitPrice(li);
+    return s + saving * Math.max(0, li.qty - (li.refundedQty ?? 0));
+  }, 0);
   const discount  = tabDiscountAmount(tab.items, tab.discount);
   const tax       = tabTax(tab.items, tab.discount, taxRate);
   const total     = tabGrandTotal(tab.items, tab.discount, taxRate);
@@ -38,8 +45,18 @@ export function PaymentBar({
       <div className="space-y-1.5 text-sm">
         <div className="flex justify-between text-muted-foreground">
           <span>Subtotal</span>
-          <span className="tabular-nums">{cur}{subtotal.toFixed(2)}</span>
+          <span className="tabular-nums">{cur}{grossSubtotal.toFixed(2)}</span>
         </div>
+
+        {lineDiscountTotal > 0 && (
+          <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
+            <span className="flex items-center gap-1">
+              <Tag size={11} strokeWidth={2} />
+              Item discounts
+            </span>
+            <span className="tabular-nums">−{cur}{lineDiscountTotal.toFixed(2)}</span>
+          </div>
+        )}
 
         {hasDiscount && (
           <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
@@ -128,7 +145,16 @@ export function PaymentBar({
             )}
           </div>
 
-          <div className="flex gap-2 pt-1">
+          {/* Split payment — cash + card */}
+          <button
+            onClick={onSplit}
+            className="w-full flex items-center justify-center gap-2 h-10 rounded-2xl border border-border bg-white/50 dark:bg-white/5 font-medium text-xs text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/8 active:scale-95 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            <SplitSquareVertical size={14} strokeWidth={2} />
+            Split (Cash + Card)
+          </button>
+
+          <div className="flex gap-2">
             <button
               onClick={onDiscount}
               className={`flex-1 h-10 rounded-xl text-xs font-medium border transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
@@ -170,10 +196,11 @@ export function PaymentBar({
 
 function methodLabel(m?: PaymentMethod): string {
   switch (m) {
-    case 'card': return 'Card';
-    case 'qr':   return 'QR';
-    case 'cash': return 'Cash';
-    case 'room': return 'Room charge';
-    default:     return '—';
+    case 'card':  return 'Card';
+    case 'qr':    return 'QR';
+    case 'cash':  return 'Cash';
+    case 'room':  return 'Room charge';
+    case 'split': return 'Split (Cash + Card)';
+    default:      return '—';
   }
 }

@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { TrendingUp, ShoppingBag, Clock, DollarSign, Coffee, Monitor, BedDouble, RotateCcw, CreditCard, QrCode, Banknote } from 'lucide-react';
 import { useTabs, useShift, useSettings, useCurrentStaff } from '@/lib/hooks/useStore';
-import { lineUnitPrice, tabGrandTotal, tabRefundedAmount, tabCardFee } from '@/lib/domain/tabs';
+import { lineUnitPrice, lineEffectiveUnitPrice, tabGrandTotal, tabRefundedAmount, tabCardFee } from '@/lib/domain/tabs';
 import { buildZReport } from '@/lib/domain/shift';
 import type { PaymentMethod, TabType } from '@/lib/types';
 
@@ -25,10 +25,11 @@ const TYPE_META: Record<TabType, { label: string; icon: typeof Coffee; color: st
 };
 
 const METHOD_META: Record<PaymentMethod, { label: string; icon: typeof CreditCard }> = {
-  card: { label: 'Card',      icon: CreditCard },
-  qr:   { label: 'QR',       icon: QrCode },
-  cash: { label: 'Cash',     icon: Banknote },
-  room: { label: 'Room',     icon: BedDouble },
+  card:  { label: 'Card',       icon: CreditCard },
+  qr:    { label: 'QR',        icon: QrCode },
+  cash:  { label: 'Cash',      icon: Banknote },
+  room:  { label: 'Room',      icon: BedDouble },
+  split: { label: 'Split',     icon: CreditCard },
 };
 
 export default function ReportsPage() {
@@ -61,14 +62,17 @@ export default function ReportsPage() {
     const totalItems = inRange.reduce((s, t) => s + t.items.reduce((s2, li) => s2 + li.qty, 0), 0);
 
     const byType: Record<TabType, number> = { cafe: 0, desk: 0, room: 0 };
-    const byMethod: Record<PaymentMethod, number> = { card: 0, qr: 0, cash: 0, room: 0 };
+    const byMethod: Record<PaymentMethod, number> = { card: 0, qr: 0, cash: 0, room: 0, split: 0 };
     for (const t of paid) {
       // Bucket revenue by each line item's product category, not the tab type,
       // since one tab can mix cafe items with desk/room charges.
       for (const li of t.items) {
         const qty = Math.max(0, li.qty - (li.refundedQty ?? 0));
         if (qty <= 0) continue;
-        const lineRevenue = lineUnitPrice(li) * qty;
+        // Use the effective (post-item-discount) unit price so per-item discounts
+        // are reflected in the correct revenue bucket (e.g. a desk discount only
+        // reduces coworking revenue, not food/drinks revenue).
+        const lineRevenue = lineEffectiveUnitPrice(li) * qty;
         const bucket: TabType =
           li.product.category === 'desks' ? 'desk' :
           li.product.category === 'rooms' ? 'room' :
@@ -87,7 +91,7 @@ export default function ReportsPage() {
       for (const li of t.items) {
         if (!itemCounts[li.productId]) itemCounts[li.productId] = { name: li.product.name, qty: 0, revenue: 0 };
         itemCounts[li.productId].qty += li.qty;
-        itemCounts[li.productId].revenue += lineUnitPrice(li) * li.qty;
+        itemCounts[li.productId].revenue += lineEffectiveUnitPrice(li) * li.qty;
       }
     }
     const topItems = Object.values(itemCounts).sort((a, b) => b.qty - a.qty).slice(0, 5);

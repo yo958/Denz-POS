@@ -88,6 +88,8 @@ export default function CoWorkingPage() {
           if (s) key = s.name;
         }
       }
+      // If we still can't match to a real space, skip — don't inflate the active count.
+      if (!spaces.find(s => s.name === key)) continue;
       const list = activeTabsByLabel.get(key) ?? [];
       if (!list.find(x => x.id === t.id)) activeTabsByLabel.set(key, [...list, t]);
     } else {

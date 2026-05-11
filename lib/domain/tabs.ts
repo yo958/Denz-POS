@@ -10,10 +10,28 @@ export function effectiveQty(li: LineItem): number {
   return Math.max(0, li.qty - (li.refundedQty ?? 0));
 }
 
-/** Per-unit price including selected modifier deltas. */
+/** Per-unit price including selected modifier deltas (before any per-item discount). */
 export function lineUnitPrice(li: LineItem): number {
   const mods = (li.modifiers ?? []).reduce((s, m) => s + (m.priceDelta || 0), 0);
   return Math.max(0, li.product.price + mods);
+}
+
+/**
+ * Per-unit price after applying the line-item's own discount.
+ * Pct discounts reduce the unit price by that percentage.
+ * Fixed discounts subtract a flat amount from the unit price.
+ * Tab-level discounts are applied separately on top of this in tabDiscountAmount().
+ */
+export function lineEffectiveUnitPrice(li: LineItem): number {
+  const base = lineUnitPrice(li);
+  if (!li.discount || li.discount.value === 0) return base;
+  if (li.discount.type === 'pct') return Math.max(0, base * (1 - li.discount.value / 100));
+  return Math.max(0, base - li.discount.value);
+}
+
+/** The per-unit saving from the line-item's own discount. */
+export function lineDiscountAmount(li: LineItem): number {
+  return lineUnitPrice(li) - lineEffectiveUnitPrice(li);
 }
 
 /** Stable key for a line item (falls back to productId for legacy lines). */
@@ -37,7 +55,7 @@ export function modifiersSummary(modifiers?: SelectedModifier[]): string {
 }
 
 export function tabSubtotal(items: LineItem[]): number {
-  return items.reduce((sum, li) => sum + lineUnitPrice(li) * effectiveQty(li), 0);
+  return items.reduce((sum, li) => sum + lineEffectiveUnitPrice(li) * effectiveQty(li), 0);
 }
 /** @deprecated alias kept so existing imports compile. */
 export const tabTotal = tabSubtotal;

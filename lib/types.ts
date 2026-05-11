@@ -4,7 +4,18 @@
 
 export type TabType = 'cafe' | 'desk' | 'room';
 export type TabStatus = 'open' | 'paid' | 'refunded';
-export type PaymentMethod = 'card' | 'qr' | 'cash' | 'room';
+export type PaymentMethod = 'card' | 'qr' | 'cash' | 'room' | 'split';
+
+/* ── Split payment ────────────────────────────────────────────── */
+export interface SplitPaymentLine {
+  method: 'cash' | 'card' | 'qr';
+  /** Portion of the base total allocated to this method (before any card fee). */
+  amount: number;
+  /** Cash payments only: how much the customer tendered. */
+  cashTendered?: number;
+  /** Cash payments only: change returned. */
+  changeGiven?: number;
+}
 export type ProductCategory = 'food' | 'drinks' | 'desks' | 'rooms' | 'equipment-rental';
 export type StaffRole = 'manager' | 'staff';
 
@@ -93,6 +104,8 @@ export interface LineItem {
   modifiers?: SelectedModifier[];
   /** Per-line note (eg "no onion"). */
   note?: string;
+  /** Per-line item discount (applied before the tab-level discount). */
+  discount?: Discount;
   /** Quantity already sent to kitchen (for diffing on resend). */
   sentToKitchenQty?: number;
   /** Quantity refunded against this line. */
@@ -140,6 +153,8 @@ export interface Tab {
   paidByStaffId?: string;
   cashTendered?: number;
   changeGiven?: number;
+  /** Populated when paymentMethod === 'split'. Each line is a partial payment. */
+  splitPayments?: SplitPaymentLine[];
   discount?: Discount;
   /** If charged to a room, this is the parent stay. */
   stayId?: string;

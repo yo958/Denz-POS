@@ -3,8 +3,9 @@
 import { use, useEffect, useRef } from 'react';
 import { useTabs, useSettings } from '@/lib/hooks/useStore';
 import {
-  effectiveQty, formatDate, formatTime, lineKey, lineUnitPrice, modifiersSummary,
-  tabSubtotal, tabDiscountAmount, tabTax, tabGrandTotal, tabRefundedAmount, tabCardFee, CARD_FEE_RATE,
+  effectiveQty, formatDate, formatTime, lineKey, lineUnitPrice, lineEffectiveUnitPrice,
+  lineDiscountAmount, modifiersSummary,
+  tabDiscountAmount, tabTax, tabGrandTotal, tabRefundedAmount, tabCardFee, CARD_FEE_RATE,
 } from '@/lib/domain/tabs';
 
 export default function ReceiptPage({ params }: { params: Promise<{ tabId: string }> }) {
@@ -25,12 +26,25 @@ export default function ReceiptPage({ params }: { params: Promise<{ tabId: strin
     return <div className="p-8 text-sm">Tab not found.</div>;
   }
 
-  const subtotal  = tabSubtotal(tab.items);
+  // Gross subtotal (before per-item discounts) — what's shown as "Subtotal" on the receipt
+  const subtotal  = tab.items.reduce((s, li) => s + lineUnitPrice(li) * Math.max(0, li.qty - (li.refundedQty ?? 0)), 0);
+  const lineDiscountTotal = tab.items.reduce((sum, li) => {
+    const saving = lineUnitPrice(li) - lineEffectiveUnitPrice(li);
+    return sum + saving * Math.max(0, li.qty - (li.refundedQty ?? 0));
+  }, 0);
   const discount  = tabDiscountAmount(tab.items, tab.discount);
-  const tax       = tabTax(tab.items, tab.discount, settings.taxEnabled === false ? 0 : settings.taxRate);
-  const baseTotal = tabGrandTotal(tab.items, tab.discount, settings.taxEnabled === false ? 0 : settings.taxRate);
+  const taxRate   = settings.taxEnabled === false ? 0 : settings.taxRate;
+  const tax       = tabTax(tab.items, tab.discount, taxRate);
+  const baseTotal = tabGrandTotal(tab.items, tab.discount, taxRate);
   const isCard    = tab.paymentMethod === 'card';
-  const cardFee   = isCard ? tabCardFee(tab.items, tab.discount, settings.taxEnabled === false ? 0 : settings.taxRate) : 0;
+  const isSplit   = tab.paymentMethod === 'split';
+  // For split payments, the card fee is only on the card portion of the split.
+  const splitCardLine = isSplit ? (tab.splitPayments ?? []).find(l => l.method === 'card') : undefined;
+  const cardFee   = isCard
+    ? tabCardFee(tab.items, tab.discount, taxRate)
+    : isSplit && splitCardLine
+    ? splitCardLine.amount * CARD_FEE_RATE
+    : 0;
   const total     = baseTotal + cardFee;
   const refunded  = tabRefundedAmount(tab);
   const cur = settings.currency;
@@ -64,18 +78,40 @@ export default function ReceiptPage({ params }: { params: Promise<{ tabId: strin
       <div className="row"><span>Tab</span><span>{tab.label}</span></div>
       <div className="row"><span>Customer</span><span>{tab.customerName}</span></div>
       <div className="row"><span>Date</span><span>{formatDate(tab.openedAt)} {formatTime(tab.openedAt)}</span></div>
-      {tab.paidAt && <div className="row"><span>Paid</span><span>{formatTime(tab.paidAt)} ({tab.paymentMethod})</span></div>}
+      {tab.paidAt && (
+        <div className="row">
+          <span>Paid</span>
+          <span>
+            {formatTime(tab.paidAt)}{' '}
+            ({isSplit ? 'Split: Cash + Card' : tab.paymentMethod})
+          </span>
+        </div>
+      )}
       <hr />
 
       {tab.items.map(li => {
         const q = effectiveQty(li);
-        const line = lineUnitPrice(li) * q;
+        const baseUnit = lineUnitPrice(li);
+        const effectiveUnit = lineEffectiveUnitPrice(li);
+        const saving = lineDiscountAmount(li);
+        const line = effectiveUnit * q;
         const mods = modifiersSummary(li.modifiers);
+        const hasItemDiscount = saving > 0;
         return (
           <div key={lineKey(li)} className="item">
-            <div className="row"><span>{q} × {li.product.name}</span><span>{cur}{line.toFixed(2)}</span></div>
+            <div className="row">
+              <span>{q} × {li.product.name}</span>
+              <span>{cur}{line.toFixed(2)}</span>
+            </div>
             {mods && <div style={{ paddingLeft: 8 }}>{mods}</div>}
             {li.note && <div style={{ paddingLeft: 8, fontStyle: 'italic' }}>{li.note}</div>}
+            {hasItemDiscount && (
+              <div style={{ paddingLeft: 8 }}>
+                <span style={{ textDecoration: 'line-through', opacity: 0.6 }}>{cur}{baseUnit.toFixed(2)}</span>
+                {' '}→ {cur}{effectiveUnit.toFixed(2)} each
+                {' '}(−{cur}{saving.toFixed(2)}{li.discount?.type === 'pct' ? ` / ${li.discount.value}% off` : ''})
+              </div>
+            )}
             {(li.refundedQty ?? 0) > 0 && <div style={{ paddingLeft: 8 }}>refunded ×{li.refundedQty}</div>}
           </div>
         );
@@ -83,6 +119,9 @@ export default function ReceiptPage({ params }: { params: Promise<{ tabId: strin
 
       <hr />
       <div className="row"><span>Subtotal</span><span>{cur}{subtotal.toFixed(2)}</span></div>
+      {lineDiscountTotal > 0 && (
+        <div className="row"><span>Item discounts</span><span>-{cur}{lineDiscountTotal.toFixed(2)}</span></div>
+      )}
       {discount > 0 && (
         <div className="row"><span>Discount</span><span>-{cur}{discount.toFixed(2)}</span></div>
       )}
@@ -94,10 +133,40 @@ export default function ReceiptPage({ params }: { params: Promise<{ tabId: strin
       )}
       <div className="row bold" style={{ fontSize: 14 }}><span>TOTAL</span><span>{cur}{total.toFixed(2)}</span></div>
 
+      {/* Single-method cash */}
       {tab.paymentMethod === 'cash' && tab.cashTendered != null && (
         <>
           <div className="row"><span>Cash tendered</span><span>{cur}{tab.cashTendered.toFixed(2)}</span></div>
           <div className="row"><span>Change</span><span>{cur}{(tab.changeGiven ?? 0).toFixed(2)}</span></div>
+        </>
+      )}
+
+      {/* Split payment breakdown */}
+      {isSplit && tab.splitPayments && (
+        <>
+          <hr />
+          {tab.splitPayments.map((line, i) => (
+            <div key={i}>
+              {line.method === 'cash' && (
+                <>
+                  <div className="row"><span>Cash</span><span>{cur}{line.amount.toFixed(2)}</span></div>
+                  {line.cashTendered != null && (
+                    <div className="row"><span>Cash tendered</span><span>{cur}{line.cashTendered.toFixed(2)}</span></div>
+                  )}
+                  {line.changeGiven != null && line.changeGiven > 0 && (
+                    <div className="row"><span>Change</span><span>{cur}{line.changeGiven.toFixed(2)}</span></div>
+                  )}
+                </>
+              )}
+              {line.method === 'card' && (
+                <>
+                  <div className="row"><span>Card</span><span>{cur}{line.amount.toFixed(2)}</span></div>
+                  <div className="row"><span>Card fee ({Math.round(CARD_FEE_RATE * 100)}%)</span><span>+{cur}{(line.amount * CARD_FEE_RATE).toFixed(2)}</span></div>
+                  <div className="row bold"><span>Card total</span><span>{cur}{(line.amount * (1 + CARD_FEE_RATE)).toFixed(2)}</span></div>
+                </>
+              )}
+            </div>
+          ))}
         </>
       )}
 

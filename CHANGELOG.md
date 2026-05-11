@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.7] - 2026-05-11
+### Added
+- **Per-line-item discounts** — each line item in a tab now has its own discount button (Tag icon). Tap it to apply a percentage or fixed-amount discount to that item only. The discounted unit price is shown with a strikethrough of the original, and a colour pill labels the saving. Item discounts stack correctly with the existing tab-level discount: the tab discount applies to the already-discounted subtotal. Payment screens (cart, payment dialog, split dialog), receipts, and history detail panels all show an "Item discounts" row so the breakdown is transparent.
+- **Reports & revenue bucketing** — per-item discounts are correctly reflected in revenue by area (Cafe / CoWorking / Rooms). Discounting a desk product reduces only coworking revenue; food and drink revenue is unaffected. Top Items revenue also uses the discounted price.
+
+### Fixed
+- **Coworking active desk cards not showing for tabs-page-created desk tabs** — creating a new tab with type "Desk" from the POS page now presents a space picker (dropdown of real CoworkSpaces) instead of a free-text label, so the tab label always matches a real space and the Coworking page correctly renders the active desk card.
+- **Split payment confirm button greyed out** — cash tendered now defaults to the exact cash portion when you enter or quick-select the cash amount, avoiding the confusing state where card amount was accidentally entered into the cash-tendered field.
+
+### Added (previous session, included in this release)
+- **Split payment (Cash + Card)** — new Split button on the payment bar lets staff split a tab between cash and any card amount. The 5% card fee applies only to the card portion. Receipts show the full split breakdown with cash tendered, change due, card subtotal, and card fee.
+
 ## [1.0.6] - 2026-05-10
 ### Fixed
 - **POS Desks chip — adds desk to existing tab instead of creating a second tab** — when a tab is already open, tapping a desk card now shows a compact rate-picker dialog (no customer name field — it's already known from the tab) and adds the desk as a line item to the current tab. No duplicate tab is created. The Coworking page now detects these desk line items on regular POS tabs and shows them as active sessions; the active card displays "Manage on the POS tab" instead of a checkout button, since the full tab lives on the POS page.

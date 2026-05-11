@@ -45,7 +45,7 @@ const TYPE_COLOR: Record<TabType, string> = {
 };
 const TYPE_ICON: Record<TabType, typeof Coffee> = { cafe: Coffee, desk: Monitor, room: BedDouble };
 const METHOD_ICON: Record<PaymentMethod, typeof CreditCard> = {
-  card: CreditCard, cash: Banknote, qr: QrCode, room: BedDouble,
+  card: CreditCard, cash: Banknote, qr: QrCode, room: BedDouble, split: CreditCard,
 };
 
 /* ── small reusable blocks ───────────────────────────────── */

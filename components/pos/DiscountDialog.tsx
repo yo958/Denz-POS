@@ -20,6 +20,7 @@ export function DiscountDialog({ open, tab, onApply, onClose }: DiscountDialogPr
 
   if (!open || !tab) return null;
 
+  // The tab-level discount applies to the effective subtotal (already net of per-item discounts).
   const subtotal = tabSubtotal(tab.items);
   const numValue = parseFloat(value) || 0;
   const previewDiscount: Discount | null = numValue > 0 ? { type, value: numValue } : null;

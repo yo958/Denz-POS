@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, RotateCcw } from 'lucide-react';
 import type { Tab } from '@/lib/types';
-import { effectiveQty, formatMoney, lineKey, lineUnitPrice, modifiersSummary, tabGrandTotal, tabSubtotal } from '@/lib/domain/tabs';
+import { effectiveQty, formatMoney, lineKey, lineUnitPrice, lineEffectiveUnitPrice, modifiersSummary, tabGrandTotal, tabSubtotal } from '@/lib/domain/tabs';
 
 interface RefundDialogProps {
   open: boolean;
@@ -30,7 +30,7 @@ export function RefundDialog({ open, tab, onClose, onConfirm }: RefundDialogProp
     .filter(x => x.qty > 0);
 
   const ratio = (() => {
-    const remaining = lines.reduce((s, x) => s + x.qty * lineUnitPrice(x.li), 0);
+    const remaining = lines.reduce((s, x) => s + x.qty * lineEffectiveUnitPrice(x.li), 0);
     const sub = tabSubtotal(tab.items);
     return sub > 0 ? remaining / sub : 0;
   })();
@@ -67,7 +67,7 @@ export function RefundDialog({ open, tab, onClose, onConfirm }: RefundDialogProp
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{li.product.name}</p>
                   {mods && <p className="text-[11px] text-muted-foreground/80 truncate">{mods}</p>}
-                  <p className="text-xs text-muted-foreground">{formatMoney(lineUnitPrice(li))} × {max} purchased</p>
+                  <p className="text-xs text-muted-foreground">{formatMoney(lineEffectiveUnitPrice(li))} × {max} purchased</p>
                 </div>
                 <div className="flex items-center gap-1">
                   <button

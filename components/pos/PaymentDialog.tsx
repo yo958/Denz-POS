@@ -3,7 +3,8 @@
 import { CreditCard, QrCode, Banknote, X, Check, Tag } from 'lucide-react';
 import type { PaymentMethod, Tab } from '@/lib/types';
 import {
-  tabSubtotal, tabDiscountAmount, tabTax, tabGrandTotal, tabCardFee, CARD_FEE_RATE,
+  tabDiscountAmount, tabTax, tabGrandTotal, tabCardFee, CARD_FEE_RATE,
+  lineUnitPrice, lineEffectiveUnitPrice,
 } from '@/lib/domain/tabs';
 import { useSettings } from '@/lib/hooks/useStore';
 
@@ -28,7 +29,11 @@ export function PaymentDialog({
   const isQR      = method === 'qr';
   const isCash    = method === 'cash';
 
-  const subtotal  = tabSubtotal(tab.items);
+  const subtotal  = tab.items.reduce((s, li) => s + lineUnitPrice(li) * Math.max(0, li.qty - (li.refundedQty ?? 0)), 0);
+  const lineDiscountTotal = tab.items.reduce((s, li) => {
+    const saving = lineUnitPrice(li) - lineEffectiveUnitPrice(li);
+    return s + saving * Math.max(0, li.qty - (li.refundedQty ?? 0));
+  }, 0);
   const discount  = tabDiscountAmount(tab.items, tab.discount);
   const tax       = tabTax(tab.items, tab.discount, taxRate);
   const baseTotal = tabGrandTotal(tab.items, tab.discount, taxRate);
@@ -70,6 +75,16 @@ export function PaymentDialog({
             <span>Subtotal</span>
             <span className="tabular-nums">{cur}{subtotal.toFixed(2)}</span>
           </div>
+
+          {lineDiscountTotal > 0 && (
+            <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
+              <span className="flex items-center gap-1">
+                <Tag size={11} strokeWidth={2} />
+                Item discounts
+              </span>
+              <span className="tabular-nums">−{cur}{lineDiscountTotal.toFixed(2)}</span>
+            </div>
+          )}
 
           {discount > 0 && (
             <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
