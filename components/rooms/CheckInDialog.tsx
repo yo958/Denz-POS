@@ -11,19 +11,54 @@ interface CheckInDialogProps {
   open: boolean;
   room: Product | null;
   onClose: () => void;
-  onCheckIn: (data: { guestName: string; guestPhone?: string; nights: number; notes?: string; customerId?: string }) => void;
+  onCheckIn: (data: {
+    guestName: string;
+    guestPhone?: string;
+    nights: number;
+    checkInAt: Date;
+    checkOutAt: Date;
+    notes?: string;
+    customerId?: string;
+  }) => void;
+}
+
+function toDateInputValue(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function startOfDay(d: Date): Date {
+  const out = new Date(d);
+  out.setHours(0, 0, 0, 0);
+  return out;
+}
+
+function nightsBetween(checkIn: Date, checkOut: Date): number {
+  const ms = startOfDay(checkOut).getTime() - startOfDay(checkIn).getTime();
+  return Math.max(1, Math.round(ms / 86400000));
 }
 
 export function CheckInDialog({ open, room, onClose, onCheckIn }: CheckInDialogProps) {
   const cur = useSettings().currency;
-  const [name, setName]           = useState('');
+  const [name,       setName]       = useState('');
   const [customerId, setCustomerId] = useState<string | undefined>();
-  const [phone, setPhone]         = useState('');
-  const [nights, setNights]       = useState(1);
-  const [notes, setNotes]         = useState('');
+  const [phone,      setPhone]      = useState('');
+  const [notes,      setNotes]      = useState('');
+
+  // Dates — default: check-in today, check-out tomorrow
+  const [checkInVal,  setCheckInVal]  = useState('');
+  const [checkOutVal, setCheckOutVal] = useState('');
 
   useEffect(() => {
-    if (open) { setName(''); setCustomerId(undefined); setPhone(''); setNights(1); setNotes(''); }
+    if (open) {
+      setName(''); setCustomerId(undefined); setPhone(''); setNotes('');
+      const today    = new Date();
+      const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+      setCheckInVal(toDateInputValue(today));
+      setCheckOutVal(toDateInputValue(tomorrow));
+    }
   }, [open]);
 
   function handlePickerChange(n: string, id?: string) {
@@ -35,14 +70,42 @@ export function CheckInDialog({ open, room, onClose, onCheckIn }: CheckInDialogP
     }
   }
 
+  // When check-in date changes, push check-out forward if it would be <= check-in
+  function handleCheckInChange(val: string) {
+    setCheckInVal(val);
+    if (checkOutVal && val >= checkOutVal) {
+      const d = new Date(val + 'T00:00:00');
+      d.setDate(d.getDate() + 1);
+      setCheckOutVal(toDateInputValue(d));
+    }
+  }
+
+  const checkInDate  = checkInVal  ? new Date(checkInVal  + 'T00:00:00') : null;
+  const checkOutDate = checkOutVal ? new Date(checkOutVal + 'T00:00:00') : null;
+  const nights = checkInDate && checkOutDate ? nightsBetween(checkInDate, checkOutDate) : 0;
+  const total  = room ? room.price * nights : 0;
+
+  const canSubmit = name.trim().length > 0 && nights >= 1 && !!checkInDate && !!checkOutDate;
+
   if (!open || !room) return null;
-  const canSubmit = name.trim().length > 0 && nights >= 1;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Check in guest">
       <div className="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <form
-        onSubmit={e => { e.preventDefault(); if (canSubmit) onCheckIn({ guestName: name.trim(), guestPhone: phone.trim() || undefined, nights, notes: notes.trim() || undefined, customerId }); }}
+        onSubmit={e => {
+          e.preventDefault();
+          if (!canSubmit || !checkInDate || !checkOutDate) return;
+          onCheckIn({
+            guestName: name.trim(),
+            guestPhone: phone.trim() || undefined,
+            nights,
+            checkInAt: checkInDate,
+            checkOutAt: checkOutDate,
+            notes: notes.trim() || undefined,
+            customerId,
+          });
+        }}
         className="relative w-full max-w-md glass-strong rounded-3xl p-6 shadow-2xl space-y-4"
       >
         <div className="flex items-start justify-between">
@@ -60,6 +123,7 @@ export function CheckInDialog({ open, room, onClose, onCheckIn }: CheckInDialogP
           </button>
         </div>
 
+        {/* Guest name */}
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Guest name</label>
           <CustomerPicker
@@ -71,28 +135,63 @@ export function CheckInDialog({ open, room, onClose, onCheckIn }: CheckInDialogP
           />
         </div>
 
+        {/* Phone */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Phone</label>
+          <input
+            value={phone}
+            onChange={e => setPhone(e.target.value)}
+            placeholder="optional"
+            className="w-full h-10 px-3 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+
+        {/* Check-in / Check-out dates */}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Phone</label>
-            <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="optional"
-              className="w-full h-10 px-3 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring" />
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Check-in</label>
+            <input
+              type="date"
+              value={checkInVal}
+              onChange={e => handleCheckInChange(e.target.value)}
+              className="w-full h-10 px-3 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring"
+            />
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Nights</label>
-            <input type="number" min={1} value={nights} onChange={e => setNights(Math.max(1, parseInt(e.target.value, 10) || 1))}
-              className="w-full h-10 px-3 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring tabular-nums" />
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Check-out</label>
+            <input
+              type="date"
+              value={checkOutVal}
+              min={checkInVal}
+              onChange={e => setCheckOutVal(e.target.value)}
+              className="w-full h-10 px-3 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring"
+            />
           </div>
         </div>
 
+        {/* Nights summary */}
+        {nights > 0 && (
+          <p className="text-xs text-muted-foreground -mt-1 px-0.5">
+            {nights} night{nights !== 1 ? 's' : ''}
+          </p>
+        )}
+
+        {/* Notes */}
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes</label>
-          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="optional"
-            className="w-full px-3 py-2 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring" />
+          <textarea
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            rows={2}
+            placeholder="optional"
+            className="w-full px-3 py-2 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring"
+          />
         </div>
 
+        {/* Total */}
         <div className="flex justify-between text-sm pt-2 border-t border-border">
-          <span className="text-muted-foreground">Pre-charged</span>
-          <span className="font-bold tabular-nums">{cur}{(room.price * nights).toFixed(2)}</span>
+          <span className="text-muted-foreground">Pre-charged ({nights}n)</span>
+          <span className="font-bold tabular-nums">{cur}{total.toFixed(2)}</span>
         </div>
 
         <div className="flex gap-2">

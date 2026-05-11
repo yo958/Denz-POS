@@ -31,7 +31,7 @@ export default function RoomsPage() {
   const rooms = products.filter(p => p.category === 'rooms' && (showArchived || !p.archived));
   const availableCount = products.filter(p => p.category === 'rooms' && !p.archived && !findActiveStayByRoom(stays, p.id)).length;
 
-  function handleCheckIn(data: { guestName: string; guestPhone?: string; nights: number; notes?: string; customerId?: string }) {
+  function handleCheckIn(data: { guestName: string; guestPhone?: string; nights: number; checkInAt: Date; checkOutAt: Date; notes?: string; customerId?: string }) {
     if (!checkInRoom) return;
     const { stay, folio } = createStayAndFolio({ room: checkInRoom, ...data });
     store.tabs.set(prev => [folio, ...prev]);

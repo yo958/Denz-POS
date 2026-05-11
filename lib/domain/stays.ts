@@ -12,6 +12,8 @@ export interface CheckInInput {
   guestPhone?: string;
   room: Product;     // must be category 'rooms'
   nights: number;
+  checkInAt?: Date;
+  checkOutAt?: Date;
   notes?: string;
   customerId?: string;
 }
@@ -19,7 +21,7 @@ export interface CheckInInput {
 export function createStayAndFolio(input: CheckInInput): { stay: Stay; folio: Tab } {
   const stayId = newId('stay');
   const folioId = newId('tab');
-  const checkInAt = new Date();
+  const checkInAt = input.checkInAt ?? new Date();
 
   const folio: Tab = {
     id: folioId,
@@ -49,6 +51,7 @@ export function createStayAndFolio(input: CheckInInput): { stay: Stay; folio: Ta
     nightlyRate: input.room.price,
     nights: input.nights,
     checkInAt,
+    checkOutAt: input.checkOutAt,
     folioTabId: folioId,
     status: 'active',
     notes: input.notes,

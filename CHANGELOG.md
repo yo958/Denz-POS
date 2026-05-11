@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.1.1] - 2026-05-11
+### Changed
+- **Room check-in — date picker instead of nights** — the Check In dialog now has a Check-in date and Check-out date picker instead of a "Nights" number field. The number of nights is calculated automatically from the two dates and shown as a live summary below the pickers. Defaults to today → tomorrow (1 night). Moving the check-in date past the check-out date automatically pushes check-out forward by one day. The calculated check-out date is now stored on the Stay record for use in dashboard check-out reminders.
+
 ## [1.1.0] - 2026-05-11
 ### Added
 - **Coworking — Away · May Return section** — a new amber-coloured section on the Coworking page lists customers who have a valid hot-desk booking but have left the physical desk. Each card shows "Pre-paid · can return until [date]" with no checkout button; the section disappears automatically when all bookings expire. The header now shows separate "X active / Y away" counts.
