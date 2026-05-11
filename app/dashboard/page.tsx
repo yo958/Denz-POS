@@ -12,6 +12,7 @@ import {
   useTickets, useProducts, useSpaces, useEquipment, useShift, useStaff,
 } from '@/lib/hooks/useStore';
 import { tabGrandTotal, tabCardFee } from '@/lib/domain/tabs';
+import { fmtCur } from '@/lib/format';
 import { findActiveStayByRoom } from '@/lib/domain/stays';
 import type { PaymentMethod, TabType } from '@/lib/types';
 
@@ -305,14 +306,14 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <StatCard
             label="Revenue today"
-            value={`${cur}${d.revenueToday.toFixed(2)}`}
+            value={`${cur}${fmtCur(d.revenueToday)}`}
             sub={`${d.paidToday.length} tab${d.paidToday.length !== 1 ? 's' : ''} closed`}
             icon={TrendingUp}
             accent="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
           />
           <StatCard
             label="Outstanding"
-            value={`${cur}${d.outstanding.toFixed(2)}`}
+            value={`${cur}${fmtCur(d.outstanding)}`}
             sub={`${d.openTabs.length} open tab${d.openTabs.length !== 1 ? 's' : ''}`}
             icon={Clock}
             accent="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
@@ -402,7 +403,7 @@ export default function DashboardPage() {
                       <span className="text-xs text-muted-foreground truncate hidden sm:block max-w-[100px]">{tab.label}</span>
                       <span className="text-xs text-muted-foreground tabular-nums shrink-0">{tab.items.length} item{tab.items.length !== 1 ? 's' : ''}</span>
                       <span className="text-xs text-muted-foreground tabular-nums shrink-0">{elapsed(tab.openedAt)}</span>
-                      <span className="text-sm font-semibold tabular-nums shrink-0">{cur}{total.toFixed(2)}</span>
+                      <span className="text-sm font-semibold tabular-nums shrink-0">{cur}{fmtCur(total)}</span>
                     </div>
                   );
                 })}
@@ -427,7 +428,7 @@ export default function DashboardPage() {
                           <Icon size={14} strokeWidth={2} className="text-muted-foreground shrink-0" />
                           <span className="text-sm capitalize flex-1">{method}</span>
                           <span className="text-xs text-muted-foreground">{count}×</span>
-                          <span className="text-sm font-semibold tabular-nums">{cur}{total.toFixed(2)}</span>
+                          <span className="text-sm font-semibold tabular-nums">{cur}{fmtCur(total)}</span>
                         </div>
                       );
                     })}
@@ -452,7 +453,7 @@ export default function DashboardPage() {
                             <Icon size={12} strokeWidth={2} />
                           </span>
                           <span className="text-sm flex-1">{label}</span>
-                          <span className="text-sm font-semibold tabular-nums">{cur}{total.toFixed(2)}</span>
+                          <span className="text-sm font-semibold tabular-nums">{cur}{fmtCur(total)}</span>
                         </div>
                       );
                     })}
@@ -480,7 +481,7 @@ export default function DashboardPage() {
                       <span className="text-sm font-medium flex-1 truncate">{space.name}</span>
                       {tab && <span className="text-xs text-muted-foreground truncate hidden sm:block">{tab.customerName}</span>}
                       {tab && <span className="text-xs text-muted-foreground tabular-nums shrink-0">{elapsed(tab.openedAt)}</span>}
-                      {tab && <span className="text-sm font-semibold tabular-nums shrink-0">{cur}{tabGrandTotal(tab.items, tab.discount).toFixed(2)}</span>}
+                      {tab && <span className="text-sm font-semibold tabular-nums shrink-0">{cur}{fmtCur(tabGrandTotal(tab.items, tab.discount))}</span>}
                     </div>
                   );
                 })}
@@ -624,7 +625,7 @@ export default function DashboardPage() {
                       <p className="text-xs text-muted-foreground truncate">{tab.label}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-sm font-semibold tabular-nums">{cur}{(total + fee).toFixed(2)}</p>
+                      <p className="text-sm font-semibold tabular-nums">{cur}{fmtCur(total + fee)}</p>
                       {MethodIcon && <MethodIcon size={11} strokeWidth={2} className="text-muted-foreground ml-auto" />}
                     </div>
                   </div>

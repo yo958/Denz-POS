@@ -23,6 +23,7 @@ import {
   newId, tabGrandTotal, tabSubtotal, tabCardFee, CARD_FEE_RATE, lineEffectiveUnitPrice,
 } from '@/lib/domain/tabs';
 import { decrementForTab, restock } from '@/lib/domain/inventory';
+import { fmtCur } from '@/lib/format';
 import { confirm } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/toast';
 import type { CoworkSpace, CoworkSpaceRate, Discount, KitchenTicket, PaymentMethod, Product, SelectedModifier, SplitPaymentLine, Stay, Tab, TabType } from '@/lib/types';
@@ -376,9 +377,9 @@ export default function POSPage() {
       changeGiven: method === 'cash' ? change : undefined,
     }));
 
-    store.log('tab.pay', `${activeTab.customerName} · ${activeTab.label} · ${method} · ${cur}${total.toFixed(2)}`, me?.id);
+    store.log('tab.pay', `${activeTab.customerName} · ${activeTab.label} · ${method} · ${cur}${fmtCur(total)}`, me?.id);
     const methodName = method === 'card' ? 'card' : method === 'qr' ? 'QR' : 'cash';
-    toast.success(`Paid ${cur}${total.toFixed(2)} via ${methodName}`);
+    toast.success(`Paid ${cur}${fmtCur(total)} via ${methodName}`);
     setPaymentOpen(false);
     setPaymentMethod(null);
     setCashTendered(0);
@@ -422,10 +423,10 @@ export default function POSPage() {
 
     store.log(
       'tab.pay',
-      `${activeTab.customerName} · ${activeTab.label} · split · ${cur}${cashPortion.toFixed(2)} cash + ${cur}${(cardPortion + cardFee).toFixed(2)} card`,
+      `${activeTab.customerName} · ${activeTab.label} · split · ${cur}${fmtCur(cashPortion)} cash + ${cur}${fmtCur(cardPortion + cardFee)} card`,
       me?.id,
     );
-    toast.success(`Split: ${cur}${cashPortion.toFixed(2)} cash + ${cur}${(cardPortion + cardFee).toFixed(2)} card`);
+    toast.success(`Split: ${cur}${fmtCur(cashPortion)} cash + ${cur}${fmtCur(cardPortion + cardFee)} card`);
     setSplitOpen(false);
   }
 
@@ -525,8 +526,8 @@ export default function POSPage() {
         }],
       };
     }));
-    store.log('tab.refund', `${activeTab.customerName} · ${cur}${amount.toFixed(2)} · ${reason}`, me?.id);
-    toast.success(`Refunded ${cur}${amount.toFixed(2)}`);
+    store.log('tab.refund', `${activeTab.customerName} · ${cur}${fmtCur(amount)} · ${reason}`, me?.id);
+    toast.success(`Refunded ${cur}${fmtCur(amount)}`);
     setRefundOpen(false);
   }
 

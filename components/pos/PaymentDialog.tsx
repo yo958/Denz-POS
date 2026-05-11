@@ -7,6 +7,7 @@ import {
   lineUnitPrice, lineEffectiveUnitPrice,
 } from '@/lib/domain/tabs';
 import { useSettings } from '@/lib/hooks/useStore';
+import { fmtCur } from '@/lib/format';
 
 interface PaymentDialogProps {
   open: boolean;
@@ -73,7 +74,7 @@ export function PaymentDialog({
         <div className="space-y-2 text-sm">
           <div className="flex justify-between text-muted-foreground">
             <span>Subtotal</span>
-            <span className="tabular-nums">{cur}{subtotal.toFixed(2)}</span>
+            <span className="tabular-nums">{cur}{fmtCur(subtotal)}</span>
           </div>
 
           {lineDiscountTotal > 0 && (
@@ -82,7 +83,7 @@ export function PaymentDialog({
                 <Tag size={11} strokeWidth={2} />
                 Item discounts
               </span>
-              <span className="tabular-nums">−{cur}{lineDiscountTotal.toFixed(2)}</span>
+              <span className="tabular-nums">−{cur}{fmtCur(lineDiscountTotal)}</span>
             </div>
           )}
 
@@ -92,27 +93,27 @@ export function PaymentDialog({
                 <Tag size={11} strokeWidth={2} />
                 {tab.discount!.type === 'pct' ? `Discount (${tab.discount!.value}%)` : 'Discount'}
               </span>
-              <span className="tabular-nums">−{cur}{discount.toFixed(2)}</span>
+              <span className="tabular-nums">−{cur}{fmtCur(discount)}</span>
             </div>
           )}
 
           {settings.taxEnabled !== false && (
             <div className="flex justify-between text-muted-foreground">
               <span>{settings.taxLabel} ({Math.round(settings.taxRate * 100)}%)</span>
-              <span className="tabular-nums">{cur}{tax.toFixed(2)}</span>
+              <span className="tabular-nums">{cur}{fmtCur(tax)}</span>
             </div>
           )}
 
           {isCard && (
             <div className="flex justify-between text-amber-600 dark:text-amber-400">
               <span>Card fee ({Math.round(CARD_FEE_RATE * 100)}%)</span>
-              <span className="tabular-nums">+{cur}{cardFee.toFixed(2)}</span>
+              <span className="tabular-nums">+{cur}{fmtCur(cardFee)}</span>
             </div>
           )}
 
           <div className="flex justify-between font-bold text-base pt-1 border-t border-border">
             <span>Amount Due</span>
-            <span className="tabular-nums">{cur}{total.toFixed(2)}</span>
+            <span className="tabular-nums">{cur}{fmtCur(total)}</span>
           </div>
 
           {isCash && (
@@ -125,7 +126,7 @@ export function PaymentDialog({
                   step="0.01"
                   value={cashTendered || ''}
                   onChange={e => onCashTenderedChange(parseFloat(e.target.value) || 0)}
-                  placeholder={total.toFixed(2)}
+                  placeholder={fmtCur(total)}
                   aria-label="Cash tendered"
                   autoFocus
                   className="w-28 h-9 px-3 text-right text-sm rounded-xl bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring tabular-nums"
@@ -134,7 +135,7 @@ export function PaymentDialog({
               {cashTendered > 0 && (
                 <div className="flex justify-between font-semibold text-emerald-600 dark:text-emerald-400">
                   <span>Change Due</span>
-                  <span className="tabular-nums">{cur}{change.toFixed(2)}</span>
+                  <span className="tabular-nums">{cur}{fmtCur(change)}</span>
                 </div>
               )}
             </>

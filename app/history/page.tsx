@@ -8,6 +8,7 @@ import {
   tabRefundedAmount, lineUnitPrice, lineEffectiveUnitPrice, effectiveQty, modifiersSummary, CARD_FEE_RATE,
   formatTime, formatDate,
 } from '@/lib/domain/tabs';
+import { fmtCur } from '@/lib/format';
 import { getStore } from '@/lib/store/store';
 import { confirm } from '@/components/ui/confirm-dialog';
 import type { Tab, TabType } from '@/lib/types';
@@ -144,7 +145,7 @@ function OrderDetailPanel({ tab, onClose, onDelete, cur }: {
                         <p className="text-xs text-rose-500">refunded ×{li.refundedQty}</p>
                       )}
                     </div>
-                    <span className="text-sm tabular-nums shrink-0">{cur}{(unit * qty).toFixed(2)}</span>
+                    <span className="text-sm tabular-nums shrink-0">{cur}{fmtCur(unit * qty)}</span>
                   </div>
                 );
               })}
@@ -155,7 +156,7 @@ function OrderDetailPanel({ tab, onClose, onDelete, cur }: {
           <section className="space-y-1.5 text-sm border-t border-border pt-4">
             <div className="flex justify-between text-muted-foreground">
               <span>Subtotal</span>
-              <span className="tabular-nums">{cur}{subtotal.toFixed(2)}</span>
+              <span className="tabular-nums">{cur}{fmtCur(subtotal)}</span>
             </div>
             {lineDiscountTotal > 0 && (
               <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
@@ -163,7 +164,7 @@ function OrderDetailPanel({ tab, onClose, onDelete, cur }: {
                   <Tag size={11} strokeWidth={2} />
                   Item discounts
                 </span>
-                <span className="tabular-nums">−{cur}{lineDiscountTotal.toFixed(2)}</span>
+                <span className="tabular-nums">−{cur}{fmtCur(lineDiscountTotal)}</span>
               </div>
             )}
             {discount > 0 && (
@@ -172,29 +173,29 @@ function OrderDetailPanel({ tab, onClose, onDelete, cur }: {
                   <Tag size={11} strokeWidth={2} />
                   {tab.discount!.type === 'pct' ? `Discount (${tab.discount!.value}%)` : 'Discount'}
                 </span>
-                <span className="tabular-nums">−{cur}{discount.toFixed(2)}</span>
+                <span className="tabular-nums">−{cur}{fmtCur(discount)}</span>
               </div>
             )}
             {settings.taxEnabled !== false && (
               <div className="flex justify-between text-muted-foreground">
                 <span>{settings.taxLabel} ({Math.round(settings.taxRate * 100)}%)</span>
-                <span className="tabular-nums">{cur}{tax.toFixed(2)}</span>
+                <span className="tabular-nums">{cur}{fmtCur(tax)}</span>
               </div>
             )}
             {isCard && (
               <div className="flex justify-between text-amber-600 dark:text-amber-400">
                 <span>Card fee ({Math.round(CARD_FEE_RATE * 100)}%)</span>
-                <span className="tabular-nums">+{cur}{cardFee.toFixed(2)}</span>
+                <span className="tabular-nums">+{cur}{fmtCur(cardFee)}</span>
               </div>
             )}
             <div className="flex justify-between font-bold text-base pt-1 border-t border-border">
               <span>Total</span>
-              <span className="tabular-nums">{cur}{total.toFixed(2)}</span>
+              <span className="tabular-nums">{cur}{fmtCur(total)}</span>
             </div>
             {refunded > 0 && (
               <div className="flex justify-between text-rose-600 dark:text-rose-400">
                 <span>Refunded</span>
-                <span className="tabular-nums">−{cur}{refunded.toFixed(2)}</span>
+                <span className="tabular-nums">−{cur}{fmtCur(refunded)}</span>
               </div>
             )}
           </section>
@@ -288,7 +289,7 @@ export default function HistoryPage() {
         <div>
           <h1 className="text-lg font-semibold">Order History</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {totals.count} order{totals.count === 1 ? '' : 's'} · {cur}{(totals.revenue - totals.refunds).toFixed(2)} net
+            {totals.count} order{totals.count === 1 ? '' : 's'} · {cur}{fmtCur(totals.revenue - totals.refunds)} net
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -333,7 +334,7 @@ export default function HistoryPage() {
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-semibold">{dayLabel(group.date)}</h2>
                 <p className="text-xs text-muted-foreground tabular-nums">
-                  {group.items.length} · {cur}{(dayTotal - dayRefunds).toFixed(2)}
+                  {group.items.length} · {cur}{fmtCur(dayTotal - dayRefunds)}
                 </p>
               </div>
               <div className="rounded-2xl border border-border bg-white/50 dark:bg-white/3 divide-y divide-border overflow-hidden">
@@ -369,9 +370,9 @@ export default function HistoryPage() {
                         </p>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="text-sm font-semibold tabular-nums">{cur}{total.toFixed(2)}</p>
+                        <p className="text-sm font-semibold tabular-nums">{cur}{fmtCur(total)}</p>
                         {refunded > 0 && (
-                          <p className="text-xs text-rose-600 dark:text-rose-400 tabular-nums">−{cur}{refunded.toFixed(2)}</p>
+                          <p className="text-xs text-rose-600 dark:text-rose-400 tabular-nums">−{cur}{fmtCur(refunded)}</p>
                         )}
                       </div>
                     </button>

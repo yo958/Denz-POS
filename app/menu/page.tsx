@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Plus, Pencil, Archive, ArchiveRestore, Trash2, Upload } from 'lucide-react';
 import { useProducts, useCurrentStaff, useSettings, useModifierGroups } from '@/lib/hooks/useStore';
+import { fmtCur } from '@/lib/format';
 import { getStore } from '@/lib/store/store';
 import { newId } from '@/lib/domain/id';
 import { confirm } from '@/components/ui/confirm-dialog';
@@ -146,7 +147,7 @@ export default function MenuPage() {
                         </div>
                         {p.description && <p className="text-xs text-muted-foreground truncate">{p.description}</p>}
                       </div>
-                      <span className="text-sm font-semibold tabular-nums w-20 text-right">{cur}{p.price.toFixed(2)}</span>
+                      <span className="text-sm font-semibold tabular-nums w-20 text-right">{cur}{fmtCur(p.price)}</span>
                       <span className="text-xs text-muted-foreground tabular-nums w-16 text-right">{p.stock ?? '—'}</span>
                       <button onClick={() => setEditing(p)} aria-label={`Edit ${p.name}`} className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer">
                         <Pencil size={13} />

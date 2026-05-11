@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { BedDouble, User, CalendarDays, Receipt, LogOut, Plus, Pencil, Archive, ArchiveRestore, Trash2 } from 'lucide-react';
 import { useProducts, useStays, useTabs, useCurrentStaff, useSettings } from '@/lib/hooks/useStore';
+import { fmtCur } from '@/lib/format';
 import { getStore } from '@/lib/store/store';
 import { newId } from '@/lib/domain/id';
 import { createStayAndFolio, findActiveStayByRoom } from '@/lib/domain/stays';
@@ -46,7 +47,7 @@ export default function RoomsPage() {
     const total = folio ? tabGrandTotal(folio.items, folio.discount) : 0;
     const ok = await confirm({
       title: `Check out ${stay.guestName}?`,
-      message: `Outstanding folio: ${cur}${total.toFixed(2)}. The folio tab must already be paid before check-out.`,
+      message: `Outstanding folio: ${cur}${fmtCur(total)}. The folio tab must already be paid before check-out.`,
       danger: false,
       confirmLabel: 'Check out',
     });
@@ -214,7 +215,7 @@ export default function RoomsPage() {
                         </div>
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <Receipt size={12} strokeWidth={2} />
-                          <span>Folio {cur}{folioTotal.toFixed(2)} {folio?.status === 'paid' && '(paid)'}</span>
+                          <span>Folio {cur}{fmtCur(folioTotal)} {folio?.status === 'paid' && '(paid)'}</span>
                         </div>
                       </div>
                     )}
@@ -390,13 +391,13 @@ function FolioPanel({ stay, onClose }: { stay: Stay | null; onClose: () => void 
                   <span className="truncate block">{li.qty}× {li.product.name}</span>
                   {mods && <span className="block text-[11px] text-muted-foreground/80 truncate">{mods}</span>}
                 </span>
-                <span className="tabular-nums">{cur}{(lineEffectiveUnitPrice(li) * li.qty).toFixed(2)}</span>
+                <span className="tabular-nums">{cur}{fmtCur(lineEffectiveUnitPrice(li) * li.qty)}</span>
               </div>
             );
           })}
         </div>
         <div className="flex justify-between font-bold text-base pt-2 border-t border-border">
-          <span>Total</span><span className="tabular-nums">{cur}{total.toFixed(2)}</span>
+          <span>Total</span><span className="tabular-nums">{cur}{fmtCur(total)}</span>
         </div>
         <div className="flex gap-2">
           <button onClick={onClose} className="flex-1 h-10 rounded-2xl text-sm font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8 active:scale-95 transition-all cursor-pointer">Close</button>

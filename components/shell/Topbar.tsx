@@ -9,6 +9,7 @@ import { buildZReport } from '@/lib/domain/shift';
 import { newId } from '@/lib/domain/id';
 import { confirm } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/toast';
+import { fmtCur } from '@/lib/format';
 
 interface TopbarProps {
   onNewTab: () => void;
@@ -86,7 +87,7 @@ function ShiftDialog({ onClose, tabs, meId }: ShiftDialogProps) {
       openedByStaffId: meId,
       openingFloat,
     }));
-    getStore().log('shift.open', `Float ${cur}${openingFloat.toFixed(2)}`, meId);
+    getStore().log('shift.open', `Float ${cur}${fmtCur(openingFloat)}`, meId);
     toast.success('Shift opened');
     onClose();
   }
@@ -97,7 +98,7 @@ function ShiftDialog({ onClose, tabs, meId }: ShiftDialogProps) {
     const variance = z.variance ?? 0;
     const ok = await confirm({
       title: 'Close shift?',
-      message: `Counted ${cur}${countedCash.toFixed(2)} · Expected ${cur}${z.expectedCash.toFixed(2)} · Variance ${variance >= 0 ? '+' : ''}${cur}${variance.toFixed(2)}`,
+      message: `Counted ${cur}${fmtCur(countedCash)} · Expected ${cur}${fmtCur(z.expectedCash)} · Variance ${variance >= 0 ? '+' : ''}${cur}${fmtCur(variance)}`,
       confirmLabel: 'Close shift',
       requireManagerPin: Math.abs(variance) > 0.01,
       danger: Math.abs(variance) > 0.01,
@@ -106,7 +107,7 @@ function ShiftDialog({ onClose, tabs, meId }: ShiftDialogProps) {
     getStore().shift.set(prev => prev ? ({ ...prev, closedAt: new Date(), closedByStaffId: meId, countedCash }) : prev);
     // Archive the closed shift by moving it to null after a brief delay so reports can capture
     setTimeout(() => getStore().shift.set(() => null), 0);
-    getStore().log('shift.close', `Counted ${cur}${countedCash.toFixed(2)} · variance ${cur}${variance.toFixed(2)}`, meId);
+    getStore().log('shift.close', `Counted ${cur}${fmtCur(countedCash)} · variance ${cur}${fmtCur(variance)}`, meId);
     toast.success('Shift closed');
     onClose();
   }
@@ -127,11 +128,11 @@ function ShiftDialog({ onClose, tabs, meId }: ShiftDialogProps) {
   return (
     <Modal title="Close shift" onClose={onClose}>
       <div className="rounded-2xl border border-border bg-black/3 dark:bg-white/3 p-3 grid grid-cols-2 gap-y-1 text-sm">
-        <span className="text-muted-foreground">Opening float</span><span className="text-right tabular-nums">{cur}{shift.openingFloat.toFixed(2)}</span>
-        <span className="text-muted-foreground">Cash sales</span>   <span className="text-right tabular-nums">{cur}{z.totalsByMethod.cash.toFixed(2)}</span>
-        <span className="text-muted-foreground">Card sales</span>   <span className="text-right tabular-nums">{cur}{z.totalsByMethod.card.toFixed(2)}</span>
-        <span className="text-muted-foreground">Refunds</span>      <span className="text-right tabular-nums">−{cur}{z.refundsTotal.toFixed(2)}</span>
-        <span className="font-semibold">Expected cash</span>        <span className="text-right font-semibold tabular-nums">{cur}{z.expectedCash.toFixed(2)}</span>
+        <span className="text-muted-foreground">Opening float</span><span className="text-right tabular-nums">{cur}{fmtCur(shift.openingFloat)}</span>
+        <span className="text-muted-foreground">Cash sales</span>   <span className="text-right tabular-nums">{cur}{fmtCur(z.totalsByMethod.cash)}</span>
+        <span className="text-muted-foreground">Card sales</span>   <span className="text-right tabular-nums">{cur}{fmtCur(z.totalsByMethod.card)}</span>
+        <span className="text-muted-foreground">Refunds</span>      <span className="text-right tabular-nums">−{cur}{fmtCur(z.refundsTotal)}</span>
+        <span className="font-semibold">Expected cash</span>        <span className="text-right font-semibold tabular-nums">{cur}{fmtCur(z.expectedCash)}</span>
       </div>
       <Field label="Counted cash">
         <input type="number" min={0} step={0.01} value={countedCash || ''} onChange={e => setCountedCash(parseFloat(e.target.value) || 0)} autoFocus className="w-full h-10 px-3 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring tabular-nums" />
@@ -139,7 +140,7 @@ function ShiftDialog({ onClose, tabs, meId }: ShiftDialogProps) {
       <div className="flex justify-between text-sm">
         <span className="text-muted-foreground">Variance</span>
         <span className={`font-bold tabular-nums ${(z.variance ?? 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-          {(z.variance ?? 0) >= 0 ? '+' : ''}{cur}{(z.variance ?? 0).toFixed(2)}
+          {(z.variance ?? 0) >= 0 ? '+' : ''}{cur}{fmtCur(z.variance ?? 0)}
         </span>
       </div>
       <button onClick={closeShift} className="w-full h-11 rounded-2xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 transition-all cursor-pointer">Close shift</button>

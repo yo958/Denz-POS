@@ -16,6 +16,7 @@ import { countryLabel, countryFlag } from '@/lib/countries';
 import {
   tabGrandTotal, tabCardFee, tabRefundedAmount, lineUnitPrice, effectiveQty, formatDate, formatTime,
 } from '@/lib/domain/tabs';
+import { fmtCur } from '@/lib/format';
 import type { Customer, Tab, TabType } from '@/lib/types';
 
 const TYPE_ICON = { cafe: Coffee, desk: Monitor, room: BedDouble } as const;
@@ -130,10 +131,10 @@ function CustomerDetailPanel({ customer, onClose, onEdit, cur }: {
           {/* Stats grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { icon: DollarSign,  label: 'Total spent',  value: `${cur}${stats.totalSpent.toFixed(2)}`,  color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/20' },
-              { icon: TrendingUp,  label: 'Avg order',    value: `${cur}${stats.avgOrder.toFixed(2)}`,    color: 'text-amber-600 dark:text-amber-400',   bg: 'bg-amber-100 dark:bg-amber-900/20' },
+              { icon: DollarSign,  label: 'Total spent',  value: `${cur}${fmtCur(stats.totalSpent)}`,  color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/20' },
+              { icon: TrendingUp,  label: 'Avg order',    value: `${cur}${fmtCur(stats.avgOrder)}`,    color: 'text-amber-600 dark:text-amber-400',   bg: 'bg-amber-100 dark:bg-amber-900/20' },
               { icon: ShoppingBag, label: 'Visits',       value: String(stats.visits),                   color: 'text-sky-600 dark:text-sky-400',       bg: 'bg-sky-100 dark:bg-sky-900/20' },
-              { icon: Clock,       label: 'Open value',   value: `${cur}${stats.openValue.toFixed(2)}`,   color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-100 dark:bg-violet-900/20' },
+              { icon: Clock,       label: 'Open value',   value: `${cur}${fmtCur(stats.openValue)}`,   color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-100 dark:bg-violet-900/20' },
             ].map(({ icon: Icon, label, value, color, bg }) => (
               <div key={label} className="flex flex-col gap-2 p-3 rounded-2xl border border-border bg-white/60 dark:bg-white/5">
                 <div className={`flex items-center justify-center w-8 h-8 rounded-xl ${bg}`}><Icon size={15} className={color}/></div>
@@ -188,7 +189,7 @@ function CustomerDetailPanel({ customer, onClose, onEdit, cur }: {
                         <p className="text-sm font-medium">{tab.label}</p>
                         <p className="text-xs text-muted-foreground">{tab.items.reduce((s, li) => s + li.qty, 0)} items · opened {formatTime(tab.openedAt)}</p>
                       </div>
-                      <span className="text-sm font-semibold tabular-nums text-amber-600 dark:text-amber-400">{cur}{total.toFixed(2)}</span>
+                      <span className="text-sm font-semibold tabular-nums text-amber-600 dark:text-amber-400">{cur}{fmtCur(total)}</span>
                     </div>
                   );
                 })}
@@ -230,8 +231,8 @@ function CustomerDetailPanel({ customer, onClose, onEdit, cur }: {
                           </div>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-sm font-semibold tabular-nums">{cur}{total.toFixed(2)}</p>
-                          {refunded > 0 && <p className="text-xs text-rose-500 tabular-nums">−{cur}{refunded.toFixed(2)}</p>}
+                          <p className="text-sm font-semibold tabular-nums">{cur}{fmtCur(total)}</p>
+                          {refunded > 0 && <p className="text-xs text-rose-500 tabular-nums">−{cur}{fmtCur(refunded)}</p>}
                         </div>
                         <a
                           href={`/receipt/${tab.id}`}

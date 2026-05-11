@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { useModifierGroups, useSettings } from '@/lib/hooks/useStore';
+import { fmtCur } from '@/lib/format';
 import type { ModifierGroup, Product, SelectedModifier } from '@/lib/types';
 
 interface ProductOptionsDialogProps {
@@ -165,7 +166,7 @@ export function ProductOptionsDialog({ product, onClose, onConfirm }: ProductOpt
                         <span className="flex-1 text-sm leading-tight">{opt.name}</span>
                         {effDelta !== 0 && (
                           <span className="text-xs font-semibold tabular-nums text-muted-foreground shrink-0">
-                            {effDelta > 0 ? '+' : '−'}{cur}{Math.abs(effDelta).toFixed(2)}
+                            {effDelta > 0 ? '+' : '−'}{cur}{fmtCur(Math.abs(effDelta))}
                           </span>
                         )}
                       </label>
@@ -192,7 +193,7 @@ export function ProductOptionsDialog({ product, onClose, onConfirm }: ProductOpt
         <div className="shrink-0 flex items-center gap-3 px-5 py-4 border-t border-border">
           <div className="flex flex-col leading-tight">
             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Unit price</span>
-            <span className="text-base font-bold tabular-nums">{cur}{unitPrice.toFixed(2)}</span>
+            <span className="text-base font-bold tabular-nums">{cur}{fmtCur(unitPrice)}</span>
           </div>
           <button
             onClick={confirm}

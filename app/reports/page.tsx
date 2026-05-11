@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { TrendingUp, ShoppingBag, Clock, DollarSign, Coffee, Monitor, BedDouble, RotateCcw, CreditCard, QrCode, Banknote } from 'lucide-react';
 import { useTabs, useShift, useSettings, useCurrentStaff } from '@/lib/hooks/useStore';
+import { fmtCur } from '@/lib/format';
 import { lineUnitPrice, lineEffectiveUnitPrice, tabGrandTotal, tabRefundedAmount, tabCardFee } from '@/lib/domain/tabs';
 import { buildZReport } from '@/lib/domain/shift';
 import type { PaymentMethod, TabType } from '@/lib/types';
@@ -124,9 +125,9 @@ export default function ReportsPage() {
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
-            { label: 'Revenue',   value: `${cur}${stats.revenue.toFixed(2)}`, sub: `${stats.paidTabs} paid tab${stats.paidTabs !== 1 ? 's' : ''}`, icon: DollarSign, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/20' },
-            { label: 'Net Sales', value: `${cur}${stats.net.toFixed(2)}`,     sub: `−${cur}${stats.refunds.toFixed(2)} refunds`, icon: TrendingUp, color: 'text-amber-600 dark:text-amber-400',   bg: 'bg-amber-100 dark:bg-amber-900/20' },
-            { label: 'Pipeline',  value: `${cur}${stats.pipeline.toFixed(2)}`,sub: `${stats.openTabs} open tab${stats.openTabs !== 1 ? 's' : ''}`, icon: Clock, color: 'text-sky-600 dark:text-sky-400', bg: 'bg-sky-100 dark:bg-sky-900/20' },
+            { label: 'Revenue',   value: `${cur}${fmtCur(stats.revenue)}`, sub: `${stats.paidTabs} paid tab${stats.paidTabs !== 1 ? 's' : ''}`, icon: DollarSign, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/20' },
+            { label: 'Net Sales', value: `${cur}${fmtCur(stats.net)}`,     sub: `−${cur}${fmtCur(stats.refunds)} refunds`, icon: TrendingUp, color: 'text-amber-600 dark:text-amber-400',   bg: 'bg-amber-100 dark:bg-amber-900/20' },
+            { label: 'Pipeline',  value: `${cur}${fmtCur(stats.pipeline)}`,sub: `${stats.openTabs} open tab${stats.openTabs !== 1 ? 's' : ''}`, icon: Clock, color: 'text-sky-600 dark:text-sky-400', bg: 'bg-sky-100 dark:bg-sky-900/20' },
             { label: 'Items',     value: String(stats.totalItems),       sub: 'in range',          icon: ShoppingBag, color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-100 dark:bg-violet-900/20' },
           ].map(card => {
             const Icon = card.icon;
@@ -160,7 +161,7 @@ export default function ReportsPage() {
                         <div className="h-full rounded-full bg-primary/60" style={{ width: `${pct}%` }} />
                       </div>
                       <span className="text-xs text-muted-foreground tabular-nums w-8 text-right">{Math.round(pct)}%</span>
-                      <span className="text-sm font-semibold tabular-nums w-20 text-right">{cur}{amount.toFixed(2)}</span>
+                      <span className="text-sm font-semibold tabular-nums w-20 text-right">{cur}{fmtCur(amount)}</span>
                     </div>
                   </div>
                 );
@@ -176,7 +177,7 @@ export default function ReportsPage() {
               return (
                 <div key={m} className="rounded-2xl border border-border p-4 bg-white/50 dark:bg-white/3">
                   <Icon size={16} className="text-muted-foreground mb-2" />
-                  <p className="text-lg font-bold tabular-nums">{cur}{v.toFixed(2)}</p>
+                  <p className="text-lg font-bold tabular-nums">{cur}{fmtCur(v)}</p>
                   <p className="text-xs text-muted-foreground">{label}</p>
                 </div>
               );
@@ -191,14 +192,14 @@ export default function ReportsPage() {
               <span className="text-xs font-normal text-muted-foreground">opened {z.shift.openedAt.toLocaleString()}</span>
             </h2>
             <div className="rounded-2xl border border-border bg-white/60 dark:bg-white/5 p-4 grid grid-cols-2 gap-y-2 text-sm">
-              <span className="text-muted-foreground">Opening float</span><span className="text-right tabular-nums">{cur}{z.shift.openingFloat.toFixed(2)}</span>
-              <span className="text-muted-foreground">Cash sales</span>   <span className="text-right tabular-nums">{cur}{z.totalsByMethod.cash.toFixed(2)}</span>
-              <span className="text-muted-foreground">Card sales</span>   <span className="text-right tabular-nums">{cur}{z.totalsByMethod.card.toFixed(2)}</span>
-              <span className="text-muted-foreground">QR sales</span>     <span className="text-right tabular-nums">{cur}{z.totalsByMethod.qr.toFixed(2)}</span>
-              <span className="text-muted-foreground">Room charges</span> <span className="text-right tabular-nums">{cur}{z.totalsByMethod.room.toFixed(2)}</span>
-              <span className="text-muted-foreground">Refunds</span>      <span className="text-right tabular-nums text-rose-600 dark:text-rose-400">−{cur}{z.refundsTotal.toFixed(2)}</span>
-              <span className="font-semibold">Net sales</span>            <span className="text-right font-semibold tabular-nums">{cur}{z.netSales.toFixed(2)}</span>
-              <span className="font-semibold">Expected cash</span>        <span className="text-right font-semibold tabular-nums">{cur}{z.expectedCash.toFixed(2)}</span>
+              <span className="text-muted-foreground">Opening float</span><span className="text-right tabular-nums">{cur}{fmtCur(z.shift.openingFloat)}</span>
+              <span className="text-muted-foreground">Cash sales</span>   <span className="text-right tabular-nums">{cur}{fmtCur(z.totalsByMethod.cash)}</span>
+              <span className="text-muted-foreground">Card sales</span>   <span className="text-right tabular-nums">{cur}{fmtCur(z.totalsByMethod.card)}</span>
+              <span className="text-muted-foreground">QR sales</span>     <span className="text-right tabular-nums">{cur}{fmtCur(z.totalsByMethod.qr)}</span>
+              <span className="text-muted-foreground">Room charges</span> <span className="text-right tabular-nums">{cur}{fmtCur(z.totalsByMethod.room)}</span>
+              <span className="text-muted-foreground">Refunds</span>      <span className="text-right tabular-nums text-rose-600 dark:text-rose-400">−{cur}{fmtCur(z.refundsTotal)}</span>
+              <span className="font-semibold">Net sales</span>            <span className="text-right font-semibold tabular-nums">{cur}{fmtCur(z.netSales)}</span>
+              <span className="font-semibold">Expected cash</span>        <span className="text-right font-semibold tabular-nums">{cur}{fmtCur(z.expectedCash)}</span>
               <span className="text-muted-foreground">Voids · Refunds</span><span className="text-right tabular-nums">{z.voidsCount} · {z.refundsCount}</span>
             </div>
           </section>
@@ -213,7 +214,7 @@ export default function ReportsPage() {
                 <span className="text-xs font-bold text-muted-foreground tabular-nums w-4">{i + 1}</span>
                 <span className="text-sm font-medium flex-1">{item.name}</span>
                 <span className="text-xs text-muted-foreground tabular-nums">{item.qty}×</span>
-                <span className="text-sm font-semibold tabular-nums w-16 text-right">{cur}{item.revenue.toFixed(2)}</span>
+                <span className="text-sm font-semibold tabular-nums w-16 text-right">{cur}{fmtCur(item.revenue)}</span>
               </div>
             ))}
           </div>
@@ -229,7 +230,7 @@ export default function ReportsPage() {
                 <div key={t.id} className="px-4 py-3 text-sm">
                   <div className="flex justify-between">
                     <span className="font-medium">{t.customerName} · {t.label}</span>
-                    <span className="text-rose-600 dark:text-rose-400 font-semibold tabular-nums">−{cur}{tabRefundedAmount(t).toFixed(2)}</span>
+                    <span className="text-rose-600 dark:text-rose-400 font-semibold tabular-nums">−{cur}{fmtCur(tabRefundedAmount(t))}</span>
                   </div>
                   {t.refunds!.map(r => (
                     <p key={r.id} className="text-xs text-muted-foreground">{r.reason}</p>

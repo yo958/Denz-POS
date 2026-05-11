@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { X, BedDouble } from 'lucide-react';
 import { useSettings } from '@/lib/hooks/useStore';
 import { getStore } from '@/lib/store/store';
+import { fmtCur } from '@/lib/format';
 import { CustomerPicker } from '@/components/customers/CustomerPicker';
 import type { Product } from '@/lib/types';
 
@@ -191,7 +192,7 @@ export function CheckInDialog({ open, room, onClose, onCheckIn }: CheckInDialogP
         {/* Total */}
         <div className="flex justify-between text-sm pt-2 border-t border-border">
           <span className="text-muted-foreground">Pre-charged ({nights}n)</span>
-          <span className="font-bold tabular-nums">{cur}{total.toFixed(2)}</span>
+          <span className="font-bold tabular-nums">{cur}{fmtCur(total)}</span>
         </div>
 
         <div className="flex gap-2">

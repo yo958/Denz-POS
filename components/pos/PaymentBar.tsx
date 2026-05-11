@@ -6,6 +6,7 @@ import {
   tabDiscountAmount, tabTax, tabGrandTotal, tabRefundedAmount, lineUnitPrice, lineEffectiveUnitPrice,
 } from '@/lib/domain/tabs';
 import { useSettings } from '@/lib/hooks/useStore';
+import { fmtCur } from '@/lib/format';
 
 interface PaymentBarProps {
   tab: Tab;
@@ -45,7 +46,7 @@ export function PaymentBar({
       <div className="space-y-1.5 text-sm">
         <div className="flex justify-between text-muted-foreground">
           <span>Subtotal</span>
-          <span className="tabular-nums">{cur}{grossSubtotal.toFixed(2)}</span>
+          <span className="tabular-nums">{cur}{fmtCur(grossSubtotal)}</span>
         </div>
 
         {lineDiscountTotal > 0 && (
@@ -54,7 +55,7 @@ export function PaymentBar({
               <Tag size={11} strokeWidth={2} />
               Item discounts
             </span>
-            <span className="tabular-nums">−{cur}{lineDiscountTotal.toFixed(2)}</span>
+            <span className="tabular-nums">−{cur}{fmtCur(lineDiscountTotal)}</span>
           </div>
         )}
 
@@ -64,24 +65,24 @@ export function PaymentBar({
               <Tag size={11} strokeWidth={2} />
               {tab.discount!.type === 'pct' ? `Discount (${tab.discount!.value}%)` : 'Discount'}
             </span>
-            <span className="tabular-nums">−{cur}{discount.toFixed(2)}</span>
+            <span className="tabular-nums">−{cur}{fmtCur(discount)}</span>
           </div>
         )}
 
         {settings.taxEnabled !== false && (
           <div className="flex justify-between text-muted-foreground">
             <span>{settings.taxLabel} ({Math.round(settings.taxRate * 100)}%)</span>
-            <span className="tabular-nums">{cur}{tax.toFixed(2)}</span>
+            <span className="tabular-nums">{cur}{fmtCur(tax)}</span>
           </div>
         )}
         <div className="flex justify-between font-bold text-base pt-1 border-t border-border">
           <span>Total</span>
-          <span className="tabular-nums">{cur}{total.toFixed(2)}</span>
+          <span className="tabular-nums">{cur}{fmtCur(total)}</span>
         </div>
         {refunded > 0 && (
           <div className="flex justify-between text-rose-600 dark:text-rose-400 text-xs">
             <span>Refunded</span>
-            <span className="tabular-nums">−{cur}{refunded.toFixed(2)}</span>
+            <span className="tabular-nums">−{cur}{fmtCur(refunded)}</span>
           </div>
         )}
       </div>

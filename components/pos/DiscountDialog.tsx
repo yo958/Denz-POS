@@ -5,6 +5,7 @@ import { X, Tag, Percent, DollarSign } from 'lucide-react';
 import type { Discount, Tab } from '@/lib/types';
 import { tabSubtotal, tabDiscountAmount } from '@/lib/domain/tabs';
 import { useSettings } from '@/lib/hooks/useStore';
+import { fmtCur } from '@/lib/format';
 
 interface DiscountDialogProps {
   open: boolean;
@@ -82,9 +83,9 @@ export function DiscountDialog({ open, tab, onApply, onClose }: DiscountDialogPr
 
         {previewDiscount && (
           <div className="space-y-1.5 text-sm p-3 rounded-2xl bg-black/5 dark:bg-white/5">
-            <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span className="tabular-nums">{cur}{subtotal.toFixed(2)}</span></div>
-            <div className="flex justify-between text-emerald-600 dark:text-emerald-400"><span>Discount</span><span className="tabular-nums">−{cur}{discountAmount.toFixed(2)}</span></div>
-            <div className="flex justify-between font-semibold pt-1 border-t border-border"><span>New Subtotal</span><span className="tabular-nums">{cur}{newSubtotal.toFixed(2)}</span></div>
+            <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span className="tabular-nums">{cur}{fmtCur(subtotal)}</span></div>
+            <div className="flex justify-between text-emerald-600 dark:text-emerald-400"><span>Discount</span><span className="tabular-nums">−{cur}{fmtCur(discountAmount)}</span></div>
+            <div className="flex justify-between font-semibold pt-1 border-t border-border"><span>New Subtotal</span><span className="tabular-nums">{cur}{fmtCur(newSubtotal)}</span></div>
           </div>
         )}
 

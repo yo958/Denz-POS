@@ -2,6 +2,7 @@
 
 import { use, useEffect, useRef } from 'react';
 import { useTabs, useSettings } from '@/lib/hooks/useStore';
+import { fmtCur } from '@/lib/format';
 import {
   effectiveQty, formatDate, formatTime, lineKey, lineUnitPrice, lineEffectiveUnitPrice,
   lineDiscountAmount, modifiersSummary,
@@ -101,15 +102,15 @@ export default function ReceiptPage({ params }: { params: Promise<{ tabId: strin
           <div key={lineKey(li)} className="item">
             <div className="row">
               <span>{q} × {li.product.name}</span>
-              <span>{cur}{line.toFixed(2)}</span>
+              <span>{cur}{fmtCur(line)}</span>
             </div>
             {mods && <div style={{ paddingLeft: 8 }}>{mods}</div>}
             {li.note && <div style={{ paddingLeft: 8, fontStyle: 'italic' }}>{li.note}</div>}
             {hasItemDiscount && (
               <div style={{ paddingLeft: 8 }}>
-                <span style={{ textDecoration: 'line-through', opacity: 0.6 }}>{cur}{baseUnit.toFixed(2)}</span>
-                {' '}→ {cur}{effectiveUnit.toFixed(2)} each
-                {' '}(−{cur}{saving.toFixed(2)}{li.discount?.type === 'pct' ? ` / ${li.discount.value}% off` : ''})
+                <span style={{ textDecoration: 'line-through', opacity: 0.6 }}>{cur}{fmtCur(baseUnit)}</span>
+                {' '}→ {cur}{fmtCur(effectiveUnit)} each
+                {' '}(−{cur}{fmtCur(saving)}{li.discount?.type === 'pct' ? ` / ${li.discount.value}% off` : ''})
               </div>
             )}
             {(li.refundedQty ?? 0) > 0 && <div style={{ paddingLeft: 8 }}>refunded ×{li.refundedQty}</div>}
@@ -118,26 +119,26 @@ export default function ReceiptPage({ params }: { params: Promise<{ tabId: strin
       })}
 
       <hr />
-      <div className="row"><span>Subtotal</span><span>{cur}{subtotal.toFixed(2)}</span></div>
+      <div className="row"><span>Subtotal</span><span>{cur}{fmtCur(subtotal)}</span></div>
       {lineDiscountTotal > 0 && (
-        <div className="row"><span>Item discounts</span><span>-{cur}{lineDiscountTotal.toFixed(2)}</span></div>
+        <div className="row"><span>Item discounts</span><span>-{cur}{fmtCur(lineDiscountTotal)}</span></div>
       )}
       {discount > 0 && (
-        <div className="row"><span>Discount</span><span>-{cur}{discount.toFixed(2)}</span></div>
+        <div className="row"><span>Discount</span><span>-{cur}{fmtCur(discount)}</span></div>
       )}
       {settings.taxEnabled !== false && (
-        <div className="row"><span>{settings.taxLabel} ({Math.round(settings.taxRate * 100)}%)</span><span>{cur}{tax.toFixed(2)}</span></div>
+        <div className="row"><span>{settings.taxLabel} ({Math.round(settings.taxRate * 100)}%)</span><span>{cur}{fmtCur(tax)}</span></div>
       )}
       {isCard && (
-        <div className="row"><span>Card fee ({Math.round(CARD_FEE_RATE * 100)}%)</span><span>+{cur}{cardFee.toFixed(2)}</span></div>
+        <div className="row"><span>Card fee ({Math.round(CARD_FEE_RATE * 100)}%)</span><span>+{cur}{fmtCur(cardFee)}</span></div>
       )}
-      <div className="row bold" style={{ fontSize: 14 }}><span>TOTAL</span><span>{cur}{total.toFixed(2)}</span></div>
+      <div className="row bold" style={{ fontSize: 14 }}><span>TOTAL</span><span>{cur}{fmtCur(total)}</span></div>
 
       {/* Single-method cash */}
       {tab.paymentMethod === 'cash' && tab.cashTendered != null && (
         <>
-          <div className="row"><span>Cash tendered</span><span>{cur}{tab.cashTendered.toFixed(2)}</span></div>
-          <div className="row"><span>Change</span><span>{cur}{(tab.changeGiven ?? 0).toFixed(2)}</span></div>
+          <div className="row"><span>Cash tendered</span><span>{cur}{fmtCur(tab.cashTendered)}</span></div>
+          <div className="row"><span>Change</span><span>{cur}{fmtCur(tab.changeGiven ?? 0)}</span></div>
         </>
       )}
 
@@ -149,20 +150,20 @@ export default function ReceiptPage({ params }: { params: Promise<{ tabId: strin
             <div key={i}>
               {line.method === 'cash' && (
                 <>
-                  <div className="row"><span>Cash</span><span>{cur}{line.amount.toFixed(2)}</span></div>
+                  <div className="row"><span>Cash</span><span>{cur}{fmtCur(line.amount)}</span></div>
                   {line.cashTendered != null && (
-                    <div className="row"><span>Cash tendered</span><span>{cur}{line.cashTendered.toFixed(2)}</span></div>
+                    <div className="row"><span>Cash tendered</span><span>{cur}{fmtCur(line.cashTendered)}</span></div>
                   )}
                   {line.changeGiven != null && line.changeGiven > 0 && (
-                    <div className="row"><span>Change</span><span>{cur}{line.changeGiven.toFixed(2)}</span></div>
+                    <div className="row"><span>Change</span><span>{cur}{fmtCur(line.changeGiven)}</span></div>
                   )}
                 </>
               )}
               {line.method === 'card' && (
                 <>
-                  <div className="row"><span>Card</span><span>{cur}{line.amount.toFixed(2)}</span></div>
-                  <div className="row"><span>Card fee ({Math.round(CARD_FEE_RATE * 100)}%)</span><span>+{cur}{(line.amount * CARD_FEE_RATE).toFixed(2)}</span></div>
-                  <div className="row bold"><span>Card total</span><span>{cur}{(line.amount * (1 + CARD_FEE_RATE)).toFixed(2)}</span></div>
+                  <div className="row"><span>Card</span><span>{cur}{fmtCur(line.amount)}</span></div>
+                  <div className="row"><span>Card fee ({Math.round(CARD_FEE_RATE * 100)}%)</span><span>+{cur}{fmtCur(line.amount * CARD_FEE_RATE)}</span></div>
+                  <div className="row bold"><span>Card total</span><span>{cur}{fmtCur(line.amount * (1 + CARD_FEE_RATE))}</span></div>
                 </>
               )}
             </div>
@@ -173,7 +174,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ tabId: strin
       {refunded > 0 && (
         <>
           <hr />
-          <div className="row bold"><span>Refunded</span><span>-{cur}{refunded.toFixed(2)}</span></div>
+          <div className="row bold"><span>Refunded</span><span>-{cur}{fmtCur(refunded)}</span></div>
         </>
       )}
 

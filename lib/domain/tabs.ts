@@ -4,6 +4,7 @@
 
 import type { Discount, LineItem, SelectedModifier, Tab } from '../types';
 import { getStore } from '../store/store';
+import { fmtCur } from '../format';
 
 /** Net qty = ordered qty minus refunded qty. */
 export function effectiveQty(li: LineItem): number {
@@ -134,7 +135,7 @@ export function formatMoney(amount: number, currency?: string): string {
       cur = '$';
     }
   }
-  return `${cur}${amount.toFixed(2)}`;
+  return `${cur}${fmtCur(amount)}`;
 }
 
 export { newId } from './id';

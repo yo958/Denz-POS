@@ -4,6 +4,7 @@ import { Coffee, Monitor, BedDouble, Trash2, Star } from 'lucide-react';
 import type { Customer, Tab } from '@/lib/types';
 import { tabGrandTotal, formatElapsed } from '@/lib/mock-data';
 import { useSettings } from '@/lib/hooks/useStore';
+import { fmtCur } from '@/lib/format';
 
 const TYPE_ICON = {
   cafe: Coffee,
@@ -71,7 +72,7 @@ export function TabListItem({ tab, active, customer, onClick, onDelete }: TabLis
           {/* Label · price · elapsed on one line */}
           <div className="flex items-center justify-between gap-1 mt-0.5">
             <p className="text-xs text-muted-foreground truncate">{tab.label}</p>
-            <p className="text-xs font-semibold tabular-nums shrink-0">{cur}{total.toFixed(2)}</p>
+            <p className="text-xs font-semibold tabular-nums shrink-0">{cur}{fmtCur(total)}</p>
           </div>
           {/* Time + items */}
           <p className="text-xs text-muted-foreground tabular-nums mt-0.5">

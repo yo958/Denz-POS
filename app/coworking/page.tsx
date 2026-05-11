@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Monitor, Lock, Clock, DollarSign, Plus, Pencil, Trash2, Star, UserPlus, X, Building2, Package, ChevronUp, ChevronDown, Copy } from 'lucide-react';
 import { useTabs, useSettings, useSpaces, useEquipment, useCurrentStaff, useCustomers } from '@/lib/hooks/useStore';
 import { tabGrandTotal, formatElapsed } from '@/lib/domain/tabs';
+import { fmtCur } from '@/lib/format';
 import { getStore } from '@/lib/store/store';
 import { newId } from '@/lib/domain/id';
 import { toast } from '@/components/ui/toast';
@@ -608,7 +609,7 @@ function AvailableCard({ space, cur, isManager, activeCount, onCheckIn, onEdit, 
             <p className="text-[9px] font-semibold text-sky-600 dark:text-sky-400 uppercase tracking-wide mb-1">Hot Desk</p>
             <div className="flex flex-wrap gap-1">
               {enabledHotRates.map(r => (
-                <span key={r.period} className={ratePillCls}>{PERIOD_LABEL[r.period]} {cur}{r.price.toLocaleString()}</span>
+                <span key={r.period} className={ratePillCls}>{PERIOD_LABEL[r.period]} {cur}{fmtCur(r.price)}</span>
               ))}
             </div>
           </div>
@@ -616,7 +617,7 @@ function AvailableCard({ space, cur, isManager, activeCount, onCheckIn, onEdit, 
             <p className="text-[9px] font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide mb-1">Dedicated</p>
             <div className="flex flex-wrap gap-1">
               {enabledDedicatedRates.map(r => (
-                <span key={r.period} className={ratePillCls}>{PERIOD_LABEL[r.period]} {cur}{r.price.toLocaleString()}</span>
+                <span key={r.period} className={ratePillCls}>{PERIOD_LABEL[r.period]} {cur}{fmtCur(r.price)}</span>
               ))}
             </div>
           </div>
@@ -624,7 +625,7 @@ function AvailableCard({ space, cur, isManager, activeCount, onCheckIn, onEdit, 
       ) : enabledHotRates.length > 0 ? (
         <div className="flex flex-wrap gap-1">
           {enabledHotRates.map(r => (
-            <span key={r.period} className={ratePillCls}>{PERIOD_LABEL[r.period]} {cur}{r.price.toLocaleString()}</span>
+            <span key={r.period} className={ratePillCls}>{PERIOD_LABEL[r.period]} {cur}{fmtCur(r.price)}</span>
           ))}
         </div>
       ) : null}
@@ -757,7 +758,7 @@ function ActiveCard({ space, tab, cur, isManager, customer, onEdit, onCheckOut, 
           ) : (
             <span className="flex items-center gap-1"><Clock size={11} /> {formatElapsed(tab.openedAt)}</span>
           )}
-          <span className="flex items-center gap-1"><DollarSign size={11} /> {cur}{total.toFixed(2)}</span>
+          <span className="flex items-center gap-1"><DollarSign size={11} /> {cur}{fmtCur(total)}</span>
         </div>
       </div>
       {onCheckOut ? (
@@ -1174,7 +1175,7 @@ function ActiveEquipCard({ equip: e, tab, cur, isManager, onEdit, onReturn }: {
         <p className="text-xs text-muted-foreground">at {tab.label}</p>
         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
           <span className="flex items-center gap-1"><Clock size={11} /> {formatElapsed(tab.openedAt)}</span>
-          <span className="flex items-center gap-1"><DollarSign size={11} /> {cur}{total.toFixed(2)}</span>
+          <span className="flex items-center gap-1"><DollarSign size={11} /> {cur}{fmtCur(total)}</span>
         </div>
       </div>
       <button
@@ -1332,7 +1333,7 @@ function RentDialog({ equip: e, cur, availableSpaces, onClose, onConfirm }: {
                           <input type="radio" name="ded-rate" checked={dedicatedRateIdx === i} onChange={() => setDedicatedRateIdx(i)} className="accent-primary" />
                           <span className="text-sm font-medium">{PERIOD_LABEL[r.period]}</span>
                         </div>
-                        <span className="text-sm font-semibold tabular-nums shrink-0">{cur}{r.price.toLocaleString()}</span>
+                        <span className="text-sm font-semibold tabular-nums shrink-0">{cur}{fmtCur(r.price)}</span>
                       </label>
                     ))}
                   </div>
@@ -1347,7 +1348,7 @@ function RentDialog({ equip: e, cur, availableSpaces, onClose, onConfirm }: {
                 return (
                   <div key={`eq-${i}`} className="flex justify-between px-3 py-1.5">
                     <span className="text-muted-foreground">{e.name} — hr {i + 1}</span>
-                    <span className="font-medium tabular-nums">{cur}{price.toFixed(2)}</span>
+                    <span className="font-medium tabular-nums">{cur}{fmtCur(price)}</span>
                   </div>
                 );
               })}
@@ -1356,12 +1357,12 @@ function RentDialog({ equip: e, cur, availableSpaces, onClose, onConfirm }: {
                   <span className="text-muted-foreground">
                     {selectedSpace?.name} — {isDedicatedDesk ? `${PERIOD_LABEL[selectedDedicatedRate!.period]} (Dedicated)` : `${hours}hr`}
                   </span>
-                  <span className="font-medium tabular-nums">{cur}{deskTotal.toFixed(2)}</span>
+                  <span className="font-medium tabular-nums">{cur}{fmtCur(deskTotal)}</span>
                 </div>
               )}
               <div className="flex justify-between px-3 py-2 font-semibold">
                 <span>Total</span>
-                <span className="tabular-nums">{cur}{grandTotal.toFixed(2)}</span>
+                <span className="tabular-nums">{cur}{fmtCur(grandTotal)}</span>
               </div>
             </div>
           </>

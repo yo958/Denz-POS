@@ -16,6 +16,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { X, Upload, Download, AlertCircle, CheckCircle2, ChevronRight } from 'lucide-react';
 import { newId } from '@/lib/domain/id';
+import { fmtCur } from '@/lib/format';
 import type { Product } from '@/lib/types';
 
 /* ── CSV parsing ─────────────────────────────────────────── */
@@ -312,7 +313,7 @@ export function CsvImportDialog({ onClose, onImport }: CsvImportDialogProps) {
                                   {row.product.category}
                                 </span>
                               </td>
-                              <td className="px-3 py-2 text-right tabular-nums font-semibold whitespace-nowrap">{row.product.price.toFixed(2)}</td>
+                              <td className="px-3 py-2 text-right tabular-nums font-semibold whitespace-nowrap">{fmtCur(row.product.price)}</td>
                               <td className="px-3 py-2 text-muted-foreground max-w-[200px] truncate">{row.product.description || '—'}</td>
                               <td className="px-3 py-2">
                                 <span className="inline-flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-400">

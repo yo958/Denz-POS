@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import { CustomerPicker } from '@/components/customers/CustomerPicker';
 import { toast } from '@/components/ui/toast';
+import { fmtCur } from '@/lib/format';
 import type { CoworkSpace, CoworkSpaceRate, CoworkSpaceType, CoworkRatePeriod } from '@/lib/types';
 
 /* ── Shared constants (re-exported so callers don't redefine them) ── */
@@ -135,7 +136,7 @@ export function CheckInDialog({ space, cur, onClose, onConfirm }: {
                     <input type="radio" name="rate" checked={rateIdx === i} onChange={() => setRateIdx(i)} className="accent-primary" />
                     <span className="text-sm font-medium">{PERIOD_LABEL[r.period]}</span>
                   </div>
-                  <span className="text-sm font-semibold tabular-nums shrink-0">{cur}{r.price.toLocaleString()}</span>
+                  <span className="text-sm font-semibold tabular-nums shrink-0">{cur}{fmtCur(r.price)}</span>
                 </label>
               ))}
             </div>

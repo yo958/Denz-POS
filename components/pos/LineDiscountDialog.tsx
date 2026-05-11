@@ -5,6 +5,7 @@ import { X, Tag, Percent, DollarSign } from 'lucide-react';
 import type { Discount, LineItem } from '@/lib/types';
 import { lineUnitPrice, lineEffectiveUnitPrice } from '@/lib/domain/tabs';
 import { useSettings } from '@/lib/hooks/useStore';
+import { fmtCur } from '@/lib/format';
 
 interface LineDiscountDialogProps {
   open: boolean;
@@ -124,20 +125,20 @@ export function LineDiscountDialog({ open, lineItem, onApply, onClose }: LineDis
           <div className="space-y-1.5 text-sm p-3 rounded-2xl bg-black/5 dark:bg-white/5">
             <div className="flex justify-between text-muted-foreground">
               <span>Unit price</span>
-              <span className="tabular-nums">{cur}{baseUnitPrice.toFixed(2)}</span>
+              <span className="tabular-nums">{cur}{fmtCur(baseUnitPrice)}</span>
             </div>
             <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
               <span>Saving per unit</span>
-              <span className="tabular-nums">−{cur}{previewSaving.toFixed(2)}</span>
+              <span className="tabular-nums">−{cur}{fmtCur(previewSaving)}</span>
             </div>
             <div className="flex justify-between font-semibold pt-1 border-t border-border">
               <span>New unit price</span>
-              <span className="tabular-nums">{cur}{previewEffective.toFixed(2)}</span>
+              <span className="tabular-nums">{cur}{fmtCur(previewEffective)}</span>
             </div>
             {lineItem.qty > 1 && (
               <div className="flex justify-between text-muted-foreground text-xs pt-0.5">
                 <span>Line total ({lineItem.qty}×)</span>
-                <span className="tabular-nums">{cur}{(previewEffective * lineItem.qty).toFixed(2)}</span>
+                <span className="tabular-nums">{cur}{fmtCur(previewEffective * lineItem.qty)}</span>
               </div>
             )}
           </div>
