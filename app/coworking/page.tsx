@@ -78,8 +78,18 @@ export default function CoWorkingPage() {
   for (const t of tabs) {
     if (t.status !== 'open') continue;
     if (t.type === 'desk') {
-      const list = activeTabsByLabel.get(t.label) ?? [];
-      activeTabsByLabel.set(t.label, [...list, t]);
+      // Use the label if it still matches a space name; otherwise fall back to
+      // productId matching (handles tabs created before a space was renamed).
+      let key = t.label;
+      if (!spaces.find(s => s.name === key)) {
+        const deskItem = t.items.find(li => li.product.category === 'desks');
+        if (deskItem) {
+          const s = spaces.find(x => deskItem.productId.startsWith(x.id + '-') || x.id === deskItem.productId);
+          if (s) key = s.name;
+        }
+      }
+      const list = activeTabsByLabel.get(key) ?? [];
+      if (!list.find(x => x.id === t.id)) activeTabsByLabel.set(key, [...list, t]);
     } else {
       // Scan line items for desk-category products (added from POS rate picker)
       for (const item of t.items) {
