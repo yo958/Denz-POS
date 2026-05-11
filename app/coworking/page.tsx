@@ -70,13 +70,21 @@ export default function CoWorkingPage() {
   const [editingEquip, setEditingEquip]   = useState<Equipment | null>(null);
   const [addingEquip, setAddingEquip]     = useState(false);
 
-  // Spaces — track ALL open desk tabs per space name (supports multi-occupancy).
+  // Spaces — track ALL active desk tabs per space name (supports multi-occupancy).
   // Two sources:
   //   1. Tabs of type 'desk' (created by the Coworking check-in or POS with no active tab)
   //   2. Regular POS tabs that have a desk line item added via the rate picker
+  //
+  // A tab counts as active on the coworking page when:
+  //   - Its status is 'open', OR
+  //   - It has been paid but has a future bookingEndsAt (dedicated desk paid upfront on the POS page)
+  const now = new Date();
   const activeTabsByLabel = new Map<string, Tab[]>();
   for (const t of tabs) {
-    if (t.status !== 'open') continue;
+    const isPaidDedicatedStillActive =
+      t.status === 'paid' && !!t.bookingEndsAt &&
+      new Date(t.bookingEndsAt as unknown as string) > now;
+    if (t.status !== 'open' && !isPaidDedicatedStillActive) continue;
     if (t.type === 'desk') {
       // Use the label if it still matches a space name; otherwise fall back to
       // productId matching (handles tabs created before a space was renamed).
@@ -293,11 +301,24 @@ export default function CoWorkingPage() {
                     customer={customers.find(c => c.id === tab.customerId) ?? null}
                     onEdit={() => setEditingSpace(s)}
                     onCheckOut={tab.type === 'desk' ? async () => {
-                      const ok = await confirm({ title: `Check out ${tab.customerName}?`, confirmLabel: 'Check Out' });
+                      const alreadyPaid = tab.status === 'paid';
+                      const ok = await confirm({
+                        title: alreadyPaid
+                          ? `Early check out ${tab.customerName}?`
+                          : `Check out ${tab.customerName}?`,
+                        message: alreadyPaid
+                          ? `Their dedicated booking period hasn't ended yet. This will release the desk immediately.`
+                          : undefined,
+                        confirmLabel: alreadyPaid ? 'Early Check Out' : 'Check Out',
+                      });
                       if (!ok) return;
                       getStore().tabs.set(prev => prev.map(t =>
                         t.id === tab.id
-                          ? { ...t, status: 'paid', paidAt: new Date(), paidByStaffId: me?.id, paymentMethod: 'cash' }
+                          ? alreadyPaid
+                            // Already paid — just expire the booking so it drops off the active list
+                            ? { ...t, bookingEndsAt: new Date(0) }
+                            // Open tab — mark as paid now
+                            : { ...t, status: 'paid', paidAt: new Date(), paidByStaffId: me?.id, paymentMethod: 'cash' }
                           : t,
                       ));
                       getStore().log('tab.pay', `${tab.customerName} checked out of ${s.name}`, me?.id);

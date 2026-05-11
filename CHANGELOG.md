@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.9] - 2026-05-11
+### Fixed
+- **Dedicated desk stays active after POS cash payment** — paying a dedicated desk tab with cash on the POS page no longer removes the desk from the Coworking active list. The desk card remains visible until `bookingEndsAt` (e.g. all day for a daily booking). If staff need to release the desk early, the "Check Out" button on the active card now shows an "Early Check Out" confirmation dialog and expires the booking immediately rather than attempting to re-pay an already-paid tab.
+
+## [1.0.8] - 2026-05-11
+### Fixed
+- **Desk rate picker on Tabs page now shows dedicated desk rates** — the "Add Desk to Tab" dialog now includes a Hot Desk / Dedicated Desk toggle when a space has both rate tables, matching the Coworking check-in flow. Selecting a dedicated rate also sets bookingEndsAt on the tab so the booking expiry is tracked correctly.
+
 ## [1.0.7] - 2026-05-11
 ### Added
 - **Per-line-item discounts** — each line item in a tab now has its own discount button (Tag icon). Tap it to apply a percentage or fixed-amount discount to that item only. The discounted unit price is shown with a strikethrough of the original, and a colour pill labels the saving. Item discounts stack correctly with the existing tab-level discount: the tab discount applies to the already-discounted subtotal. Payment screens (cart, payment dialog, split dialog), receipts, and history detail panels all show an "Item discounts" row so the breakdown is transparent.

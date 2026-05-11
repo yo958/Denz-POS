@@ -16,7 +16,7 @@ import { RefundDialog } from '@/components/pos/RefundDialog';
 import { VoidDialog } from '@/components/pos/VoidDialog';
 import { ProductOptionsDialog } from '@/components/pos/ProductOptionsDialog';
 import { useTabs, useStays, useCurrentStaff, useSettings, useCustomers, useSpaces } from '@/lib/hooks/useStore';
-import { CheckInDialog, PERIOD_LABEL } from '@/components/coworking/CheckInDialog';
+import { CheckInDialog, PERIOD_LABEL, PERIOD_DURATION_MS, BOOKING_TYPE_LABEL } from '@/components/coworking/CheckInDialog';
 import { getStore } from '@/lib/store/store';
 import {
   effectiveQty, lineKey, lineUnitPrice, modifiersStableKey,
@@ -31,16 +31,31 @@ import type { CoworkSpace, CoworkSpaceRate, Discount, KitchenTicket, PaymentMeth
 function DeskRatePickerDialog({ space, cur, onClose, onConfirm }: {
   space: CoworkSpace; cur: string;
   onClose: () => void;
-  onConfirm: (rate: CoworkSpaceRate) => void;
+  onConfirm: (rate: CoworkSpaceRate, bookingEndsAt?: Date) => void;
 }) {
-  const enabledRates = space.rates?.filter(r => r.enabled) ?? [];
-  const [rateIdx, setRateIdx] = useState(0);
+  const enabledHotRates       = space.rates?.filter(r => r.enabled) ?? [];
+  const enabledDedicatedRates = (space.dedicatedRates ?? []).filter(r => r.enabled);
+  const hasBothTypes          = enabledHotRates.length > 0 && enabledDedicatedRates.length > 0;
+
+  const [bookingType, setBookingType] = useState<'hot' | 'dedicated'>('hot');
+  const [rateIdx, setRateIdx]         = useState(0);
+
+  const activeRates = (hasBothTypes && bookingType === 'dedicated') ? enabledDedicatedRates : enabledHotRates;
+  const isDedicated = hasBothTypes && bookingType === 'dedicated';
+
+  function switchBookingType(t: 'hot' | 'dedicated') {
+    setBookingType(t);
+    setRateIdx(0);
+  }
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    const rate = enabledRates[rateIdx];
+    const rate = activeRates[rateIdx];
     if (!rate) { toast.error('No rates available — edit this space to add rates'); return; }
-    onConfirm(rate);
+    const bookingEndsAt = isDedicated
+      ? new Date(Date.now() + PERIOD_DURATION_MS[rate.period])
+      : undefined;
+    onConfirm(rate, bookingEndsAt);
   }
 
   return (
@@ -53,11 +68,34 @@ function DeskRatePickerDialog({ space, cur, onClose, onConfirm }: {
         </div>
         <p className="text-sm text-muted-foreground -mt-2">{space.name} — select a rate to add to the current tab</p>
 
-        {enabledRates.length > 0 ? (
+        {/* Booking type toggle — only shown when the space has both hot-desk and dedicated rates */}
+        {hasBothTypes && (
+          <div className="space-y-1.5">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Booking Type</span>
+            <div className="grid grid-cols-2 gap-2">
+              {(['hot', 'dedicated'] as const).map(t => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => switchBookingType(t)}
+                  className={`h-9 rounded-xl text-sm font-medium border transition-colors cursor-pointer ${
+                    bookingType === t
+                      ? 'border-primary/50 bg-primary/10 text-primary'
+                      : 'border-border bg-black/3 dark:bg-white/3 text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
+                >
+                  {BOOKING_TYPE_LABEL[t]}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeRates.length > 0 ? (
           <div className="space-y-1.5">
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Rate</span>
             <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
-              {enabledRates.map((r, i) => (
+              {activeRates.map((r, i) => (
                 <label key={r.period} className={`flex items-center justify-between gap-3 px-3 py-2 rounded-xl border cursor-pointer transition-colors ${rateIdx === i ? 'border-primary bg-primary/5' : 'border-border bg-black/3 dark:bg-white/3 hover:bg-black/5 dark:hover:bg-white/5'}`}>
                   <div className="flex items-center gap-2">
                     <input type="radio" name="rate" checked={rateIdx === i} onChange={() => setRateIdx(i)} className="accent-primary" />
@@ -76,7 +114,7 @@ function DeskRatePickerDialog({ space, cur, onClose, onConfirm }: {
 
         <div className="flex gap-2 pt-1">
           <button type="button" onClick={onClose} className="flex-1 h-11 rounded-2xl text-sm font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 active:scale-95 transition-all cursor-pointer">Cancel</button>
-          <button type="submit" disabled={enabledRates.length === 0} className="flex-1 h-11 rounded-2xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 transition-all cursor-pointer disabled:opacity-40">Add to Tab</button>
+          <button type="submit" disabled={activeRates.length === 0} className="flex-1 h-11 rounded-2xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 transition-all cursor-pointer disabled:opacity-40">Add to Tab</button>
         </div>
       </form>
     </div>
@@ -661,7 +699,7 @@ export default function POSPage() {
           space={deskRateSpace}
           cur={cur}
           onClose={() => setDeskRateSpace(null)}
-          onConfirm={(rate) => {
+          onConfirm={(rate, bookingEndsAt) => {
             const deskProduct: Product = {
               id: deskRateSpace.id,
               name: `${deskRateSpace.name} — ${PERIOD_LABEL[rate.period]}`,
@@ -673,12 +711,15 @@ export default function POSPage() {
               sendToKitchen: false,
             };
             addLineWithModifiers(deskProduct, []);
-            // If the active tab's label doesn't match a real space name, update it to the
-            // space name so the Coworking page can correctly match the tab to the space.
+            // Patch the tab: fix the label if needed, and set bookingEndsAt for dedicated bookings.
             const labelMatchesSpace = spaces.some(s => s.name === activeTab.label);
-            if (!labelMatchesSpace) {
+            if (!labelMatchesSpace || bookingEndsAt) {
               store.tabs.set(prev =>
-                prev.map(t => t.id === activeTab.id ? { ...t, label: deskRateSpace.name } : t),
+                prev.map(t => t.id === activeTab.id ? {
+                  ...t,
+                  ...(!labelMatchesSpace ? { label: deskRateSpace.name } : {}),
+                  ...(bookingEndsAt ? { bookingEndsAt } : {}),
+                } : t),
               );
             }
             store.log('tab.desk-added', `${activeTab.customerName} · ${deskRateSpace.name} (${PERIOD_LABEL[rate.period]})`, me?.id);
