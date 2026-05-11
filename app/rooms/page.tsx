@@ -147,7 +147,7 @@ export default function RoomsPage() {
             <p className="text-sm text-muted-foreground">No rooms yet. Click <strong>Add Room</strong> to get started.</p>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {rooms.map(room => {
               const stay = findActiveStayByRoom(stays, room.id);
               const folio = stay ? tabs.find(t => t.id === stay.folioTabId) : null;

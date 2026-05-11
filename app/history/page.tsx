@@ -317,7 +317,7 @@ export default function HistoryPage() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 max-w-4xl">
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
         {groups.length === 0 ? (
           <div className="flex flex-col items-center justify-center text-center py-16">
             <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-black/5 dark:bg-white/5 mb-3">

@@ -121,7 +121,7 @@ export default function MenuPage() {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 max-w-4xl">
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
         {grouped.map(({ category, products: list }) => (
           <section key={category} id={`cat-${category}`}>
             <div className="flex items-center gap-2 mb-3">

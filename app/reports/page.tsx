@@ -49,7 +49,7 @@ export default function ReportsPage() {
   const bills = useBills();
   const shift = useShift();
   const cur = useSettings().currency;
-  const [range, setRange] = useState<Range>('today');
+  const [range, setRange] = useState<Range>('30d');
 
   if (me?.role !== 'manager') {
     return (
@@ -245,7 +245,7 @@ export default function ReportsPage() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 max-w-4xl">
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
 
         {/* ── Revenue vs Expenses chart ────────────────────────────── */}
         <div className="rounded-2xl border border-border bg-white/60 dark:bg-white/5 p-5">

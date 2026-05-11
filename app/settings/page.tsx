@@ -152,7 +152,7 @@ export default function SettingsPage() {
         )}
       </header>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 max-w-3xl">
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
 
         <Section title="Venue">
           <Field label="Name"><input value={draft.venue.name} onChange={e => updateVenue({ name: e.target.value })} className={inputCls} /></Field>

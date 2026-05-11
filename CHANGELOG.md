@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.1.4] - 2026-05-12
+### Changed
+- **Full-width layout on all pages** — removed narrow `max-w-3xl` / `max-w-4xl` / `max-w-5xl` constraints from the Reports, History, Menu, Settings, and Rooms page content areas. All pages now use the same full-width `px-6` padding as the Dashboard and Bills pages. Rooms grid also gains a 4-column layout on XL screens.
+- **Reports — defaults to 30-day view** — the Reports page now opens on the "30d" tab instead of "Today".
+
 ## [1.1.3] - 2026-05-12
 ### Added
 - **Bills & Expenses page** — new manager-only page (`/bills`) for tracking business outgoings. Add bills with a description, amount, date, category (Cafe / Rooms / Co-Working / General), optional supplier name, notes, and custom colour-coded tags. Tags can be created inline inside the Add dialog. Bills are filterable by date range (Today / 7d / 30d / All time), category, and tag.
