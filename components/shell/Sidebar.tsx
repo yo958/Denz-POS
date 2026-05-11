@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { LayoutGrid, BookOpen, BedDouble, BarChart2, Settings, Laptop, ChefHat, History, LogOut, Users, LayoutDashboard } from 'lucide-react';
+import { LayoutGrid, BookOpen, BedDouble, BarChart2, Settings, Laptop, ChefHat, History, LogOut, Users, LayoutDashboard, Receipt } from 'lucide-react';
 import { useCurrentStaff, setCurrentStaffId } from '@/lib/hooks/useStore';
 
 const NAV = [
@@ -15,6 +15,7 @@ const NAV = [
   { href: '/customers',  icon: Users,      label: 'Customers', managerOnly: false },
   { href: '/kds',        icon: ChefHat,    label: 'Kitchen',   managerOnly: false },
   { href: '/history',    icon: History,    label: 'History',   managerOnly: true  },
+  { href: '/bills',      icon: Receipt,    label: 'Bills',     managerOnly: true  },
   { href: '/reports',    icon: BarChart2,  label: 'Reports',   managerOnly: true  },
   { href: '/settings',   icon: Settings,   label: 'Settings',  managerOnly: true  },
 ];

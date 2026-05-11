@@ -321,6 +321,32 @@ export interface AuditEntry {
   detail: string;
 }
 
+/* ── Bills / Expenses ─────────────────────────────────────────── */
+export type BillCategory = 'cafe' | 'rooms' | 'coworking' | 'general';
+
+export interface BillTag {
+  id: string;
+  name: string;
+  color?: string; // optional tailwind-safe hex or preset name
+  archived?: boolean;
+}
+
+export interface Bill {
+  id: string;
+  description: string;
+  amount: number;
+  category: BillCategory;
+  /** IDs of BillTags. */
+  tagIds: string[];
+  date: Date;
+  /** Optional supplier / payee name. */
+  supplier?: string;
+  /** Optional free-text notes. */
+  notes?: string;
+  createdAt: Date;
+  createdByStaffId?: string;
+}
+
 /* ── Settings ─────────────────────────────────────────────────── */
 export interface VenueSettings {
   name: string;

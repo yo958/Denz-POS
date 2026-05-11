@@ -34,6 +34,8 @@ export function useAudit()     { return useSlice(getStore().audit); }
 export function useCustomers()  { return useSlice(getStore().customers); }
 export function useSpaces()     { return useSlice(getStore().spaces); }
 export function useEquipment()  { return useSlice(getStore().equipment); }
+export function useBills()      { return useSlice(getStore().bills); }
+export function useBillTags()   { return useSlice(getStore().billTags); }
 
 /* ── Auth (local only, sessionStorage) ────────────────────────── */
 const AUTH_KEY = 'denz.auth.staffId';

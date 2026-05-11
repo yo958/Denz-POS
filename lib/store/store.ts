@@ -4,7 +4,7 @@
 // ─────────────────────────────────────────────────────────────────
 
 import type {
-  AuditAction, AuditEntry, CoworkSpace, Customer, Equipment, KitchenTicket, ModifierGroup, Product,
+  AuditAction, AuditEntry, Bill, BillTag, CoworkSpace, Customer, Equipment, KitchenTicket, ModifierGroup, Product,
   Settings, Shift, Staff, Stay, Tab,
 } from '../types';
 import { StorageSlice } from './storage';
@@ -34,6 +34,8 @@ class Store {
   readonly customers  = new StorageSlice<Customer[]>('denz.customers',    CURRENT_SCHEMA, () => SEED_CUSTOMERS);
   readonly spaces     = new StorageSlice<CoworkSpace[]>('denz.spaces',    CURRENT_SCHEMA, () => SEED_SPACES);
   readonly equipment  = new StorageSlice<Equipment[]>('denz.equipment',   CURRENT_SCHEMA, () => SEED_EQUIPMENT);
+  readonly bills      = new StorageSlice<Bill[]>('denz.bills',            CURRENT_SCHEMA, () => []);
+  readonly billTags   = new StorageSlice<BillTag[]>('denz.billTags',      CURRENT_SCHEMA, () => []);
 
   /** Map of storage key -> slice for cross-tab sync. */
   private readonly slicesByKey: Map<string, { refresh(): void }>;
@@ -53,6 +55,8 @@ class Store {
       [this.customers.storageKey,  this.customers],
       [this.spaces.storageKey,     this.spaces],
       [this.equipment.storageKey,  this.equipment],
+      [this.bills.storageKey,      this.bills],
+      [this.billTags.storageKey,   this.billTags],
     ];
     this.slicesByKey = new Map(entries);
 
@@ -71,6 +75,8 @@ class Store {
         this.customers.connectFirestore(FS('customers'));
         this.spaces.connectFirestore(FS('spaces'));
         this.equipment.connectFirestore(FS('equipment'));
+        this.bills.connectFirestore(FS('bills'));
+        this.billTags.connectFirestore(FS('billTags'));
       });
     }
 
@@ -88,6 +94,7 @@ class Store {
       for (const slice of [
         this.settings, this.staff, this.products, this.modifierGroups, this.tabs,
         this.stays, this.shift, this.tickets, this.audit, this.customers, this.spaces, this.equipment,
+        this.bills, this.billTags,
       ]) {
         wrap(slice as unknown as StorageSlice<unknown>);
       }

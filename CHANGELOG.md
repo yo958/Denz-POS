@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.1.3] - 2026-05-12
+### Added
+- **Bills & Expenses page** — new manager-only page (`/bills`) for tracking business outgoings. Add bills with a description, amount, date, category (Cafe / Rooms / Co-Working / General), optional supplier name, notes, and custom colour-coded tags. Tags can be created inline inside the Add dialog. Bills are filterable by date range (Today / 7d / 30d / All time), category, and tag.
+- **Edit bill** — pencil icon on each bill row opens the Edit Bill dialog, pre-filled with all existing values. Any field can be changed and saved without deleting and re-adding.
+- **Bills sidebar nav** — "Bills" entry added to the sidebar between History and Reports (manager-only).
+- **Reports — Revenue vs Expenses chart** — a lime/red area chart at the top of the Reports page shows revenue in and expenses out over the selected period. Today = by hour, 7d/30d = by day, All = by month. Hover any point for exact figures.
+- **Reports — Net Profit card** — the top stat row now shows Revenue, Expenses, and Net Profit (revenue − refunds − expenses). Secondary row shows Net Sales, Pipeline, and Items Sold.
+- **Reports — By Area now deducts expenses** — each area row (Cafe, CoWorking, Rooms) subtracts the matching bill-category spend from revenue to show true net per area. A "Revenue / Expenses" breakdown line appears under any area that has bills against it.
+- **Reports — Expenses by Category section** — dedicated breakdown at the bottom of the Reports page showing spend per bill category with a red progress bar.
+- **Dashboard — net profit today** — top stat row now shows Revenue today, Expenses today, Net Profit today, and Outstanding. An "Expenses today" card appears in the right column breakdown when bills exist for today.
+
+### Fixed
+- **Reports — "Room" removed from By Payment Method** — room charges are internal transfers, not cash received; they no longer appear in the payment method grid.
+
 ## [1.1.2] - 2026-05-11
 ### Changed
 - **Global number formatting** — all monetary values across every page and component now display with thousands-separator commas (e.g. ฿14,000.00 instead of ฿14000.00). A shared `fmtCur()` utility in `lib/format.ts` powers consistent formatting using the `en` locale throughout: POS tabs, cart, payment dialogs, split payment, receipts, history, reports, coworking, rooms, dashboard, customers, settings, and the Z-report.

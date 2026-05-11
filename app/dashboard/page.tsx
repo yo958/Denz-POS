@@ -2,19 +2,24 @@
 
 import { useMemo } from 'react';
 import {
-  TrendingUp, Clock, Users, CreditCard, Banknote, QrCode, BedDouble,
+  TrendingUp, TrendingDown, Clock, Users, CreditCard, Banknote, QrCode, BedDouble,
   Coffee, Monitor, AlertCircle, CheckCircle2, Star, Percent,
   ChefHat, Flame, Bell, CircleCheck, Laptop, Package,
-  CalendarClock, LogIn,
+  CalendarClock, LogIn, Receipt,
 } from 'lucide-react';
 import {
   useTabs, useStays, useCustomers, useSettings, useCurrentStaff,
   useTickets, useProducts, useSpaces, useEquipment, useShift, useStaff,
+  useBills,
 } from '@/lib/hooks/useStore';
 import { tabGrandTotal, tabCardFee } from '@/lib/domain/tabs';
 import { fmtCur } from '@/lib/format';
 import { findActiveStayByRoom } from '@/lib/domain/stays';
-import type { PaymentMethod, TabType } from '@/lib/types';
+import type { BillCategory, PaymentMethod, TabType } from '@/lib/types';
+
+const BILL_CAT_LABELS: Record<BillCategory, string> = {
+  cafe: 'Cafe', rooms: 'Rooms', coworking: 'Co-Working', general: 'General',
+};
 
 /* ── helpers ─────────────────────────────────────────────── */
 
@@ -109,6 +114,7 @@ export default function DashboardPage() {
   const products  = useProducts();
   const spaces    = useSpaces();
   const equipment = useEquipment();
+  const bills     = useBills();
   const shift     = useShift();
   const cur       = useSettings().currency;
 
@@ -251,6 +257,12 @@ export default function DashboardPage() {
     const activeEquip   = allEquip.filter(e => activeEquipIds.has(e.id));
     const availEquip    = allEquip.filter(e => !activeEquipIds.has(e.id));
 
+    /* ── Bills / Expenses today ─────────── */
+    const billsToday = bills.filter(b => isToday(new Date(b.date)));
+    const expensesToday = billsToday.reduce((s, b) => s + b.amount, 0);
+    const expensesByCategory: Record<BillCategory, number> = { cafe: 0, rooms: 0, coworking: 0, general: 0 };
+    for (const b of billsToday) expensesByCategory[b.category] += b.amount;
+
     /* ── Customers ─────────────────────── */
     const weekStart          = new Date(startOfToday().getTime() - 6 * 86400000);
     const newCustomersToday  = customers.filter(c => isToday(c.createdAt) && !c.archived).length;
@@ -265,6 +277,7 @@ export default function DashboardPage() {
     return {
       openTabs, openSorted, paidToday, recentPaid,
       revenueToday, outstanding,
+      expensesToday, expensesByCategory, billsToday,
       methodTotals, typeTotals,
       kitNew, kitPreparing, kitReady, kitDoneToday,
       roomProducts, activeStays, availableRooms, checkOutsToday, occupiedRoomIds,
@@ -272,7 +285,7 @@ export default function DashboardPage() {
       allEquip, activeEquip, availEquip, equipTabMap,
       newCustomersToday, newCustomersWeek, vipCount, discountCount, newThisWeek,
     };
-  }, [tabs, stays, customers, tickets, products, spaces, equipment]);
+  }, [tabs, stays, customers, tickets, products, spaces, equipment, bills]);
 
   const shiftOpener = shift ? allStaff.find(s => s.id === shift.openedByStaffId) : null;
 
@@ -312,12 +325,32 @@ export default function DashboardPage() {
             accent="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
           />
           <StatCard
+            label="Expenses today"
+            value={`-${cur}${fmtCur(d.expensesToday)}`}
+            sub={`${d.billsToday.length} bill${d.billsToday.length !== 1 ? 's' : ''} logged`}
+            icon={Receipt}
+            accent="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+          />
+          <StatCard
+            label="Net Profit today"
+            value={`${cur}${fmtCur(d.revenueToday - d.expensesToday)}`}
+            sub="revenue − expenses"
+            icon={d.revenueToday - d.expensesToday >= 0 ? TrendingUp : TrendingDown}
+            accent={d.revenueToday - d.expensesToday >= 0
+              ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+              : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}
+          />
+          <StatCard
             label="Outstanding"
             value={`${cur}${fmtCur(d.outstanding)}`}
             sub={`${d.openTabs.length} open tab${d.openTabs.length !== 1 ? 's' : ''}`}
             icon={Clock}
-            accent="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+            accent="bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
           />
+        </div>
+
+        {/* ── Second stat row ──────────────────────────── */}
+        <div className="grid grid-cols-2 lg:grid-cols-2 gap-3">
           <StatCard
             label="Desks"
             value={`${d.availSpaces.length} / ${d.allSpaces.length}`}
@@ -330,7 +363,7 @@ export default function DashboardPage() {
             value={`${d.availableRooms.length} / ${d.roomProducts.length}`}
             sub={`${d.activeStays.length} occupied${d.checkOutsToday.length ? ` · ${d.checkOutsToday.length} checking out` : ''}`}
             icon={BedDouble}
-            accent="bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
+            accent="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
           />
         </div>
 
@@ -460,6 +493,27 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
+
+            {/* Expenses today breakdown */}
+            {d.expensesToday > 0 && (
+              <div className="glass rounded-2xl p-4">
+                <SectionTitle title="Expenses today" />
+                <div className="space-y-2.5">
+                  {(Object.entries(d.expensesByCategory) as [BillCategory, number][])
+                    .filter(([, v]) => v > 0)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([cat, amount]) => (
+                      <div key={cat} className="flex items-center gap-2.5">
+                        <span className="flex items-center justify-center w-6 h-6 rounded-md shrink-0 bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                          <Receipt size={12} strokeWidth={2} />
+                        </span>
+                        <span className="text-sm flex-1">{BILL_CAT_LABELS[cat]}</span>
+                        <span className="text-sm font-semibold tabular-nums text-red-600 dark:text-red-400">-{cur}{fmtCur(amount)}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
