@@ -47,7 +47,7 @@ export function normalizeType(type: string): CoworkSpaceType {
 export function CheckInDialog({ space, cur, onClose, onConfirm }: {
   space: CoworkSpace; cur: string;
   onClose: () => void;
-  onConfirm: (customerName: string, rate: CoworkSpaceRate, bookingEndsAt?: Date, customerId?: string) => void;
+  onConfirm: (customerName: string, rate: CoworkSpaceRate, bookingEndsAt: Date | undefined, customerId: string | undefined, bookingType: 'hot' | 'dedicated') => void;
 }) {
   const enabledHotRates       = space.rates?.filter(r => r.enabled) ?? [];
   const enabledDedicatedRates = (space.dedicatedRates ?? []).filter(r => r.enabled);
@@ -71,10 +71,14 @@ export function CheckInDialog({ space, cur, onClose, onConfirm }: {
     if (!name.trim()) { toast.error('Customer name required'); return; }
     const rate = activeRates[rateIdx];
     if (!rate) { toast.error('No rates available — edit this space to add rates'); return; }
-    const bookingEndsAt = isDedicated
+    // Set bookingEndsAt for all non-hourly periods so the booking stays visible on the
+    // Coworking page as a reservation (dedicated always; hot desk when not pay-as-you-go).
+    const needsExpiry = isDedicated || rate.period !== 'hourly';
+    const bookingEndsAt = needsExpiry
       ? new Date(Date.now() + PERIOD_DURATION_MS[rate.period])
       : undefined;
-    onConfirm(name.trim(), rate, bookingEndsAt, customerId);
+    const effectiveBookingType: 'hot' | 'dedicated' = isDedicated ? 'dedicated' : 'hot';
+    onConfirm(name.trim(), rate, bookingEndsAt, customerId, effectiveBookingType);
   }
 
   return (

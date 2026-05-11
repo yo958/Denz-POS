@@ -81,10 +81,30 @@ export default function CoWorkingPage() {
   const now = new Date();
   const activeTabsByLabel = new Map<string, Tab[]>();
   for (const t of tabs) {
-    const isPaidDedicatedStillActive =
-      t.status === 'paid' && !!t.bookingEndsAt &&
-      new Date(t.bookingEndsAt as unknown as string) > now;
-    if (t.status !== 'open' && !isPaidDedicatedStillActive) continue;
+    // A tab that was explicitly checked out early has bookingEndsAt set to epoch (new Date(0)).
+    // Skip it immediately — it must not re-appear via the legacy inference below.
+    const isExplicitlyExpired = !!t.bookingEndsAt &&
+      new Date(t.bookingEndsAt as unknown as string).getTime() < 1000;
+    if (isExplicitlyExpired) continue;
+
+    const isPaidBookingStillActive =
+      t.status === 'paid' && (
+        // 1. Explicit bookingEndsAt — set for all new multi-day bookings.
+        (!!t.bookingEndsAt && new Date(t.bookingEndsAt as unknown as string) > now) ||
+        // 2. Legacy inference — tabs paid before bookingEndsAt was tracked for hot desks.
+        //    Derive the expiry from the desk line item's product name + paidAt.
+        (!!t.paidAt && t.items.some(item => {
+          if (item.product.category !== 'desks') return false;
+          const paidMs = new Date(t.paidAt as unknown as string).getTime();
+          return (Object.entries(PERIOD_LABEL) as [CoworkRatePeriod, string][]).some(
+            ([period, label]) =>
+              period !== 'hourly' &&
+              item.product.name.endsWith(` — ${label}`) &&
+              new Date(paidMs + PERIOD_DURATION_MS[period]).getTime() > now.getTime(),
+          );
+        }))
+      );
+    if (t.status !== 'open' && !isPaidBookingStillActive) continue;
     if (t.type === 'desk') {
       // Use the label if it still matches a space name; otherwise fall back to
       // productId matching (handles tabs created before a space was renamed).
@@ -143,8 +163,18 @@ export default function CoWorkingPage() {
   const availableEquip = visibleEquip.filter(e => !activeEquipIds.has(e.id));
   const activeEquip    = visibleEquip.filter(e =>  activeEquipIds.has(e.id));
 
-  const activeDeskTabCount = Array.from(activeTabsByLabel.values()).reduce((n, arr) => n + arr.length, 0);
-  const totalActive = activeDeskTabCount + activeEquip.length;
+  // Split active tabs: physically present (open) vs away with valid booking (paid hot desk)
+  const presentCards: { space: CoworkSpace; tab: Tab }[] = [];
+  const awayCards:    { space: CoworkSpace; tab: Tab }[] = [];
+  for (const s of allActive) {
+    for (const tab of activeTabsByLabel.get(s.name) ?? []) {
+      if (tab.status === 'open') presentCards.push({ space: s, tab });
+      else                       awayCards.push({ space: s, tab });
+    }
+  }
+  const presentDeskCount = presentCards.length;
+  const awayCount        = awayCards.length;
+  const totalActive = presentDeskCount + activeEquip.length; // used for Active section visibility
 
   async function archiveSpace(s: CoworkSpace) {
     const ok = await confirm({ title: `Remove "${s.name}"?`, danger: true, confirmLabel: 'Remove' });
@@ -219,6 +249,11 @@ export default function CoWorkingPage() {
               <span className="flex items-center gap-1.5 text-sky-600 dark:text-sky-400">
                 <span className="w-2 h-2 rounded-full bg-sky-500" />{totalActive} active
               </span>
+              {awayCount > 0 && (
+                <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />{awayCount} away
+                </span>
+              )}
               <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
                 <span className="w-2 h-2 rounded-full bg-emerald-500" />{available.length} available
               </span>
@@ -261,7 +296,7 @@ export default function CoWorkingPage() {
 
       <div className="flex-1 overflow-y-auto p-6 space-y-8">
 
-        {/* ── Active (desk sessions + equipment rentals) ───────── */}
+        {/* ── Active — customers physically at a desk right now ── */}
         {totalActive > 0 && (
           <section>
             <h2 className="text-sm font-semibold mb-3 text-sky-700 dark:text-sky-400">Active</h2>
@@ -290,43 +325,67 @@ export default function CoWorkingPage() {
                   />
                 );
               })}
-              {allActive.flatMap(s =>
-                (activeTabsByLabel.get(s.name) ?? []).map(tab => (
-                  <ActiveCard
-                    key={tab.id}
-                    space={s}
-                    tab={tab}
-                    cur={cur}
-                    isManager={isManager}
-                    customer={customers.find(c => c.id === tab.customerId) ?? null}
-                    onEdit={() => setEditingSpace(s)}
-                    onCheckOut={tab.type === 'desk' ? async () => {
-                      const alreadyPaid = tab.status === 'paid';
+              {presentCards.map(({ space: s, tab }) => (
+                <ActiveCard
+                  key={tab.id}
+                  space={s}
+                  tab={tab}
+                  cur={cur}
+                  isManager={isManager}
+                  customer={customers.find(c => c.id === tab.customerId) ?? null}
+                  onEdit={() => setEditingSpace(s)}
+                  onCheckOut={(() => {
+                    if (tab.type !== 'desk') return undefined;
+                    return async () => {
+                      const isOpenHotDesk = tab.bookingType === 'hot';
                       const ok = await confirm({
-                        title: alreadyPaid
-                          ? `Early check out ${tab.customerName}?`
+                        title: isOpenHotDesk
+                          ? `${tab.customerName} is leaving for now?`
                           : `Check out ${tab.customerName}?`,
-                        message: alreadyPaid
-                          ? `Their dedicated booking period hasn't ended yet. This will release the desk immediately.`
+                        message: isOpenHotDesk
+                          ? `Their hot desk booking continues — the desk is released for others.`
                           : undefined,
-                        confirmLabel: alreadyPaid ? 'Early Check Out' : 'Check Out',
+                        confirmLabel: isOpenHotDesk ? 'Release Desk' : 'Check Out',
                       });
                       if (!ok) return;
                       getStore().tabs.set(prev => prev.map(t =>
                         t.id === tab.id
-                          ? alreadyPaid
-                            // Already paid — just expire the booking so it drops off the active list
-                            ? { ...t, bookingEndsAt: new Date(0) }
-                            // Open tab — mark as paid now
-                            : { ...t, status: 'paid', paidAt: new Date(), paidByStaffId: me?.id, paymentMethod: 'cash' }
+                          ? { ...t, status: 'paid', paidAt: new Date(), paidByStaffId: me?.id, paymentMethod: 'cash' }
                           : t,
                       ));
                       getStore().log('tab.pay', `${tab.customerName} checked out of ${s.name}`, me?.id);
-                      toast.success(`${tab.customerName} checked out`);
-                    } : undefined}
-                  />
-                ))
-              )}
+                      toast.success(isOpenHotDesk
+                        ? `Desk released — ${tab.customerName}'s booking continues`
+                        : `${tab.customerName} checked out`);
+                    };
+                  })()}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ── Away · May Return — valid booking, desk currently free ── */}
+        {awayCount > 0 && (
+          <section>
+            <h2 className="text-sm font-semibold mb-3 text-amber-700 dark:text-amber-400">Away · May Return</h2>
+            <p className="text-xs text-muted-foreground -mt-2 mb-3">
+              These customers have a valid booking and may return — keep a desk free for each one.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {awayCards.map(({ space: s, tab }) => (
+                <ActiveCard
+                  key={tab.id}
+                  space={s}
+                  tab={tab}
+                  cur={cur}
+                  isManager={isManager}
+                  customer={customers.find(c => c.id === tab.customerId) ?? null}
+                  onEdit={() => setEditingSpace(s)}
+                  onCheckOut={undefined}
+                  isAway
+                />
+              ))}
             </div>
           </section>
         )}
@@ -391,7 +450,7 @@ export default function CoWorkingPage() {
           space={checkingIn}
           cur={cur}
           onClose={() => setCheckingIn(null)}
-          onConfirm={(customerName, rate, bookingEndsAt, customerId) => {
+          onConfirm={(customerName, rate, bookingEndsAt, customerId, bookingType) => {
             const product: Product = {
               id: `${checkingIn.id}-${rate.period}`,
               name: `${checkingIn.name} — ${PERIOD_LABEL[rate.period]}`,
@@ -411,6 +470,7 @@ export default function CoWorkingPage() {
               openedAt: new Date(),
               status: 'open',
               bookingEndsAt,
+              bookingType,
               ...(customerId ? { customerId } : {}),
             };
             getStore().tabs.set(prev => [tab, ...prev]);
@@ -601,10 +661,11 @@ function AvailableCard({ space, cur, isManager, activeCount, onCheckIn, onEdit, 
 }
 
 /* ── Active card ────────────────────────────────────────────────── */
-function ActiveCard({ space, tab, cur, isManager, customer, onEdit, onCheckOut }: {
+function ActiveCard({ space, tab, cur, isManager, customer, onEdit, onCheckOut, isAway }: {
   space: CoworkSpace; tab: Tab; cur: string; isManager: boolean;
   customer?: import('@/lib/types').Customer | null;
   onEdit: () => void; onCheckOut?: () => void;
+  isAway?: boolean;
 }) {
   const total = tabGrandTotal(tab.items, tab.discount);
   // Find the desk line item specifically (tab may also contain food/drink items)
@@ -612,11 +673,19 @@ function ActiveCard({ space, tab, cur, isManager, customer, onEdit, onCheckOut }
   const rateName = deskItem?.product.name.replace(`${space.name} — `, '') ?? tab.items[0]?.product.name.replace(`${space.name} — `, '') ?? '';
   const spaceType = normalizeType(space.type);
   const Icon = spaceType === 'private-office' ? Building2 : Monitor;
-  const isDedicated = !!tab.bookingEndsAt;
+  // endsAt: null if no bookingEndsAt OR if explicitly expired (near-epoch set by Early Check Out).
+  const endsAt = tab.bookingEndsAt &&
+    new Date(tab.bookingEndsAt as unknown as string).getTime() > 1000
+      ? new Date(tab.bookingEndsAt as unknown as string) : null;
+  const hasBookingEnd = !!endsAt;
+  // isDedicated: explicit bookingType takes priority; fallback for old tabs that predate bookingType
+  // (only those with a valid future bookingEndsAt — old dedicated-only behaviour).
+  const isDedicated = tab.bookingType === 'dedicated' || (!tab.bookingType && hasBookingEnd);
+  // isExpired only applies to dedicated desks — hot desks auto-vanish from the active list;
+  // they never need to show a red "Expired" state.
+  const isExpired = isDedicated && endsAt !== null && endsAt < new Date();
   const bookingLabel = spaceType === 'desk' ? BOOKING_TYPE_LABEL[isDedicated ? 'dedicated' : 'hot'] : TYPE_LABEL[spaceType];
   const bookingColor = spaceType === 'desk' ? BOOKING_TYPE_COLOR[isDedicated ? 'dedicated' : 'hot'] : TYPE_COLOR[spaceType];
-  const endsAt = tab.bookingEndsAt ? new Date(tab.bookingEndsAt) : null;
-  const isExpired = endsAt && endsAt < new Date();
   const discountPill = customer?.discount
     ? customer.discount.type === 'pct'
       ? `${customer.discount.value}% off`
@@ -627,18 +696,22 @@ function ActiveCard({ space, tab, cur, isManager, customer, onEdit, onCheckOut }
     return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
   }
 
+  const cardBorder = isAway
+    ? 'border-amber-200 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-900/10'
+    : isExpired
+      ? 'border-rose-200 dark:border-rose-800 bg-rose-50/60 dark:bg-rose-900/10'
+      : 'border-sky-200 dark:border-sky-800 bg-sky-50/60 dark:bg-sky-900/10';
+  const iconBg = isAway
+    ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+    : isExpired
+      ? 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400'
+      : 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400';
+
   return (
-    <div className={`flex flex-col rounded-2xl border p-4 gap-3 ${
-      isExpired
-        ? 'border-rose-200 dark:border-rose-800 bg-rose-50/60 dark:bg-rose-900/10'
-        : 'border-sky-200 dark:border-sky-800 bg-sky-50/60 dark:bg-sky-900/10'
-    }`}>
+    <div className={`flex flex-col rounded-2xl border p-4 gap-3 ${cardBorder}`}>
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-2.5">
-          <div className={`flex items-center justify-center w-9 h-9 rounded-xl ${
-            isExpired ? 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400'
-                      : 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400'
-          }`}>
+          <div className={`flex items-center justify-center w-9 h-9 rounded-xl ${iconBg}`}>
             <Icon size={16} />
           </div>
           <div>
@@ -649,9 +722,11 @@ function ActiveCard({ space, tab, cur, isManager, customer, onEdit, onCheckOut }
           </div>
         </div>
         <div className="flex items-center gap-1">
-          {isExpired
-            ? <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400">Expired</span>
-            : <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400">Active</span>
+          {isAway
+            ? <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">Away</span>
+            : isExpired
+              ? <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400">Expired</span>
+              : <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400">Active</span>
           }
           {isManager && (
             <button onClick={onEdit} className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer">
@@ -674,7 +749,7 @@ function ActiveCard({ space, tab, cur, isManager, customer, onEdit, onCheckOut }
           )}
         </div>
         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-          {isDedicated && endsAt ? (
+          {hasBookingEnd && endsAt ? (
             <span className={`flex items-center gap-1 ${isExpired ? 'text-rose-600 dark:text-rose-400 font-medium' : ''}`}>
               <Clock size={11} />
               {isExpired ? `Expired ${fmtEnd(endsAt)}` : `Until ${fmtEnd(endsAt)}`}
@@ -692,8 +767,17 @@ function ActiveCard({ space, tab, cur, isManager, customer, onEdit, onCheckOut }
             isExpired ? 'bg-rose-600 hover:bg-rose-700' : 'bg-sky-600 hover:bg-sky-700'
           }`}
         >
-          <Lock size={13} /> Check Out
+          <Lock size={13} />
+          {/* Button label: hot desk open = "Release Desk"; dedicated already paid = "Early Check Out"; default = "Check Out" */}
+          {!isDedicated && tab.status === 'open' ? 'Release Desk'
+            : isDedicated && tab.status === 'paid' ? 'Early Check Out'
+            : 'Check Out'}
         </button>
+      ) : tab.type === 'desk' && !isDedicated && tab.status === 'paid' && hasBookingEnd ? (
+        // Hot desk pre-paid reservation — no action needed, auto-expires at bookingEndsAt
+        <p className="text-xs text-muted-foreground text-center py-1 border border-dashed border-border rounded-xl">
+          Pre-paid · can return until {fmtEnd(endsAt!)}
+        </p>
       ) : (
         <p className="text-xs text-muted-foreground text-center py-1 border border-dashed border-border rounded-xl">
           Manage on the POS tab

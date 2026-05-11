@@ -31,7 +31,7 @@ import type { CoworkSpace, CoworkSpaceRate, Discount, KitchenTicket, PaymentMeth
 function DeskRatePickerDialog({ space, cur, onClose, onConfirm }: {
   space: CoworkSpace; cur: string;
   onClose: () => void;
-  onConfirm: (rate: CoworkSpaceRate, bookingEndsAt?: Date) => void;
+  onConfirm: (rate: CoworkSpaceRate, bookingEndsAt: Date | undefined, bookingType: 'hot' | 'dedicated') => void;
 }) {
   const enabledHotRates       = space.rates?.filter(r => r.enabled) ?? [];
   const enabledDedicatedRates = (space.dedicatedRates ?? []).filter(r => r.enabled);
@@ -52,10 +52,14 @@ function DeskRatePickerDialog({ space, cur, onClose, onConfirm }: {
     e.preventDefault();
     const rate = activeRates[rateIdx];
     if (!rate) { toast.error('No rates available — edit this space to add rates'); return; }
-    const bookingEndsAt = isDedicated
+    // Set bookingEndsAt for all non-hourly periods so pre-paid reservations stay
+    // visible on the Coworking page (dedicated always; hot desk when not pay-as-you-go).
+    const effectiveBookingType: 'hot' | 'dedicated' = isDedicated ? 'dedicated' : 'hot';
+    const needsExpiry = isDedicated || rate.period !== 'hourly';
+    const bookingEndsAt = needsExpiry
       ? new Date(Date.now() + PERIOD_DURATION_MS[rate.period])
       : undefined;
-    onConfirm(rate, bookingEndsAt);
+    onConfirm(rate, bookingEndsAt, effectiveBookingType);
   }
 
   return (
@@ -699,7 +703,7 @@ export default function POSPage() {
           space={deskRateSpace}
           cur={cur}
           onClose={() => setDeskRateSpace(null)}
-          onConfirm={(rate, bookingEndsAt) => {
+          onConfirm={(rate, bookingEndsAt, bookingType) => {
             const deskProduct: Product = {
               id: deskRateSpace.id,
               name: `${deskRateSpace.name} — ${PERIOD_LABEL[rate.period]}`,
@@ -711,17 +715,16 @@ export default function POSPage() {
               sendToKitchen: false,
             };
             addLineWithModifiers(deskProduct, []);
-            // Patch the tab: fix the label if needed, and set bookingEndsAt for dedicated bookings.
+            // Patch the tab: fix the label if needed, store bookingEndsAt and bookingType.
             const labelMatchesSpace = spaces.some(s => s.name === activeTab.label);
-            if (!labelMatchesSpace || bookingEndsAt) {
-              store.tabs.set(prev =>
-                prev.map(t => t.id === activeTab.id ? {
-                  ...t,
-                  ...(!labelMatchesSpace ? { label: deskRateSpace.name } : {}),
-                  ...(bookingEndsAt ? { bookingEndsAt } : {}),
-                } : t),
-              );
-            }
+            store.tabs.set(prev =>
+              prev.map(t => t.id === activeTab.id ? {
+                ...t,
+                ...(!labelMatchesSpace ? { label: deskRateSpace.name } : {}),
+                ...(bookingEndsAt ? { bookingEndsAt } : {}),
+                bookingType,
+              } : t),
+            );
             store.log('tab.desk-added', `${activeTab.customerName} · ${deskRateSpace.name} (${PERIOD_LABEL[rate.period]})`, me?.id);
             toast.success(`${deskRateSpace.name} added to tab`);
             setDeskRateSpace(null);
@@ -735,7 +738,7 @@ export default function POSPage() {
           space={checkingInSpace}
           cur={cur}
           onClose={() => setCheckingInSpace(null)}
-          onConfirm={(customerName, rate, bookingEndsAt, customerId) => {
+          onConfirm={(customerName, rate, bookingEndsAt, customerId, bookingType) => {
             const product: Product = {
               id: `${checkingInSpace.id}-${rate.period}`,
               name: `${checkingInSpace.name} — ${PERIOD_LABEL[rate.period]}`,
@@ -755,6 +758,7 @@ export default function POSPage() {
               openedAt: new Date(),
               status: 'open',
               bookingEndsAt,
+              bookingType,
               ...(customerId ? { customerId } : {}),
             };
             store.tabs.set(prev => [tab, ...prev]);

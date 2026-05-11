@@ -164,8 +164,10 @@ export interface Tab {
   refunds?: Refund[];
   /** Latest "send to kitchen" timestamp. */
   kitchenSentAt?: Date;
-  /** For dedicated-desk bookings: when the booked period expires. */
+  /** For dedicated-desk and multi-day hot-desk bookings: when the booked period expires. */
   bookingEndsAt?: Date;
+  /** Distinguishes Hot Desk from Dedicated Desk bookings (set when type === 'desk'). */
+  bookingType?: 'hot' | 'dedicated';
 }
 
 /* ── Stay (folio) ─────────────────────────────────────────────── */

@@ -159,13 +159,78 @@ export default function DashboardPage() {
     const checkOutsToday  = activeStays.filter(s => s.checkOutAt && isToday(new Date(s.checkOutAt)));
 
     /* ── Coworking desks ───────────────── */
-    const activeByLabel = new Map<string, (typeof tabs)[0]>();
+    const now = new Date();
+    // Mirror the coworking page's active-tab logic: open tabs + paid tabs with valid booking.
+    const activeTabsByLabel = new Map<string, (typeof tabs)[0][]>();
     for (const t of tabs) {
-      if (t.type === 'desk' && t.status === 'open') activeByLabel.set(t.label, t);
+      // Skip explicitly early-checked-out tabs (bookingEndsAt set to epoch)
+      if (t.bookingEndsAt && new Date(t.bookingEndsAt as unknown as string).getTime() < 1000) continue;
+
+      const isPaidBookingStillActive =
+        t.status === 'paid' && (
+          (!!t.bookingEndsAt && new Date(t.bookingEndsAt as unknown as string) > now) ||
+          (!!t.paidAt && t.items.some(item => {
+            if (item.product.category !== 'desks') return false;
+            const paidMs = new Date(t.paidAt as unknown as string).getTime();
+            const PERIOD_DURATION_MS: Record<string, number> = {
+              daily: 86400000, weekly: 604800000, '2-weeks': 1209600000,
+              monthly: 2592000000, '3-months': 7776000000, '6-months': 15552000000, yearly: 31536000000,
+            };
+            const PERIOD_LABEL: Record<string, string> = {
+              daily: 'Daily', weekly: 'Weekly', '2-weeks': '2 Weeks',
+              monthly: 'Monthly', '3-months': '3 Months', '6-months': '6 Months', yearly: '1 Year',
+            };
+            return Object.entries(PERIOD_LABEL).some(([period, label]) =>
+              item.product.name.endsWith(` — ${label}`) &&
+              new Date(paidMs + PERIOD_DURATION_MS[period]).getTime() > now.getTime(),
+            );
+          }))
+        );
+      if (t.status !== 'open' && !isPaidBookingStillActive) continue;
+
+      // Resolve the space key (same logic as coworking page)
+      const allSpacesAll = spaces.filter(s => !s.archived);
+      let key = t.label;
+      if (t.type === 'desk') {
+        if (!allSpacesAll.find(s => s.name === key)) {
+          const deskItem = t.items.find(li => li.product.category === 'desks');
+          if (deskItem) {
+            const s = allSpacesAll.find(x => deskItem.productId.startsWith(x.id + '-') || x.id === deskItem.productId);
+            if (s) key = s.name;
+          }
+        }
+        if (!allSpacesAll.find(s => s.name === key)) continue;
+        const list = activeTabsByLabel.get(key) ?? [];
+        if (!list.find(x => x.id === t.id)) activeTabsByLabel.set(key, [...list, t]);
+      } else {
+        // POS tab with desk line items
+        for (const item of t.items) {
+          if (item.product.category === 'desks') {
+            const sp = allSpacesAll.find(s => s.id === item.productId || item.productId.startsWith(s.id + '-'));
+            if (sp) {
+              const list = activeTabsByLabel.get(sp.name) ?? [];
+              if (!list.find(x => x.id === t.id)) activeTabsByLabel.set(sp.name, [...list, t]);
+            }
+          }
+        }
+      }
     }
-    const allSpaces      = spaces.filter(s => !s.archived);
-    const occupiedSpaces = allSpaces.filter(s => activeByLabel.has(s.name));
-    const availSpaces    = allSpaces.filter(s => !activeByLabel.has(s.name));
+    const allSpaces = spaces.filter(s => !s.archived);
+
+    // Split into present (open) and away (paid with valid booking)
+    const presentByLabel = new Map<string, (typeof tabs)[0]>();
+    const awayTabs: { spaceName: string; tab: (typeof tabs)[0] }[] = [];
+    for (const [spaceName, tabList] of activeTabsByLabel.entries()) {
+      for (const t of tabList) {
+        if (t.status === 'open') presentByLabel.set(spaceName, t);
+        else awayTabs.push({ spaceName, tab: t });
+      }
+    }
+
+    // Legacy simple map for backward-compatible "active" display
+    const activeByLabel = presentByLabel;
+    const occupiedSpaces = allSpaces.filter(s => activeTabsByLabel.has(s.name));
+    const availSpaces    = allSpaces.filter(s => !activeTabsByLabel.has(s.name));
 
     /* ── Equipment rentals ─────────────── */
     const activeEquipIds = new Set<string>();
@@ -202,7 +267,7 @@ export default function DashboardPage() {
       methodTotals, typeTotals,
       kitNew, kitPreparing, kitReady, kitDoneToday,
       roomProducts, activeStays, availableRooms, checkOutsToday, occupiedRoomIds,
-      allSpaces, occupiedSpaces, availSpaces, activeByLabel,
+      allSpaces, occupiedSpaces, availSpaces, activeByLabel, awayTabs,
       allEquip, activeEquip, availEquip, equipTabMap,
       newCustomersToday, newCustomersWeek, vipCount, discountCount, newThisWeek,
     };
@@ -421,6 +486,36 @@ export default function DashboardPage() {
                 })}
               </div>
             )}
+
+            {/* Away · May Return */}
+            {d.awayTabs.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-border">
+                <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-1.5 flex items-center gap-1.5">
+                  <CalendarClock size={12} /> Away · May Return ({d.awayTabs.length})
+                </p>
+                <div className="space-y-1.5">
+                  {d.awayTabs.map(({ spaceName, tab }) => {
+                    const endsAt = tab.bookingEndsAt && new Date(tab.bookingEndsAt as unknown as string).getTime() > 1000
+                      ? new Date(tab.bookingEndsAt as unknown as string) : null;
+                    const endsLabel = endsAt
+                      ? `until ${endsAt.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}`
+                      : tab.paidAt ? `paid ${elapsed(tab.paidAt)} ago` : '';
+                    return (
+                      <div key={tab.id} className="flex items-center gap-3 px-3 py-2 rounded-xl bg-amber-50/60 dark:bg-amber-900/10 border border-amber-200/60 dark:border-amber-800/40">
+                        <span className="flex items-center justify-center w-7 h-7 rounded-lg shrink-0 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                          <Monitor size={13} strokeWidth={2} />
+                        </span>
+                        <span className="text-sm font-medium flex-1 truncate">{spaceName}</span>
+                        <span className="text-xs text-muted-foreground truncate hidden sm:block">{tab.customerName}</span>
+                        <span className="text-xs text-amber-700 dark:text-amber-400 shrink-0 tabular-nums">{endsLabel}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-2 px-1">Keep a desk free for each customer above.</p>
+              </div>
+            )}
+
             {d.availSpaces.length > 0 && (
               <p className="text-xs text-muted-foreground mt-3 px-1">
                 Available: {d.availSpaces.map(s => s.name).join(', ')}

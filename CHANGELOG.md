@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.0] - 2026-05-11
+### Added
+- **Coworking — Away · May Return section** — a new amber-coloured section on the Coworking page lists customers who have a valid hot-desk booking but have left the physical desk. Each card shows "Pre-paid · can return until [date]" with no checkout button; the section disappears automatically when all bookings expire. The header now shows separate "X active / Y away" counts.
+- **Dashboard — Away · May Return panel** — the Coworking active-sessions card on the Manager Dashboard now includes an amber sub-section listing away customers with their booking expiry, so managers can see at a glance how many desks to keep reserved.
+- **Hot desk booking tracking** — all non-hourly hot desk bookings (daily, weekly, monthly, etc.) now set `bookingEndsAt` so pre-paid reservations stay visible on the Coworking page until the period expires, even after the tab is paid.
+- **Release Desk flow** — clicking the new "Release Desk" button on an open hot-desk card marks the customer as away (tab → paid, `bookingEndsAt` kept) and moves their card to the Away section. A "Check Out" on a dedicated desk still works as before.
+
+### Fixed
+- **Dedicated Desk label wrongly applied to hot desks** — tabs explicitly expired by Early Check Out (`bookingEndsAt` set to epoch) no longer trigger the backwards-compat "Dedicated Desk" fallback.
+- **"Expired" red state on hot desks** — hot desk cards never show the red expired state; only dedicated desks whose booking period has ended turn red.
+- **Checkout button persisting after early checkout** — tabs with `bookingEndsAt` at epoch are now skipped at the top of the active-tab query, preventing them from re-appearing via legacy inference.
+
 ## [1.0.9] - 2026-05-11
 ### Fixed
 - **Dedicated desk stays active after POS cash payment** — paying a dedicated desk tab with cash on the POS page no longer removes the desk from the Coworking active list. The desk card remains visible until `bookingEndsAt` (e.g. all day for a daily booking). If staff need to release the desk early, the "Check Out" button on the active card now shows an "Early Check Out" confirmation dialog and expires the booking immediately rather than attempting to re-pay an already-paid tab.
