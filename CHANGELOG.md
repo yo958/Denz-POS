@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.1.6] - 2026-05-12
+### Changed
+- **Customers — full-width layout** — removed the `max-w-3xl` cap from the customer list so the page fills the full width like all other pages.
+
 ## [1.1.5] - 2026-05-12
 ### Changed
 - **Rooms — check-out date on occupied cards** — occupied room cards now show a dedicated "Check-out: DD Mon YYYY" line in amber beneath the check-in date, so staff can see at a glance when each guest is due to leave.

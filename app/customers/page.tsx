@@ -544,7 +544,7 @@ export default function CustomersPage() {
           </div>
         )}
 
-        <div className="px-6 pb-6 pt-2 space-y-2 max-w-3xl">
+        <div className="px-6 pb-6 pt-2 space-y-2">
           {visible.map(c => (
             <CustomerRow
               key={c.id}
