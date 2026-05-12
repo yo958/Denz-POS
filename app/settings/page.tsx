@@ -9,7 +9,7 @@ import { hashPin, newSalt } from '@/lib/domain/auth';
 import { confirm } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/toast';
 import { newId } from '@/lib/domain/id';
-import type { ModifierGroup, ModifierOption, Settings, Staff, StaffRole } from '@/lib/types';
+import type { DayOfWeek, ModifierGroup, ModifierOption, Settings, Staff, StaffRole } from '@/lib/types';
 
 export default function SettingsPage() {
   const settings = useSettings();
@@ -43,6 +43,17 @@ export default function SettingsPage() {
   }
   function updateDevice(patch: Partial<Settings['device']>) {
     setDraft(prev => ({ ...prev, device: { ...prev.device, ...patch } }));
+    setDirty(true);
+  }
+  function updateHours(day: DayOfWeek, patch: Partial<{ open: string; close: string; closed: boolean }>) {
+    const current = draft.venue.openingHours?.[day] ?? { open: '09:00', close: '22:00', closed: false };
+    setDraft(prev => ({
+      ...prev,
+      venue: {
+        ...prev.venue,
+        openingHours: { ...prev.venue.openingHours, [day]: { ...current, ...patch } } as Required<typeof prev.venue>['openingHours'],
+      },
+    }));
     setDirty(true);
   }
 
@@ -183,6 +194,67 @@ export default function SettingsPage() {
           <Field label="Currency symbol">
             <input value={draft.currency} maxLength={3} onChange={e => update({ currency: e.target.value })} className={inputCls + ' max-w-[8rem]'} />
           </Field>
+        </Section>
+
+        <Section title="Business Hours">
+          <Field label="Timezone">
+            <select value={draft.venue.timezone ?? 'Asia/Bangkok'} onChange={e => updateVenue({ timezone: e.target.value })} className={inputCls}>
+              <option value="Asia/Bangkok">Asia/Bangkok (UTC+7)</option>
+              <option value="Asia/Singapore">Asia/Singapore (UTC+8)</option>
+              <option value="Asia/Kuala_Lumpur">Asia/Kuala_Lumpur (UTC+8)</option>
+              <option value="Asia/Jakarta">Asia/Jakarta (UTC+7)</option>
+              <option value="Asia/Tokyo">Asia/Tokyo (UTC+9)</option>
+              <option value="Asia/Seoul">Asia/Seoul (UTC+9)</option>
+              <option value="Asia/Shanghai">Asia/Shanghai (UTC+8)</option>
+              <option value="Asia/Kolkata">Asia/Kolkata (UTC+5:30)</option>
+              <option value="Asia/Dubai">Asia/Dubai (UTC+4)</option>
+              <option value="Europe/London">Europe/London (UTC+0/+1)</option>
+              <option value="Europe/Paris">Europe/Paris (UTC+1/+2)</option>
+              <option value="Europe/Berlin">Europe/Berlin (UTC+1/+2)</option>
+              <option value="Australia/Sydney">Australia/Sydney (UTC+10/+11)</option>
+              <option value="America/New_York">America/New_York (UTC-5/-4)</option>
+              <option value="America/Chicago">America/Chicago (UTC-6/-5)</option>
+              <option value="America/Los_Angeles">America/Los_Angeles (UTC-8/-7)</option>
+              <option value="UTC">UTC</option>
+            </select>
+          </Field>
+          <div className="rounded-xl border border-border bg-white/50 dark:bg-white/3 divide-y divide-border">
+            {((['monday','tuesday','wednesday','thursday','friday','saturday','sunday'] as DayOfWeek[])).map(day => {
+              const h = draft.venue.openingHours?.[day] ?? { open: '10:00', close: '23:30', closed: false };
+              return (
+                <div key={day} className="flex items-center gap-3 px-3 py-2.5">
+                  <span className="w-24 text-sm font-medium capitalize shrink-0">{day}</span>
+                  <div className={`flex items-center gap-2 flex-1 transition-opacity ${h.closed ? 'opacity-40 pointer-events-none' : ''}`}>
+                    <input
+                      type="time"
+                      value={h.open}
+                      onChange={e => updateHours(day, { open: e.target.value })}
+                      className="h-8 px-2 rounded-lg text-sm bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring tabular-nums"
+                    />
+                    <span className="text-muted-foreground text-xs">–</span>
+                    <input
+                      type="time"
+                      value={h.close}
+                      onChange={e => updateHours(day, { close: e.target.value })}
+                      className="h-8 px-2 rounded-lg text-sm bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring tabular-nums"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => updateHours(day, { closed: !h.closed })}
+                    className={`h-8 px-3 rounded-lg text-xs font-medium border transition-colors cursor-pointer shrink-0 ${
+                      h.closed
+                        ? 'border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-900/10 text-rose-600 dark:text-rose-400'
+                        : 'border-border bg-white/50 dark:bg-white/5 text-muted-foreground hover:bg-black/5 dark:hover:bg-white/8'
+                    }`}
+                  >
+                    {h.closed ? 'Closed' : 'Open'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-xs text-muted-foreground">These hours sync to the website and are shown in the footer, contact page, and map.</p>
         </Section>
 
         <Section title="Receipt">

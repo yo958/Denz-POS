@@ -315,7 +315,7 @@ export interface KitchenTicket {
 
 /* ── Audit log ────────────────────────────────────────────────── */
 export type AuditAction =
-  | 'tab.create' | 'tab.update' | 'tab.pay' | 'tab.void' | 'tab.refund' | 'tab.kitchen-send' | 'tab.desk-added' | 'tab.partial-pay'
+  | 'tab.create' | 'tab.update' | 'tab.pay' | 'tab.void' | 'tab.refund' | 'tab.kitchen-send' | 'tab.desk-added' | 'tab.partial-pay' | 'tab.web-booking-accepted' | 'tab.web-booking-declined'
   | 'stay.checkin' | 'stay.checkout' | 'stay.charge'
   | 'product.create' | 'product.update' | 'product.delete' | 'product.stock'
   | 'modifier.create' | 'modifier.update' | 'modifier.delete'
@@ -359,11 +359,21 @@ export interface Bill {
 }
 
 /* ── Settings ─────────────────────────────────────────────────── */
+export type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+
+export interface DayHours {
+  open: string;   // 'HH:MM'
+  close: string;  // 'HH:MM'
+  closed: boolean;
+}
+
 export interface VenueSettings {
   name: string;
   address: string;
   phone: string;
   abn: string;
+  timezone?: string;                              // IANA e.g. 'Asia/Bangkok'
+  openingHours?: Record<DayOfWeek, DayHours>;
 }
 export interface ReceiptSettings {
   header: string;

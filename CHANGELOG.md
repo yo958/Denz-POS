@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.2.2] - 2026-05-13
+### Added
+- **Timezone & Business Hours settings** — Settings page now has a "Business Hours" section where managers can set the venue timezone (IANA, e.g. Asia/Bangkok) and configure open/close times per day of the week with a closed toggle. Hours are stored alongside the existing venue settings and auto-sync to Firestore, which means they are immediately reflected on the Denz Website (footer, contact page, map section, and "Open today" card on the about section).
+
 ## [1.2.1] - 2026-05-13
 ### Added
 - **Dessert category** — new `dessert` product category added alongside Food and Drinks. Products tagged as Dessert appear in their own section on the Menu page with a pink badge, and show under the Dessert tab on the website menu.
