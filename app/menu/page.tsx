@@ -13,12 +13,13 @@ import { Switch } from '@/components/ui/switch';
 import type { Product, ProductCategory } from '@/lib/types';
 
 const CATEGORY_LABEL: Partial<Record<ProductCategory, string>> = {
-  food: 'Food', drinks: 'Drinks',
+  food: 'Food', drinks: 'Drinks', dessert: 'Dessert',
 };
-const CATEGORY_ORDER: ProductCategory[] = ['food', 'drinks'];
+const CATEGORY_ORDER: ProductCategory[] = ['food', 'drinks', 'dessert'];
 const CATEGORY_COLOR: Partial<Record<ProductCategory, string>> = {
-  food:   'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400',
-  drinks: 'bg-sky-100 text-sky-700 dark:bg-sky-900/20 dark:text-sky-400',
+  food:    'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400',
+  drinks:  'bg-sky-100 text-sky-700 dark:bg-sky-900/20 dark:text-sky-400',
+  dessert: 'bg-pink-100 text-pink-700 dark:bg-pink-900/20 dark:text-pink-400',
 };
 
 export default function MenuPage() {
@@ -224,7 +225,7 @@ function ProductDialog({ product, onClose, onSave }: ProductDialogProps) {
     onSave({ ...form, name: form.name.trim() });
   }
 
-  const canTrackStock = form.category === 'food' || form.category === 'drinks';
+  const canTrackStock = form.category === 'food' || form.category === 'drinks' || form.category === 'dessert';
   const tracksStock = canTrackStock && form.stock !== null;
 
   return (

@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.2.1] - 2026-05-13
+### Added
+- **Dessert category** — new `dessert` product category added alongside Food and Drinks. Products tagged as Dessert appear in their own section on the Menu page with a pink badge, and show under the Dessert tab on the website menu.
+
 ## [1.2.0] - 2026-05-12
 ### Added
 - **Partial payments on open tabs** — managers can now log one or more partial payments against any open tab without closing it. In the POS cart, tap "Log partial payment", enter the amount, choose Cash / Card / QR / Bank transfer, add an optional note, and save. The totals area shows each payment logged, plus a bold amber "Remaining" line showing what's still owed.

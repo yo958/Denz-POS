@@ -16,7 +16,7 @@ export interface SplitPaymentLine {
   /** Cash payments only: change returned. */
   changeGiven?: number;
 }
-export type ProductCategory = 'food' | 'drinks' | 'desks' | 'rooms' | 'equipment-rental';
+export type ProductCategory = 'food' | 'drinks' | 'dessert' | 'desks' | 'rooms' | 'equipment-rental';
 export type StaffRole = 'manager' | 'staff';
 
 /* ── Discount ─────────────────────────────────────────────────── */
