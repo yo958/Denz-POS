@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Search, Receipt, Coffee, Monitor, BedDouble, RotateCcw, Trash2, X, Printer, Tag, CreditCard, QrCode, Banknote, Star } from 'lucide-react';
+import { Search, Receipt, Coffee, Monitor, BedDouble, RotateCcw, Trash2, X, Printer, Tag, CreditCard, QrCode, Banknote, Star, Check } from 'lucide-react';
 import { useTabs, useSettings, useCurrentStaff, useCustomers } from '@/lib/hooks/useStore';
 import {
   tabDiscountAmount, tabTax, tabGrandTotal, tabCardFee,
@@ -232,6 +232,21 @@ export default function HistoryPage() {
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | TabType>('all');
   const [selected, setSelected] = useState<Tab | null>(null);
+  const [received, setReceived] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem('denz.paymentReceived');
+      return new Set(raw ? JSON.parse(raw) : []);
+    } catch { return new Set(); }
+  });
+
+  function toggleReceived(tabId: string) {
+    setReceived(prev => {
+      const next = new Set(prev);
+      if (next.has(tabId)) next.delete(tabId); else next.add(tabId);
+      try { localStorage.setItem('denz.paymentReceived', JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  }
 
   if (me?.role !== 'manager') {
     return (
@@ -345,37 +360,57 @@ export default function HistoryPage() {
                   const time    = new Date(tab.paidAt!).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
                   const itemCount = tab.items.reduce((s, li) => s + li.qty, 0);
                   return (
-                    <button
+                    <div
                       key={tab.id}
-                      type="button"
-                      onClick={() => setSelected(tab)}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-black/3 dark:hover:bg-white/5 transition-colors cursor-pointer text-left"
+                      className={`flex items-center gap-3 px-4 py-3 transition-colors ${
+                        received.has(tab.id)
+                          ? 'bg-emerald-50 dark:bg-emerald-900/15'
+                          : 'hover:bg-black/3 dark:hover:bg-white/5'
+                      }`}
                     >
-                      <span className={`flex items-center justify-center w-8 h-8 rounded-lg shrink-0 ${TYPE_COLOR[tab.type]}`}>
-                        <Icon size={14} strokeWidth={2} />
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium truncate">{tab.customerName}</p>
-                          <span className="text-xs text-muted-foreground">· {tab.label}</span>
-                          {tab.status === 'refunded' && (
-                            <span className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
-                              <RotateCcw size={9} /> REFUNDED
-                            </span>
+                      <button
+                        type="button"
+                        onClick={() => setSelected(tab)}
+                        className="flex-1 flex items-center gap-3 text-left cursor-pointer min-w-0"
+                      >
+                        <span className={`flex items-center justify-center w-8 h-8 rounded-lg shrink-0 ${TYPE_COLOR[tab.type]}`}>
+                          <Icon size={14} strokeWidth={2} />
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium truncate">{tab.customerName}</p>
+                            <span className="text-xs text-muted-foreground">· {tab.label}</span>
+                            {tab.status === 'refunded' && (
+                              <span className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+                                <RotateCcw size={9} /> REFUNDED
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {time} · {itemCount} item{itemCount === 1 ? '' : 's'}
+                            {tab.paymentMethod && ` · ${METHOD_LABEL[tab.paymentMethod] ?? tab.paymentMethod}`}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0 mr-3">
+                          <p className="text-sm font-semibold tabular-nums">{cur}{fmtCur(total)}</p>
+                          {refunded > 0 && (
+                            <p className="text-xs text-rose-600 dark:text-rose-400 tabular-nums">−{cur}{fmtCur(refunded)}</p>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {time} · {itemCount} item{itemCount === 1 ? '' : 's'}
-                          {tab.paymentMethod && ` · ${METHOD_LABEL[tab.paymentMethod] ?? tab.paymentMethod}`}
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-semibold tabular-nums">{cur}{fmtCur(total)}</p>
-                        {refunded > 0 && (
-                          <p className="text-xs text-rose-600 dark:text-rose-400 tabular-nums">−{cur}{fmtCur(refunded)}</p>
-                        )}
-                      </div>
-                    </button>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleReceived(tab.id)}
+                        title={received.has(tab.id) ? 'Payment received' : 'Mark payment received'}
+                        className={`shrink-0 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors cursor-pointer ${
+                          received.has(tab.id)
+                            ? 'bg-emerald-500 border-emerald-500 text-white'
+                            : 'border-border text-transparent hover:border-emerald-400'
+                        }`}
+                      >
+                        <Check size={12} strokeWidth={3} />
+                      </button>
+                    </div>
                   );
                 })}
               </div>

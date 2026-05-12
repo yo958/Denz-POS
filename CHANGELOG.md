@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.1.7] - 2026-05-12
+### Added
+- **History — payment received checkbox** — each tab row now has a small checkbox on the right. Managers can click it to mark that payment has physically arrived (bank transfer, cash from till, etc.). Checked rows turn green so outstanding payments are easy to spot at a glance. State is stored in `localStorage` under `denz.paymentReceived` and is completely isolated from the rest of the POS.
+
 ## [1.1.6] - 2026-05-12
 ### Changed
 - **Customers — full-width layout** — removed the `max-w-3xl` cap from the customer list so the page fills the full width like all other pages.
