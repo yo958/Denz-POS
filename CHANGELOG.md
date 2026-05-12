@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.0] - 2026-05-12
+### Added
+- **Partial payments on open tabs** — managers can now log one or more partial payments against any open tab without closing it. In the POS cart, tap "Log partial payment", enter the amount, choose Cash / Card / QR / Bank transfer, add an optional note, and save. The totals area shows each payment logged, plus a bold amber "Remaining" line showing what's still owed.
+- **Dashboard — partial payment indicators** — the Outstanding stat card now shows the true net remaining (full tab totals minus any partial payments collected), with a "£X part-paid" sub-note. Open tab rows with partial payments show an amber "£X paid · £Y left" line.
+- **Reports — Pipeline reflects partial payments** — the Pipeline stat card shows net remaining (full pipeline minus partial payments collected) with a part-paid sub-note when applicable.
+
 ## [1.1.7] - 2026-05-12
 ### Added
 - **History — payment received checkbox** — each tab row now has a small checkbox on the right. Managers can click it to mark that payment has physically arrived (bank transfer, cash from till, etc.). Checked rows turn green so outstanding payments are easy to spot at a glance. State is stored in `localStorage` under `denz.paymentReceived` and is completely isolated from the rest of the POS.

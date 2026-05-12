@@ -139,6 +139,16 @@ export interface Refund {
   at: Date;
 }
 
+/* ── Partial payment (logged against an open tab) ─────────────── */
+export interface PartialPayment {
+  id: string;
+  amount: number;
+  method: 'cash' | 'card' | 'qr' | 'bank';
+  note?: string;
+  recordedAt: Date;
+  staffId?: string;
+}
+
 /* ── Tab ──────────────────────────────────────────────────────── */
 export interface Tab {
   id: string;
@@ -162,6 +172,7 @@ export interface Tab {
   customerId?: string;
   voids?: VoidEntry[];
   refunds?: Refund[];
+  partialPayments?: PartialPayment[];
   /** Latest "send to kitchen" timestamp. */
   kitchenSentAt?: Date;
   /** For dedicated-desk and multi-day hot-desk bookings: when the booked period expires. */
@@ -304,7 +315,7 @@ export interface KitchenTicket {
 
 /* ── Audit log ────────────────────────────────────────────────── */
 export type AuditAction =
-  | 'tab.create' | 'tab.update' | 'tab.pay' | 'tab.void' | 'tab.refund' | 'tab.kitchen-send' | 'tab.desk-added'
+  | 'tab.create' | 'tab.update' | 'tab.pay' | 'tab.void' | 'tab.refund' | 'tab.kitchen-send' | 'tab.desk-added' | 'tab.partial-pay'
   | 'stay.checkin' | 'stay.checkout' | 'stay.charge'
   | 'product.create' | 'product.update' | 'product.delete' | 'product.stock'
   | 'modifier.create' | 'modifier.update' | 'modifier.delete'

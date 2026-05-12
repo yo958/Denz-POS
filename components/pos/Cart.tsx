@@ -11,7 +11,7 @@ import { useCurrentStaff, useCustomers, useSettings } from '@/lib/hooks/useStore
 import { countryFlag, countryLabel } from '@/lib/countries';
 import { lineKey } from '@/lib/domain/tabs';
 import { toast } from '@/components/ui/toast';
-import type { PaymentMethod, Tab } from '@/lib/types';
+import type { PartialPayment, PaymentMethod, Tab } from '@/lib/types';
 
 interface CartProps {
   tab: Tab | null;
@@ -24,11 +24,12 @@ interface CartProps {
   onSendKitchen: () => void;
   onPrint: () => void;
   onRefund: () => void;
+  onPartialPay: (amount: number, method: PartialPayment['method'], note?: string) => void;
   hideCharge?: boolean;
 }
 
 export function Cart({
-  tab, onQtyChange, onVoidLine, onLineDiscount, onPay, onSplit, onDiscount, onSendKitchen, onPrint, onRefund, hideCharge,
+  tab, onQtyChange, onVoidLine, onLineDiscount, onPay, onSplit, onDiscount, onSendKitchen, onPrint, onRefund, onPartialPay, hideCharge,
 }: CartProps) {
   if (!tab) {
     return (
@@ -82,6 +83,7 @@ export function Cart({
           onSendKitchen={onSendKitchen}
           onPrint={onPrint}
           onRefund={onRefund}
+          onPartialPay={onPartialPay}
           hideCharge={hideCharge}
           unsentItemsCount={unsentItemsCount}
         />

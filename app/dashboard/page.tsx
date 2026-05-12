@@ -12,7 +12,7 @@ import {
   useTickets, useProducts, useSpaces, useEquipment, useShift, useStaff,
   useBills,
 } from '@/lib/hooks/useStore';
-import { tabGrandTotal, tabCardFee } from '@/lib/domain/tabs';
+import { tabGrandTotal, tabCardFee, tabPartialPaidAmount } from '@/lib/domain/tabs';
 import { fmtCur } from '@/lib/format';
 import { findActiveStayByRoom } from '@/lib/domain/stays';
 import type { BillCategory, PaymentMethod, TabType } from '@/lib/types';
@@ -138,7 +138,9 @@ export default function DashboardPage() {
     const revenueToday = paidToday.reduce((s, t) => {
       return s + tabGrandTotal(t.items, t.discount) + (t.paymentMethod === 'card' ? tabCardFee(t.items, t.discount) : 0);
     }, 0);
-    const outstanding = openTabs.reduce((s, t) => s + tabGrandTotal(t.items, t.discount), 0);
+    const outstanding        = openTabs.reduce((s, t) => s + tabGrandTotal(t.items, t.discount), 0);
+    const partialCollected   = openTabs.reduce((s, t) => s + tabPartialPaidAmount(t), 0);
+    const netOutstanding     = outstanding - partialCollected;
 
     /* ── Payment + category breakdown ─── */
     const methodTotals: Partial<Record<PaymentMethod, { count: number; total: number }>> = {};
@@ -276,7 +278,7 @@ export default function DashboardPage() {
 
     return {
       openTabs, openSorted, paidToday, recentPaid,
-      revenueToday, outstanding,
+      revenueToday, outstanding, partialCollected, netOutstanding,
       expensesToday, expensesByCategory, billsToday,
       methodTotals, typeTotals,
       kitNew, kitPreparing, kitReady, kitDoneToday,
@@ -342,8 +344,8 @@ export default function DashboardPage() {
           />
           <StatCard
             label="Outstanding"
-            value={`${cur}${fmtCur(d.outstanding)}`}
-            sub={`${d.openTabs.length} open tab${d.openTabs.length !== 1 ? 's' : ''}`}
+            value={`${cur}${fmtCur(d.netOutstanding)}`}
+            sub={`${d.openTabs.length} open tab${d.openTabs.length !== 1 ? 's' : ''}${d.partialCollected > 0 ? ` · ${cur}${fmtCur(d.partialCollected)} part-paid` : ''}`}
             icon={Clock}
             accent="bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
           />
@@ -425,14 +427,22 @@ export default function DashboardPage() {
             {d.openTabs.length === 0 ? <EmptyRow label="No open tabs" /> : (
               <div className="space-y-1.5">
                 {d.openSorted.map(tab => {
-                  const Icon = TYPE_ICON[tab.type];
-                  const total = tabGrandTotal(tab.items, tab.discount);
+                  const Icon    = TYPE_ICON[tab.type];
+                  const total   = tabGrandTotal(tab.items, tab.discount);
+                  const partial = tabPartialPaidAmount(tab);
                   return (
                     <div key={tab.id} className="flex items-center gap-3 px-3 py-2 rounded-xl bg-black/3 dark:bg-white/4">
                       <span className={`flex items-center justify-center w-7 h-7 rounded-lg shrink-0 ${TYPE_COLOR[tab.type]}`}>
                         <Icon size={13} strokeWidth={2} />
                       </span>
-                      <span className="text-sm font-medium flex-1 truncate">{tab.customerName}</span>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium truncate block">{tab.customerName}</span>
+                        {partial > 0 && (
+                          <span className="text-xs text-amber-600 dark:text-amber-400 tabular-nums">
+                            {cur}{fmtCur(partial)} paid · {cur}{fmtCur(total - partial)} left
+                          </span>
+                        )}
+                      </div>
                       <span className="text-xs text-muted-foreground truncate hidden sm:block max-w-[100px]">{tab.label}</span>
                       <span className="text-xs text-muted-foreground tabular-nums shrink-0">{tab.items.length} item{tab.items.length !== 1 ? 's' : ''}</span>
                       <span className="text-xs text-muted-foreground tabular-nums shrink-0">{elapsed(tab.openedAt)}</span>

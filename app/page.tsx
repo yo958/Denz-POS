@@ -26,7 +26,7 @@ import { decrementForTab, restock } from '@/lib/domain/inventory';
 import { fmtCur } from '@/lib/format';
 import { confirm } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/toast';
-import type { CoworkSpace, CoworkSpaceRate, Discount, KitchenTicket, PaymentMethod, Product, SelectedModifier, SplitPaymentLine, Stay, Tab, TabType } from '@/lib/types';
+import type { CoworkSpace, CoworkSpaceRate, Discount, KitchenTicket, PartialPayment, PaymentMethod, Product, SelectedModifier, SplitPaymentLine, Stay, Tab, TabType } from '@/lib/types';
 
 /* ── Desk rate picker (used when a POS tab is already active) ─────── */
 function DeskRatePickerDialog({ space, cur, onClose, onConfirm }: {
@@ -340,6 +340,27 @@ export default function POSPage() {
     setLineDiscountKey(null);
   }
 
+  /* ── Partial pay ───────────────────────────────────── */
+  function handlePartialPay(amount: number, method: PartialPayment['method'], note?: string) {
+    if (!activeTab) return;
+    const entry: PartialPayment = {
+      id: newId(),
+      amount,
+      method,
+      note: note || undefined,
+      recordedAt: new Date(),
+      staffId: me?.id,
+    };
+    store.tabs.set(prev => prev.map(t =>
+      t.id !== activeTab.id ? t : {
+        ...t,
+        partialPayments: [...(t.partialPayments ?? []), entry],
+      }
+    ));
+    store.log('tab.partial-pay', `${cur}${fmtCur(amount)} via ${method}${note ? ` · ${note}` : ''}`, me?.id);
+    toast.success(`${cur}${fmtCur(amount)} partial payment logged`);
+  }
+
   /* ── Pay ───────────────────────────────────────────── */
   function handlePay(method: PaymentMethod) {
     if (!activeTab) return;
@@ -634,6 +655,7 @@ export default function POSPage() {
             onSendKitchen={handleSendKitchen}
             onPrint={handlePrintReceipt}
             onRefund={() => setRefundOpen(true)}
+            onPartialPay={handlePartialPay}
             hideCharge={isFolio || !hasActiveStays}
           />
         </aside>

@@ -1,12 +1,16 @@
 'use client';
 
-import { CreditCard, QrCode, Banknote, BedDouble, Tag, Printer, ChefHat, RotateCcw, SplitSquareVertical } from 'lucide-react';
-import type { PaymentMethod, Tab } from '@/lib/types';
+import { useState } from 'react';
+import { CreditCard, QrCode, Banknote, BedDouble, Tag, Printer, ChefHat, RotateCcw, SplitSquareVertical, Plus, X } from 'lucide-react';
+import type { PartialPayment, PaymentMethod, Tab } from '@/lib/types';
 import {
-  tabDiscountAmount, tabTax, tabGrandTotal, tabRefundedAmount, lineUnitPrice, lineEffectiveUnitPrice,
+  tabDiscountAmount, tabTax, tabGrandTotal, tabRefundedAmount, tabPartialPaidAmount, lineUnitPrice, lineEffectiveUnitPrice,
+  formatDate,
 } from '@/lib/domain/tabs';
 import { useSettings } from '@/lib/hooks/useStore';
 import { fmtCur } from '@/lib/format';
+
+type PartialMethod = PartialPayment['method'];
 
 interface PaymentBarProps {
   tab: Tab;
@@ -16,15 +20,20 @@ interface PaymentBarProps {
   onSendKitchen: () => void;
   onPrint: () => void;
   onRefund: () => void;
+  onPartialPay: (amount: number, method: PartialMethod, note?: string) => void;
   /** Hide "Charge to Room" (used inside the room folio itself). */
   hideCharge?: boolean;
   unsentItemsCount: number;
 }
 
 export function PaymentBar({
-  tab, onPay, onSplit, onDiscount, onSendKitchen, onPrint, onRefund, hideCharge, unsentItemsCount,
+  tab, onPay, onSplit, onDiscount, onSendKitchen, onPrint, onRefund, onPartialPay, hideCharge, unsentItemsCount,
 }: PaymentBarProps) {
   const settings  = useSettings();
+  const [showPartialForm, setShowPartialForm] = useState(false);
+  const [partialAmount, setPartialAmount] = useState('');
+  const [partialMethod, setPartialMethod] = useState<PartialMethod>('cash');
+  const [partialNote, setPartialNote] = useState('');
   const taxRate   = settings.taxEnabled === false ? 0 : settings.taxRate;
   // Gross subtotal (before per-item discounts) — used as the "Subtotal" display label
   const grossSubtotal = tab.items.reduce((s, li) => s + lineUnitPrice(li) * (Math.max(0, li.qty - (li.refundedQty ?? 0))), 0);
@@ -33,13 +42,24 @@ export function PaymentBar({
     const saving = lineUnitPrice(li) - lineEffectiveUnitPrice(li);
     return s + saving * Math.max(0, li.qty - (li.refundedQty ?? 0));
   }, 0);
-  const discount  = tabDiscountAmount(tab.items, tab.discount);
-  const tax       = tabTax(tab.items, tab.discount, taxRate);
-  const total     = tabGrandTotal(tab.items, tab.discount, taxRate);
-  const refunded  = tabRefundedAmount(tab);
-  const isOpen    = tab.status === 'open';
-  const hasDiscount = discount > 0;
+  const discount       = tabDiscountAmount(tab.items, tab.discount);
+  const tax            = tabTax(tab.items, tab.discount, taxRate);
+  const total          = tabGrandTotal(tab.items, tab.discount, taxRate);
+  const refunded       = tabRefundedAmount(tab);
+  const partialPaid    = tabPartialPaidAmount(tab);
+  const remaining      = Math.max(0, total - partialPaid);
+  const isOpen         = tab.status === 'open';
+  const hasDiscount    = discount > 0;
   const cur = settings.currency;
+
+  function submitPartialPay() {
+    const amt = parseFloat(partialAmount);
+    if (!amt || amt <= 0) return;
+    onPartialPay(Math.min(amt, remaining), partialMethod, partialNote.trim() || undefined);
+    setPartialAmount('');
+    setPartialNote('');
+    setShowPartialForm(false);
+  }
 
   return (
     <div className="border-t border-border pt-4 space-y-3">
@@ -83,6 +103,18 @@ export function PaymentBar({
           <div className="flex justify-between text-rose-600 dark:text-rose-400 text-xs">
             <span>Refunded</span>
             <span className="tabular-nums">−{cur}{fmtCur(refunded)}</span>
+          </div>
+        )}
+        {isOpen && (tab.partialPayments ?? []).map(p => (
+          <div key={p.id} className="flex justify-between text-xs text-muted-foreground">
+            <span>Paid ({p.method}{p.note ? ` · ${p.note}` : ''} · {formatDate(p.recordedAt)})</span>
+            <span className="tabular-nums">−{cur}{fmtCur(p.amount)}</span>
+          </div>
+        ))}
+        {isOpen && partialPaid > 0 && (
+          <div className="flex justify-between font-semibold text-amber-600 dark:text-amber-400 pt-1 border-t border-border">
+            <span>Remaining</span>
+            <span className="tabular-nums">{cur}{fmtCur(remaining)}</span>
           </div>
         )}
       </div>
@@ -154,6 +186,59 @@ export function PaymentBar({
             <SplitSquareVertical size={14} strokeWidth={2} />
             Split (Cash + Card)
           </button>
+
+          {/* Log partial payment */}
+          {!showPartialForm ? (
+            <button
+              onClick={() => setShowPartialForm(true)}
+              className="w-full flex items-center justify-center gap-2 h-10 rounded-2xl border border-border bg-white/50 dark:bg-white/5 font-medium text-xs text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/8 active:scale-95 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              <Plus size={13} strokeWidth={2} />
+              Log partial payment
+            </button>
+          ) : (
+            <div className="rounded-2xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/15 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">Partial payment</span>
+                <button onClick={() => { setShowPartialForm(false); setPartialAmount(''); setPartialNote(''); }} className="text-muted-foreground hover:text-foreground cursor-pointer"><X size={13} /></button>
+              </div>
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                max={remaining}
+                value={partialAmount}
+                onChange={e => setPartialAmount(e.target.value)}
+                placeholder={`Amount (max ${cur}${fmtCur(remaining)})`}
+                className="w-full h-9 px-3 rounded-xl text-sm bg-white dark:bg-white/10 border border-border focus:outline-none focus:ring-2 focus:ring-amber-400"
+              />
+              <div className="flex gap-1.5">
+                {(['cash', 'card', 'qr', 'bank'] as const).map(m => (
+                  <button
+                    key={m}
+                    onClick={() => setPartialMethod(m)}
+                    className={`flex-1 h-7 rounded-lg text-xs font-medium transition-colors cursor-pointer capitalize ${partialMethod === m ? 'bg-amber-500 text-white' : 'bg-white/70 dark:bg-white/10 text-muted-foreground hover:text-foreground border border-border'}`}
+                  >
+                    {m === 'bank' ? 'Bank' : m === 'qr' ? 'QR' : m.charAt(0).toUpperCase() + m.slice(1)}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="text"
+                value={partialNote}
+                onChange={e => setPartialNote(e.target.value)}
+                placeholder="Note (optional)"
+                className="w-full h-9 px-3 rounded-xl text-sm bg-white dark:bg-white/10 border border-border focus:outline-none focus:ring-2 focus:ring-amber-400"
+              />
+              <button
+                onClick={submitPartialPay}
+                disabled={!partialAmount || parseFloat(partialAmount) <= 0}
+                className="w-full h-9 rounded-xl text-xs font-semibold bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition-all cursor-pointer"
+              >
+                Save partial payment
+              </button>
+            </div>
+          )}
 
           <div className="flex gap-2">
             <button

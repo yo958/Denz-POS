@@ -104,6 +104,10 @@ export function tabRefundedAmount(tab: Tab): number {
   return (tab.refunds ?? []).reduce((s, r) => s + r.amount, 0);
 }
 
+export function tabPartialPaidAmount(tab: Tab): number {
+  return (tab.partialPayments ?? []).reduce((s, p) => s + p.amount, 0);
+}
+
 /* ── Formatting ───────────────────────────────────────────────── */
 function toDate(d: Date | string | number): Date {
   return d instanceof Date ? d : new Date(d);

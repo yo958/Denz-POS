@@ -7,7 +7,7 @@ import {
 import { TrendingUp, TrendingDown, ShoppingBag, Clock, DollarSign, Coffee, Monitor, BedDouble, RotateCcw, CreditCard, QrCode, Banknote, Layers, Receipt } from 'lucide-react';
 import { useTabs, useShift, useSettings, useCurrentStaff, useBills, useBillTags } from '@/lib/hooks/useStore';
 import { fmtCur } from '@/lib/format';
-import { lineUnitPrice, lineEffectiveUnitPrice, tabGrandTotal, tabRefundedAmount, tabCardFee } from '@/lib/domain/tabs';
+import { lineUnitPrice, lineEffectiveUnitPrice, tabGrandTotal, tabRefundedAmount, tabCardFee, tabPartialPaidAmount } from '@/lib/domain/tabs';
 import { buildZReport } from '@/lib/domain/shift';
 import type { BillCategory, PaymentMethod, TabType } from '@/lib/types';
 
@@ -70,7 +70,9 @@ export default function ReportsPage() {
       return s + base + fee;
     }, 0);
     const refunds   = paid.reduce((s, t) => s + tabRefundedAmount(t), 0);
-    const pipeline  = open.reduce((s, t) => s + tabGrandTotal(t.items, t.discount), 0);
+    const pipeline         = open.reduce((s, t) => s + tabGrandTotal(t.items, t.discount), 0);
+    const partialCollected = open.reduce((s, t) => s + tabPartialPaidAmount(t), 0);
+    const netPipeline      = pipeline - partialCollected;
     const totalItems = inRange.reduce((s, t) => s + t.items.reduce((s2, li) => s2 + li.qty, 0), 0);
 
     const byType: Record<TabType, number> = { cafe: 0, desk: 0, room: 0 };
@@ -108,7 +110,7 @@ export default function ReportsPage() {
     }
     const topItems = Object.values(itemCounts).sort((a, b) => b.qty - a.qty).slice(0, 5);
 
-    return { revenue, refunds, net: revenue - refunds, pipeline, openTabs: open.length, paidTabs: paid.length, totalItems, byType, byMethod, topItems };
+    return { revenue, refunds, net: revenue - refunds, pipeline, netPipeline, partialCollected, openTabs: open.length, paidTabs: paid.length, totalItems, byType, byMethod, topItems };
   }, [tabs, range]);
 
   const expenseStats = useMemo(() => {
@@ -353,7 +355,7 @@ export default function ReportsPage() {
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
           {[
             { label: 'Net Sales',  value: `${cur}${fmtCur(stats.net)}`,      sub: `−${cur}${fmtCur(stats.refunds)} refunds`, icon: TrendingUp,   color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/20' },
-            { label: 'Pipeline',   value: `${cur}${fmtCur(stats.pipeline)}`, sub: `${stats.openTabs} open tab${stats.openTabs !== 1 ? 's' : ''}`, icon: Clock, color: 'text-sky-600 dark:text-sky-400', bg: 'bg-sky-100 dark:bg-sky-900/20' },
+            { label: 'Pipeline',   value: `${cur}${fmtCur(stats.netPipeline)}`, sub: `${stats.openTabs} open tab${stats.openTabs !== 1 ? 's' : ''}${stats.partialCollected > 0 ? ` · ${cur}${fmtCur(stats.partialCollected)} part-paid` : ''}`, icon: Clock, color: 'text-sky-600 dark:text-sky-400', bg: 'bg-sky-100 dark:bg-sky-900/20' },
             { label: 'Items Sold', value: String(stats.totalItems),          sub: 'in range', icon: ShoppingBag, color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-100 dark:bg-violet-900/20' },
           ].map(card => {
             const Icon = card.icon;
