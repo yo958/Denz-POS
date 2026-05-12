@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.1.5] - 2026-05-12
+### Changed
+- **Rooms — check-out date on occupied cards** — occupied room cards now show a dedicated "Check-out: DD Mon YYYY" line in amber beneath the check-in date, so staff can see at a glance when each guest is due to leave.
+
 ## [1.1.4] - 2026-05-12
 ### Changed
 - **Full-width layout on all pages** — removed narrow `max-w-3xl` / `max-w-4xl` / `max-w-5xl` constraints from the Reports, History, Menu, Settings, and Rooms page content areas. All pages now use the same full-width `px-6` padding as the Dashboard and Bills pages. Rooms grid also gains a 4-column layout on XL screens.

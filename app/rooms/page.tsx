@@ -211,8 +211,14 @@ export default function RoomsPage() {
                         </div>
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <CalendarDays size={12} strokeWidth={2} />
-                          <span>{formatDate(stay.checkInAt)} · {stay.nights}n · in {formatElapsed(stay.checkInAt)}</span>
+                          <span>Check-in: {formatDate(stay.checkInAt)} · {stay.nights}n</span>
                         </div>
+                        {stay.checkOutAt && (
+                          <div className="flex items-center gap-2 font-medium text-amber-700 dark:text-amber-400">
+                            <CalendarDays size={12} strokeWidth={2} />
+                            <span>Check-out: {new Date(stay.checkOutAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                          </div>
+                        )}
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <Receipt size={12} strokeWidth={2} />
                           <span>Folio {cur}{fmtCur(folioTotal)} {folio?.status === 'paid' && '(paid)'}</span>
