@@ -251,14 +251,14 @@ export default function POSPage() {
     setSelectedWebOrderId(null);
     await updateDoc(doc(db, 'website-orders', order.id), { status: 'accepted', updatedAt: new Date().toISOString() });
 
-    if (order.type === 'cafe' && order.items?.length) {
-      // Café order → create a café tab with the items pre-loaded
+    if (order.type === 'cafe') {
+      // Café order → create a café tab with any items pre-loaded
       const tab: Tab = {
         id: newId('tab'),
         customerName: order.customerName,
         type: 'cafe',
         label: order.tableOrSpace ?? 'Web order',
-        items: order.items.map(i => ({
+        items: (order.items ?? []).map(i => ({
           id: newId('li'),
           productId: i.productId,
           product: { id: i.productId, name: i.name, price: i.price, category: 'food' as const, archived: false, description: '', stock: null, lowStockAt: null, sendToKitchen: true },
@@ -277,25 +277,23 @@ export default function POSPage() {
       toast.success(`Tab created for ${order.customerName}`);
 
     } else if (order.type === 'coworking') {
-      // Desk/coworking order → find the space + rate and create a desk tab
+      // Desk/coworking order → always create a tab, using space/rate if found
       const space = spaces.find(s => s.id === order.tableOrSpace || s.name === order.tableOrSpace);
       const period = order.period as import('@/lib/types').CoworkRatePeriod | undefined;
       const rate: CoworkSpaceRate | undefined = period
         ? space?.rates?.find(r => r.period === period) ?? space?.rates?.[0]
         : space?.rates?.[0];
 
-      if (!space || !rate) {
-        toast.info(`Desk booking accepted for ${order.customerName} — open CoWorking page to check in manually`);
-        return;
-      }
-
+      const spaceName = space?.name ?? order.tableOrSpace ?? 'Desk';
       const startDateStr = order.bookingDate ?? new Date().toISOString().slice(0, 10);
-      const bookingEndsAt = calcBookingEndsAt(startDateStr, rate.period);
+      const bookingEndsAt = rate ? calcBookingEndsAt(startDateStr, rate.period) : undefined;
 
+      const productId = rate ? `${spaceName}-${rate.period}` : `web-desk-${order.id}`;
+      const productName = rate ? `${spaceName} — ${PERIOD_LABEL[rate.period]}` : spaceName;
       const product: Product = {
-        id: `${space.id}-${rate.period}`,
-        name: `${space.name} — ${PERIOD_LABEL[rate.period]}`,
-        price: rate.price,
+        id: productId,
+        name: productName,
+        price: rate?.price ?? 0,
         category: 'desks',
         description: '',
         stock: null,
@@ -306,17 +304,18 @@ export default function POSPage() {
         id: newId('tab'),
         customerName: order.customerName,
         type: 'desk',
-        label: space.name,
+        label: spaceName,
         items: [{ id: newId('li'), productId: product.id, product, qty: 1, modifiers: [] }],
         openedAt: new Date(),
         status: 'open',
-        bookingEndsAt,
+        ...(bookingEndsAt ? { bookingEndsAt } : {}),
         bookingType: 'hot',
       };
       store.tabs.set(prev => [tab, ...prev]);
-      store.log('tab.create', `${order.customerName} checked in to ${space.name} (${PERIOD_LABEL[rate.period]}) via web`, me?.id);
+      store.log('tab.create', `${order.customerName} checked in to ${spaceName} via web`, me?.id);
       setActiveTabId(tab.id);
-      toast.success(`${order.customerName} checked in to ${space.name}`);
+      setMobileView('cart');
+      toast.success(`${order.customerName} checked in to ${spaceName}`);
 
     } else {
       // Room enquiry or other — no automatic tab creation, just notify

@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.2.12] - 2026-05-13
+### Fixed
+- **Accepted booking always creates a tab** — the accept handler was silently returning without creating a tab if the space ID from the web order didn't exactly match a space in the POS store. Now a desk tab is always created using whatever info is available (space name falls back to the raw ID, price falls back to 0 for staff to adjust). Café orders without items also now correctly open an empty tab.
+
 ## [1.2.11] - 2026-05-13
 ### Added
 - **Click pending booking to preview in cart panel** — clicking an online booking card in the Tabs sidebar now opens a full order preview in the right-hand cart area, showing customer details, booking date/time/period, space/table, itemised list with total (café orders), notes, and contact info. Accept and Decline buttons are at the bottom of the preview. The selected card is highlighted with an amber ring to show it's active.
