@@ -43,6 +43,42 @@ function isToday(d: Date): boolean {
 
 // ─── Booking-on-day helpers ───────────────────────────────────────────────────
 
+// Build a reverse map from PERIOD_LABEL values ("Weekly") → period key ("weekly")
+const LABEL_TO_PERIOD: Record<string, CoworkRatePeriod> = Object.fromEntries(
+  Object.entries(PERIOD_LABEL).map(([k, v]) => [v.toLowerCase(), k as CoworkRatePeriod]),
+);
+
+// Infer period from a desk line item product name e.g. "Hot Desk — Weekly" → 'weekly'
+function inferPeriodFromItems(tab: Tab): CoworkRatePeriod | null {
+  for (const item of tab.items) {
+    if (item.product?.category !== 'desks') continue;
+    const parts = item.product.name.split('—');
+    if (parts.length >= 2) {
+      const label = parts[parts.length - 1].trim().toLowerCase();
+      if (LABEL_TO_PERIOD[label]) return LABEL_TO_PERIOD[label];
+    }
+  }
+  return null;
+}
+
+// Get the effective booking end date for a tab (mirrors coworking page isPaidBookingStillActive)
+function getEffectiveEndsAt(tab: Tab): Date | null {
+  const bookingEndsAt = tab.bookingEndsAt as unknown as string | undefined;
+  // Explicitly force-expired (early check-out sets epoch)
+  if (bookingEndsAt && new Date(bookingEndsAt).getTime() < 1000) return null;
+  // Explicit future bookingEndsAt
+  if (bookingEndsAt) return new Date(bookingEndsAt);
+  // Legacy paid tabs: infer from paidAt + period duration
+  const paidAt = tab.paidAt as unknown as string | undefined;
+  if (paidAt) {
+    const period = inferPeriodFromItems(tab);
+    if (period && period !== 'hourly') {
+      return new Date(new Date(paidAt).getTime() + PERIOD_DURATION_MS[period]);
+    }
+  }
+  return null;
+}
+
 // Web order: bookingDate + period determine the span
 function webOrderCoversDay(order: PendingWebOrder, day: Date): boolean {
   if (!order.bookingDate) return false;
@@ -56,18 +92,16 @@ function webOrderCoversDay(order: PendingWebOrder, day: Date): boolean {
   return start <= dayEnd && end > dayStart;
 }
 
-// Desk tab: openedAt → bookingEndsAt (or just the openedAt day if no expiry)
+// Desk tab: openedAt → effectiveEndsAt (mirrors coworking page logic for paid tabs too)
 function tabCoversDay(tab: Tab, day: Date): boolean {
-  const openedAt = new Date(tab.openedAt);
+  const openedAt = new Date(tab.openedAt as unknown as string);
   const dayStart = new Date(day); dayStart.setHours(0, 0, 0, 0);
   const dayEnd   = new Date(day); dayEnd.setHours(23, 59, 59, 999);
-  if (!tab.bookingEndsAt) {
-    // No expiry — only show on the day the tab was opened
+  const endsAt = getEffectiveEndsAt(tab);
+  if (!endsAt) {
+    // No expiry info — show only on openedAt day (hourly walk-ins)
     return openedAt >= dayStart && openedAt <= dayEnd;
   }
-  const endsAt = new Date(tab.bookingEndsAt);
-  // Skip tabs explicitly force-expired (bookingEndsAt epoch < 1000ms)
-  if (endsAt.getTime() < 1000) return false;
   return openedAt <= dayEnd && endsAt >= dayStart;
 }
 
@@ -136,15 +170,21 @@ export default function CalendarPage() {
   const rooms  = useMemo(() => allProducts.filter(p => p.category === 'rooms' && !p.archived), [allProducts]);
   const stays  = useMemo(() => allStays.filter(s => s.status === 'active'), [allStays]);
 
-  // All open tabs that are either dedicated desk tabs OR have a desk line item
-  // (desk items can be added to any tab type from the POS desk chips)
-  const deskTabs = useMemo(() =>
-    allTabs.filter(t =>
-      t.status === 'open' &&
-      (t.type === 'desk' || t.items.some(i => i.product.category === 'desks')),
-    ),
-    [allTabs],
-  );
+  // All tabs that have a desk booking — open OR paid-but-still-within-period
+  // (mirrors coworking page isPaidBookingStillActive logic)
+  const deskTabs = useMemo(() => {
+    const now = new Date();
+    return allTabs.filter(t => {
+      const hasDeskContent = t.type === 'desk' || t.items.some(i => i.product?.category === 'desks');
+      if (!hasDeskContent) return false;
+      if (t.status === 'open') return true;
+      if (t.status === 'paid') {
+        const endsAt = getEffectiveEndsAt(t);
+        return endsAt !== null && endsAt > now;
+      }
+      return false;
+    });
+  }, [allTabs]);
 
   const weekDays = useMemo(() =>
     Array.from({ length: 7 }, (_, i) => {
