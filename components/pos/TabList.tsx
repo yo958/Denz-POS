@@ -128,19 +128,19 @@ export function TabList({ tabs, activeTabId, onSelectTab, onNewTab, webOrders = 
                         )}
                       </div>
                     </div>
-                    {/* Accept / Decline */}
-                    <div className="flex gap-1.5 mt-2.5">
-                      <button
-                        onClick={() => onDeclineWebOrder?.(order)}
-                        className="flex-1 h-7 rounded-lg text-[11px] font-medium border border-border text-muted-foreground hover:border-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/10 transition-colors cursor-pointer flex items-center justify-center gap-1"
-                      >
-                        <X size={11} /> Decline
-                      </button>
+                    {/* Accept / Decline — stacked so both are always visible */}
+                    <div className="flex flex-col gap-1.5 mt-2.5">
                       <button
                         onClick={() => onAcceptWebOrder?.(order)}
-                        className="flex-1 h-7 rounded-lg text-[11px] font-semibold bg-brand text-white hover:bg-brand/90 transition-colors cursor-pointer flex items-center justify-center gap-1"
+                        className="w-full h-7 rounded-lg text-[11px] font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer flex items-center justify-center gap-1"
                       >
-                        <Check size={11} /> Accept
+                        <Check size={11} /> Accept Booking
+                      </button>
+                      <button
+                        onClick={() => onDeclineWebOrder?.(order)}
+                        className="w-full h-7 rounded-lg text-[11px] font-medium border border-border text-muted-foreground hover:border-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/10 transition-colors cursor-pointer flex items-center justify-center gap-1"
+                      >
+                        <X size={11} /> Decline
                       </button>
                     </div>
                   </div>
