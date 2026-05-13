@@ -107,8 +107,18 @@ function tabCoversDay(tab: Tab, day: Date): boolean {
   const dayStart = new Date(day); dayStart.setHours(0, 0, 0, 0);
   const dayEnd   = new Date(day); dayEnd.setHours(23, 59, 59, 999);
   const endsAt = getEffectiveEndsAt(tab);
+
+  // Daily bookings: use calendar-day comparison against openedAt only.
+  // A daily tab opened on May 12 has bookingEndsAt ≈ May 13T14:00 which would bleed
+  // into the next calendar day via a raw timestamp span check. Show it on openedAt day only.
+  const period = inferPeriodFromItems(tab);
+  if (period === 'daily') {
+    const openDay = new Date(openedAt); openDay.setHours(0, 0, 0, 0);
+    return openDay.getTime() === dayStart.getTime();
+  }
+
   if (!endsAt) {
-    // No expiry info — show only on openedAt day (hourly walk-ins)
+    // No expiry info (hourly walk-ins) — show only on openedAt day
     return openedAt >= dayStart && openedAt <= dayEnd;
   }
   return openedAt <= dayEnd && endsAt >= dayStart;

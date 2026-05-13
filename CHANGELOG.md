@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.4.5] - 2026-05-13
+### Fixed
+- **Calendar** — daily desk bookings no longer bleed into the following calendar day. A paid daily tab with `bookingEndsAt` a few hours into the next day would previously show on both days. Now uses calendar-day comparison against `openedAt` for daily-period tabs, consistent with how the coworking page handles daily sessions.
+
 ## [1.4.4] - 2026-05-13
 ### Changed
 - **Calendar** — desk/coworking bookings now respect opening hours from Settings. Days marked as closed (e.g. Saturday, Sunday) show a greyed-out "Closed" state in the grid and a "(Coworking closed)" label in the list view — no desk bookings shown on those days. Room bookings are unaffected and always shown (guesthouse is 24/7).
