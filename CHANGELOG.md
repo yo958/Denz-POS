@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.4.6] - 2026-05-13
+### Fixed
+- **Calendar** — weekly desk bookings now display as exactly 5 open (working) days from the start date, rather than 7 raw calendar days. Previously a Monday weekly pass would bleed into the following Monday (the 6th visible day). The calendar now counts forward 5 non-closed days based on the venue's opening hours settings.
+
 ## [1.4.5] - 2026-05-13
 ### Fixed
 - **Calendar** — daily desk bookings no longer bleed into the following calendar day. A paid daily tab with `bookingEndsAt` a few hours into the next day would previously show on both days. Now uses calendar-day comparison against `openedAt` for daily-period tabs, consistent with how the coworking page handles daily sessions.

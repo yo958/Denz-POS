@@ -101,22 +101,57 @@ function webOrderCoversDay(order: PendingWebOrder, day: Date): boolean {
   return start <= dayEnd && end > dayStart;
 }
 
+// For weekly-period tabs, find the date of the Nth open day from a start date.
+// This lets us display a "weekly" pass as exactly 5 open (working) days rather
+// than 7 raw calendar days, which would bleed into the following Monday.
+function getNthOpenDayEnd(
+  start: Date,
+  n: number,
+  openingHours: Record<string, { closed?: boolean }>,
+): Date {
+  let openCount = 0;
+  const d = new Date(start); d.setHours(0, 0, 0, 0);
+  let lastOpen = new Date(d);
+  for (let i = 0; i < 60; i++) { // scan up to 60 days (handles long stretches of closure)
+    if (!(openingHours[DAY_NAMES_LONG[d.getDay()]]?.closed)) {
+      openCount++;
+      lastOpen = new Date(d);
+      if (openCount >= n) break;
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  lastOpen.setHours(23, 59, 59, 999);
+  return lastOpen;
+}
+
 // Desk tab: openedAt → effectiveEndsAt (mirrors coworking page logic for paid tabs too)
-function tabCoversDay(tab: Tab, day: Date): boolean {
+// Pass openingHours so weekly tabs can be capped at 5 open days.
+function tabCoversDay(
+  tab: Tab,
+  day: Date,
+  openingHours: Record<string, { closed?: boolean }> = {},
+): boolean {
   const openedAt = new Date(tab.openedAt as unknown as string);
   const dayStart = new Date(day); dayStart.setHours(0, 0, 0, 0);
   const dayEnd   = new Date(day); dayEnd.setHours(23, 59, 59, 999);
-  const endsAt = getEffectiveEndsAt(tab);
-
-  // Daily bookings: use calendar-day comparison against openedAt only.
-  // A daily tab opened on May 12 has bookingEndsAt ≈ May 13T14:00 which would bleed
-  // into the next calendar day via a raw timestamp span check. Show it on openedAt day only.
   const period = inferPeriodFromItems(tab);
+
+  // Daily bookings: show only on the openedAt calendar day.
+  // bookingEndsAt ≈ openedAt + 24h can bleed into the next day via raw span check.
   if (period === 'daily') {
     const openDay = new Date(openedAt); openDay.setHours(0, 0, 0, 0);
     return openDay.getTime() === dayStart.getTime();
   }
 
+  // Weekly bookings: count 5 open days from openedAt so the booking doesn't bleed
+  // into the following Monday (a 7-day raw window would include it).
+  if (period === 'weekly') {
+    const openDay = new Date(openedAt); openDay.setHours(0, 0, 0, 0);
+    const displayEnd = getNthOpenDayEnd(openedAt, 5, openingHours);
+    return dayStart >= openDay && dayStart <= displayEnd;
+  }
+
+  const endsAt = getEffectiveEndsAt(tab);
   if (!endsAt) {
     // No expiry info (hourly walk-ins) — show only on openedAt day
     return openedAt >= dayStart && openedAt <= dayEnd;
@@ -228,7 +263,7 @@ export default function CalendarPage() {
   function coworkCellItems(spaceId: string, spaceName: string, day: Date) {
     // Match by tab label OR by a desk line item whose product name starts with the space name
     const tabs = deskTabs.filter(t =>
-      tabCoversDay(t, day) && (
+      tabCoversDay(t, day, openingHours) && (
         t.label === spaceName ||
         t.items.some(i => i.product.category === 'desks' && i.product.name.startsWith(spaceName))
       ),
@@ -266,11 +301,11 @@ export default function CalendarPage() {
   function allBookingsForDay(day: Date) {
     const open = isCoworkingOpen(day, openingHours);
     // Desk bookings only shown on days the coworking space is open
-    const tabs = open ? deskTabs.filter(t => tabCoversDay(t, day)) : [];
+    const tabs = open ? deskTabs.filter(t => tabCoversDay(t, day, openingHours)) : [];
     const coworkOrders = open ? webOrders.filter(o =>
       o.type === 'coworking' && webOrderCoversDay(o, day) &&
       !(o.status === 'accepted' && deskTabs.some(t =>
-        tabCoversDay(t, day) && (
+        tabCoversDay(t, day, openingHours) && (
           t.label === (o.tableOrSpace ?? '') ||
           t.items.some(i => i.product?.category === 'desks' && i.product.name.startsWith(o.tableOrSpace ?? ''))
         ),
