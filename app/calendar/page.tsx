@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Monitor, BedDouble, CalendarDays } from 'lucide-react';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useCurrentStaff, useSpaces, useStays, useProducts, useTabs } from '@/lib/hooks/useStore';
+import { useCurrentStaff, useSpaces, useStays, useProducts, useTabs, useSettings } from '@/lib/hooks/useStore';
 import { PERIOD_DURATION_MS, PERIOD_LABEL } from '@/components/coworking/CheckInDialog';
 import type { PendingWebOrder } from '@/app/page';
 import type { Stay, Tab } from '@/lib/types';
@@ -39,6 +39,15 @@ function dayLabel(d: Date): string {
 function isToday(d: Date): boolean {
   const now = new Date();
   return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+}
+
+const DAY_NAMES_LONG = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+// Returns true if the coworking space is open on this calendar day
+// (reads from settings.venue.openingHours — missing = open, closed:true = closed)
+function isCoworkingOpen(day: Date, openingHours: Record<string, { closed?: boolean }> = {}): boolean {
+  const name = DAY_NAMES_LONG[day.getDay()];
+  return !(openingHours[name]?.closed === true);
 }
 
 // ─── Booking-on-day helpers ───────────────────────────────────────────────────
@@ -144,6 +153,8 @@ export default function CalendarPage() {
   const allStays    = useStays();
   const allProducts = useProducts();
   const allTabs     = useTabs();
+  const settings    = useSettings();
+  const openingHours = (settings?.venue?.openingHours ?? {}) as Record<string, { closed?: boolean }>;
 
   const [weekStart, setWeekStart] = useState(() => getMondayOfWeek(new Date()));
   const [view, setView]           = useState<'grid' | 'list'>('grid');
@@ -243,17 +254,19 @@ export default function CalendarPage() {
   // ─── List helpers ─────────────────────────────────────────────────────────
 
   function allBookingsForDay(day: Date) {
-    const tabs   = deskTabs.filter(t => tabCoversDay(t, day));
-    const coworkOrders = webOrders.filter(o =>
+    const open = isCoworkingOpen(day, openingHours);
+    // Desk bookings only shown on days the coworking space is open
+    const tabs = open ? deskTabs.filter(t => tabCoversDay(t, day)) : [];
+    const coworkOrders = open ? webOrders.filter(o =>
       o.type === 'coworking' && webOrderCoversDay(o, day) &&
-      // Suppress accepted orders that already have a matching tab on this day
       !(o.status === 'accepted' && deskTabs.some(t =>
         tabCoversDay(t, day) && (
           t.label === (o.tableOrSpace ?? '') ||
-          t.items.some(i => i.product.category === 'desks' && i.product.name.startsWith(o.tableOrSpace ?? ''))
+          t.items.some(i => i.product?.category === 'desks' && i.product.name.startsWith(o.tableOrSpace ?? ''))
         ),
       )),
-    );
+    ) : [];
+    // Rooms are 24/7 — always shown
     const roomOrders = webOrders.filter(o => o.type === 'room-enquiry' && webOrderCoversDay(o, day));
     const roomStays  = stays.filter(s => stayCoversDay(s, day));
     return { tabs, coworkOrders, roomOrders, roomStays };
@@ -301,12 +314,17 @@ export default function CalendarPage() {
             <thead>
               <tr>
                 <th className="w-[140px] min-w-[100px] border-b border-r border-border bg-muted/40 px-3 py-2 text-left text-xs font-semibold text-muted-foreground" />
-                {weekDays.map((d, i) => (
-                  <th key={i} className={`border-b border-r border-border px-2 py-2 text-center text-xs font-semibold ${isToday(d) ? 'bg-primary/10 text-primary' : 'bg-muted/40 text-muted-foreground'}`}>
-                    <div>{DAY_NAMES[i]}</div>
-                    <div className={`text-base font-bold ${isToday(d) ? 'text-primary' : 'text-foreground'}`}>{d.getDate()}</div>
-                  </th>
-                ))}
+                {weekDays.map((d, i) => {
+                  const open = isCoworkingOpen(d, openingHours);
+                  return (
+                    <th key={i} className={`border-b border-r border-border px-2 py-2 text-center text-xs font-semibold ${
+                      isToday(d) ? 'bg-primary/10 text-primary' : open ? 'bg-muted/40 text-muted-foreground' : 'bg-muted/70 text-muted-foreground/50'
+                    }`}>
+                      <div>{DAY_NAMES[i]}</div>
+                      <div className={`text-base font-bold ${isToday(d) ? 'text-primary' : open ? 'text-foreground' : 'text-muted-foreground/40'}`}>{d.getDate()}</div>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
 
@@ -323,15 +341,22 @@ export default function CalendarPage() {
                     <tr key={space.id} className="border-b border-border hover:bg-muted/20 transition-colors">
                       <td className="border-r border-border px-3 py-2 text-xs font-medium text-foreground truncate max-w-[140px]">{space.name}</td>
                       {weekDays.map((day, i) => {
-                        const { tabs, orders } = coworkCellItems(space.id, space.name, day);
+                        const open = isCoworkingOpen(day, openingHours);
+                        const { tabs, orders } = open ? coworkCellItems(space.id, space.name, day) : { tabs: [], orders: [] };
                         return (
-                          <td key={i} className={`border-r border-border px-1 py-1 align-top min-w-[80px] ${isToday(day) ? 'bg-primary/5' : ''}`}>
-                            <div className="flex flex-col gap-0.5">
-                              {tabs.map(t    => <TabPill      key={t.id}  name={t.customerName} />)}
-                              {orders.map(o  => o.status === 'accepted'
-                                ? <AcceptedPill key={o.id} name={o.customerName} />
-                                : <PendingPill  key={o.id} name={o.customerName} />)}
-                            </div>
+                          <td key={i} className={`border-r border-border px-1 py-1 align-top min-w-[80px] ${
+                            !open ? 'bg-muted/50' : isToday(day) ? 'bg-primary/5' : ''
+                          }`}>
+                            {!open ? (
+                              <span className="text-[10px] text-muted-foreground/50 px-1">Closed</span>
+                            ) : (
+                              <div className="flex flex-col gap-0.5">
+                                {tabs.map(t   => <TabPill      key={t.id}  name={t.customerName} />)}
+                                {orders.map(o => o.status === 'accepted'
+                                  ? <AcceptedPill key={o.id} name={o.customerName} />
+                                  : <PendingPill  key={o.id} name={o.customerName} />)}
+                              </div>
+                            )}
                           </td>
                         );
                       })}
@@ -383,16 +408,17 @@ export default function CalendarPage() {
         /* ────────── LIST VIEW ────────── */
         <div className="flex-1 overflow-y-auto divide-y divide-border">
           {weekDays.map((day, idx) => {
+            const open = isCoworkingOpen(day, openingHours);
             const { tabs, coworkOrders, roomOrders, roomStays } = allBookingsForDay(day);
             const total = tabs.length + coworkOrders.length + roomOrders.length + roomStays.length;
             return (
-              <div key={idx} className={isToday(day) ? 'bg-primary/5' : ''}>
+              <div key={idx} className={!open ? 'opacity-60' : isToday(day) ? 'bg-primary/5' : ''}>
                 <div className="flex items-center gap-3 px-4 pt-4 pb-2">
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 ${isToday(day) ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`}>
                     {day.getDate()}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold">{dayLabel(day)}</p>
+                    <p className="text-sm font-semibold">{dayLabel(day)}{!open && <span className="ml-2 text-xs font-normal text-muted-foreground">(Coworking closed)</span>}</p>
                     <p className="text-xs text-muted-foreground">{day.toLocaleDateString('en-GB', { weekday: 'long', month: 'long', year: 'numeric' })}</p>
                   </div>
                   {total > 0 && (

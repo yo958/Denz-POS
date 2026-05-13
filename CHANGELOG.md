@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.4.4] - 2026-05-13
+### Changed
+- **Calendar** — desk/coworking bookings now respect opening hours from Settings. Days marked as closed (e.g. Saturday, Sunday) show a greyed-out "Closed" state in the grid and a "(Coworking closed)" label in the list view — no desk bookings shown on those days. Room bookings are unaffected and always shown (guesthouse is 24/7).
+
 ## [1.4.3] - 2026-05-13
 ### Fixed
 - **Calendar** — paid desk tabs with an active booking period now appear (e.g. a weekly hot desk that has been paid but hasn't expired). Mirrors the coworking page's "Away · May Return" logic: infers booking expiry from `paidAt + period duration` when no explicit `bookingEndsAt` is stored.
