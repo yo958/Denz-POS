@@ -23,11 +23,12 @@ const PERIOD_LABEL: Record<string, string> = {
 interface WebOrderPreviewProps {
   order: PendingWebOrder;
   spaces: CoworkSpace[];
-  onAccept: () => void;
-  onDecline: () => void;
+  onAccept?: () => void;
+  onDecline?: () => void;
+  readonly?: boolean;
 }
 
-export function WebOrderPreview({ order, spaces, onAccept, onDecline }: WebOrderPreviewProps) {
+export function WebOrderPreview({ order, spaces, onAccept, onDecline, readonly }: WebOrderPreviewProps) {
   const cur = useSettings().currency;
   const Icon = TYPE_ICON[order.type] ?? Coffee;
   const spaceName = order.tableOrSpace
@@ -55,9 +56,15 @@ export function WebOrderPreview({ order, spaces, onAccept, onDecline }: WebOrder
             <p className="text-sm font-semibold leading-tight truncate">{order.customerName}</p>
             <p className="text-xs text-muted-foreground mt-0.5">{TYPE_LABEL[order.type]}</p>
           </div>
-          <span className="shrink-0 text-[10px] font-bold uppercase px-2 py-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
-            Pending
-          </span>
+          {order.status === 'pending' && (
+            <span className="shrink-0 text-[10px] font-bold uppercase px-2 py-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">Pending</span>
+          )}
+          {order.status === 'accepted' && (
+            <span className="shrink-0 text-[10px] font-bold uppercase px-2 py-1 rounded-full bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">Accepted</span>
+          )}
+          {order.status === 'cancelled' && (
+            <span className="shrink-0 text-[10px] font-bold uppercase px-2 py-1 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400">Declined</span>
+          )}
         </div>
       </div>
 
@@ -156,21 +163,33 @@ export function WebOrderPreview({ order, spaces, onAccept, onDecline }: WebOrder
         )}
       </div>
 
-      {/* Footer actions */}
-      <div className="px-4 py-3 border-t border-border space-y-2">
-        <button
-          onClick={onAccept}
-          className="w-full h-10 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer flex items-center justify-center gap-2"
-        >
-          <Check size={15} strokeWidth={2.5} /> Accept Booking
-        </button>
-        <button
-          onClick={onDecline}
-          className="w-full h-10 rounded-xl text-sm font-medium border border-border text-muted-foreground hover:border-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/10 transition-colors cursor-pointer flex items-center justify-center gap-2"
-        >
-          <X size={15} /> Decline
-        </button>
-      </div>
+      {/* Footer — actions for pending, status banner for completed */}
+      {!readonly && order.status === 'pending' ? (
+        <div className="px-4 py-3 border-t border-border space-y-2">
+          <button
+            onClick={onAccept}
+            className="w-full h-10 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer flex items-center justify-center gap-2"
+          >
+            <Check size={15} strokeWidth={2.5} /> Accept Booking
+          </button>
+          <button
+            onClick={onDecline}
+            className="w-full h-10 rounded-xl text-sm font-medium border border-border text-muted-foreground hover:border-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/10 transition-colors cursor-pointer flex items-center justify-center gap-2"
+          >
+            <X size={15} /> Decline
+          </button>
+        </div>
+      ) : readonly ? (
+        <div className={`px-4 py-3 border-t border-border`}>
+          <div className={`w-full h-10 rounded-xl text-sm font-semibold flex items-center justify-center gap-2
+            ${order.status === 'accepted'
+              ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+              : 'bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-400'
+            }`}>
+            {order.status === 'accepted' ? <><Check size={15} /> Booking Accepted</> : <><X size={15} /> Booking Declined</>}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

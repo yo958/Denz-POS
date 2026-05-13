@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.3.0] - 2026-05-13
+### Added
+- **Online Orders page** (`/online-orders`) — manager-only overview of all orders placed through the Denz website. Shows every order (pending, accepted, declined) grouped by date with real-time Firestore updates. Features: search by customer name, status filter (All / Pending / Accepted / Declined), type filter (All / Café / Desk / Room), stats pills in the header, and a detail panel showing full order info. Pending orders can be accepted or declined directly from the detail panel — accepting creates the appropriate tab automatically. Completed orders show a read-only status banner.
+- Added "Online Orders" nav item to sidebar and "Orders" to mobile bottom bar (manager-only).
+
 ## [1.2.12] - 2026-05-13
 ### Fixed
 - **Accepted booking always creates a tab** — the accept handler was silently returning without creating a tab if the space ID from the web order didn't exactly match a space in the POS store. Now a desk tab is always created using whatever info is available (space name falls back to the raw ID, price falls back to 0 for staff to adjust). Café orders without items also now correctly open an empty tab.
