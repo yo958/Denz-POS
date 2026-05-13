@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, X, Coffee, Monitor, BedDouble, CalendarDays, Clock, MapPin, Mail, Phone, FileText, Package } from 'lucide-react';
+import { Check, X, Trash2, Coffee, Monitor, BedDouble, CalendarDays, Clock, MapPin, Mail, Phone, FileText, Package } from 'lucide-react';
 import type { PendingWebOrder } from '@/app/page';
 import type { CoworkSpace } from '@/lib/types';
 import { useSettings } from '@/lib/hooks/useStore';
@@ -25,10 +25,11 @@ interface WebOrderPreviewProps {
   spaces: CoworkSpace[];
   onAccept?: () => void;
   onDecline?: () => void;
+  onDelete?: () => void;
   readonly?: boolean;
 }
 
-export function WebOrderPreview({ order, spaces, onAccept, onDecline, readonly }: WebOrderPreviewProps) {
+export function WebOrderPreview({ order, spaces, onAccept, onDecline, onDelete, readonly }: WebOrderPreviewProps) {
   const cur = useSettings().currency;
   const Icon = TYPE_ICON[order.type] ?? Coffee;
   const spaceName = order.tableOrSpace
@@ -163,24 +164,25 @@ export function WebOrderPreview({ order, spaces, onAccept, onDecline, readonly }
         )}
       </div>
 
-      {/* Footer — actions for pending, status banner for completed */}
-      {!readonly && order.status === 'pending' ? (
-        <div className="px-4 py-3 border-t border-border space-y-2">
-          <button
-            onClick={onAccept}
-            className="w-full h-10 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer flex items-center justify-center gap-2"
-          >
-            <Check size={15} strokeWidth={2.5} /> Accept Booking
-          </button>
-          <button
-            onClick={onDecline}
-            className="w-full h-10 rounded-xl text-sm font-medium border border-border text-muted-foreground hover:border-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/10 transition-colors cursor-pointer flex items-center justify-center gap-2"
-          >
-            <X size={15} /> Decline
-          </button>
-        </div>
-      ) : readonly ? (
-        <div className={`px-4 py-3 border-t border-border`}>
+      {/* Footer — actions for pending, status banner for completed, delete always */}
+      <div className="px-4 py-3 border-t border-border space-y-2">
+        {!readonly && order.status === 'pending' && (
+          <>
+            <button
+              onClick={onAccept}
+              className="w-full h-10 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Check size={15} strokeWidth={2.5} /> Accept Booking
+            </button>
+            <button
+              onClick={onDecline}
+              className="w-full h-10 rounded-xl text-sm font-medium border border-border text-muted-foreground hover:border-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/10 transition-colors cursor-pointer flex items-center justify-center gap-2"
+            >
+              <X size={15} /> Decline
+            </button>
+          </>
+        )}
+        {readonly && (
           <div className={`w-full h-10 rounded-xl text-sm font-semibold flex items-center justify-center gap-2
             ${order.status === 'accepted'
               ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
@@ -188,8 +190,16 @@ export function WebOrderPreview({ order, spaces, onAccept, onDecline, readonly }
             }`}>
             {order.status === 'accepted' ? <><Check size={15} /> Booking Accepted</> : <><X size={15} /> Booking Declined</>}
           </div>
-        </div>
-      ) : null}
+        )}
+        {onDelete && (
+          <button
+            onClick={onDelete}
+            className="w-full h-9 rounded-xl text-xs font-medium text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/10 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+          >
+            <Trash2 size={13} /> Delete order
+          </button>
+        )}
+      </div>
     </div>
   );
 }

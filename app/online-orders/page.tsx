@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { collection, orderBy, query, limit, onSnapshot, updateDoc, doc } from 'firebase/firestore';
+import { collection, orderBy, query, limit, onSnapshot, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Coffee, Monitor, BedDouble, Search, ArrowLeft, Globe } from 'lucide-react';
+import { confirm } from '@/components/ui/confirm-dialog';
 import { useCurrentStaff, useSettings, useSpaces } from '@/lib/hooks/useStore';
 import { getStore } from '@/lib/store/store';
 import { newId } from '@/lib/domain/id';
@@ -175,6 +176,20 @@ export default function OnlineOrdersPage() {
       status: 'cancelled', updatedAt: new Date().toISOString(),
     });
     toast.info(`Booking from ${order.customerName} declined`);
+  }
+
+  async function handleDelete(order: PendingWebOrder) {
+    const ok = await confirm({
+      title: 'Delete this order?',
+      message: `${order.customerName} · ${TYPE_LABEL[order.type]}. This permanently removes the order record and cannot be undone.`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
+    setSelectedId(null);
+    setMobileDetail(false);
+    await deleteDoc(doc(db, 'website-orders', order.id));
+    toast.success('Order deleted');
   }
 
   /* ── Manager guard ───────────────────────────────────────────── */
@@ -361,6 +376,7 @@ export default function OnlineOrdersPage() {
                 readonly={selectedOrder.status !== 'pending'}
                 onAccept={() => handleAccept(selectedOrder)}
                 onDecline={() => handleDecline(selectedOrder)}
+                onDelete={() => handleDelete(selectedOrder)}
               />
             </>
           ) : (

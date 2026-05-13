@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.3.1] - 2026-05-13
+### Added
+- **Delete online order** — a "Delete order" button now appears at the bottom of the order detail panel on the Online Orders page. Requires confirmation before permanently removing the record from Firestore.
+
 ## [1.3.0] - 2026-05-13
 ### Added
 - **Online Orders page** (`/online-orders`) — manager-only overview of all orders placed through the Denz website. Shows every order (pending, accepted, declined) grouped by date with real-time Firestore updates. Features: search by customer name, status filter (All / Pending / Accepted / Declined), type filter (All / Café / Desk / Room), stats pills in the header, and a detail panel showing full order info. Pending orders can be accepted or declined directly from the detail panel — accepting creates the appropriate tab automatically. Completed orders show a read-only status banner.
