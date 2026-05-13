@@ -150,10 +150,18 @@ export function TabList({ tabs, activeTabId, onSelectTab, onNewTab, webOrders = 
           </div>
         )}
 
+        {webOrders.length > 0 && (
+          <p className="pt-1 pb-1 text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">
+            Open Tabs
+          </p>
+        )}
+
         {open.length === 0 && webOrders.length === 0 && (
           <p className="text-center text-sm text-muted-foreground py-8">No open tabs</p>
         )}
-        {open.length === 0 && webOrders.length > 0 && null}
+        {open.length === 0 && webOrders.length > 0 && (
+          <p className="text-center text-sm text-muted-foreground py-4">No open tabs</p>
+        )}
         {open.map(tab => (
           <TabListItem
             key={tab.id}
