@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { collection, query, where, orderBy, onSnapshot, updateDoc, doc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { Monitor, Lock, Clock, DollarSign, Plus, Pencil, Trash2, Star, UserPlus, X, Building2, Package, ChevronUp, ChevronDown, Copy } from 'lucide-react';
 import { useTabs, useSettings, useSpaces, useEquipment, useCurrentStaff, useCustomers } from '@/lib/hooks/useStore';
 import { tabGrandTotal, formatElapsed } from '@/lib/domain/tabs';
@@ -12,7 +14,7 @@ import { confirm } from '@/components/ui/confirm-dialog';
 import { CustomerPicker } from '@/components/customers/CustomerPicker';
 import {
   CheckInDialog,
-  PERIOD_LABEL, PERIOD_DURATION_MS, TYPE_LABEL, BOOKING_TYPE_LABEL, normalizeType,
+  PERIOD_LABEL, PERIOD_DURATION_MS, TYPE_LABEL, BOOKING_TYPE_LABEL, normalizeType, calcBookingEndsAt,
 } from '@/components/coworking/CheckInDialog';
 import type {
   CoworkSpace, CoworkSpaceType, CoworkSpaceRate, CoworkRatePeriod, Equipment, EquipmentTier, Product, Tab,
@@ -52,6 +54,24 @@ function defaultDedicatedRates(): CoworkSpaceRate[] {
   return ALL_PERIODS.map(p => ({ period: p, price: prices[p] ?? 0, enabled: ['daily', 'weekly', 'monthly'].includes(p) }));
 }
 
+interface WebCoworkOrder {
+  id: string;
+  customerName: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  tableOrSpace?: string;
+  period?: string;
+  bookingDate?: string;
+  bookingTime?: string;
+  notes?: string;
+  status: string;
+  createdAt: string;
+}
+
+function toDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 /* ── Page ───────────────────────────────────────────────────────── */
 
 export default function CoWorkingPage() {
@@ -64,6 +84,7 @@ export default function CoWorkingPage() {
   const isManager = me?.role === 'manager';
 
   const [filter, setFilter]               = useState<SpaceFilter>('all');
+  const [webOrders, setWebOrders]         = useState<WebCoworkOrder[]>([]);
   const [checkingIn, setCheckingIn]       = useState<CoworkSpace | null>(null);
   const [editingSpace, setEditingSpace]   = useState<CoworkSpace | null>(null);
   const [addingSpace, setAddingSpace]     = useState(false);
@@ -196,6 +217,73 @@ export default function CoWorkingPage() {
     setAddingSpace(false);
   }
 
+  // Real-time listener for pending website coworking booking requests
+  useEffect(() => {
+    const q = query(
+      collection(db, 'website-orders'),
+      where('type', '==', 'coworking'),
+      where('status', '==', 'pending'),
+      orderBy('createdAt', 'asc'),
+    );
+    return onSnapshot(q, snap => setWebOrders(snap.docs.map(d => d.data() as WebCoworkOrder)));
+  }, []);
+
+  async function acceptWebOrder(order: WebCoworkOrder) {
+    const space = spaces.find(s =>
+      s.id === order.tableOrSpace ||
+      s.name.toLowerCase() === (order.tableOrSpace ?? '').toLowerCase().replace(/-/g, ' '),
+    );
+    const period = order.period as CoworkRatePeriod | undefined;
+    const rate = space && period
+      ? (space.dedicatedRates ?? space.rates).find(r => r.period === period && r.enabled)
+        ?? space.rates.find(r => r.period === period && r.enabled)
+      : undefined;
+    if (!space || !rate) {
+      toast.error(`Cannot find space or rate for "${order.tableOrSpace} / ${order.period}" — check the booking manually.`);
+      return;
+    }
+    const startDateStr = order.bookingDate ?? toDateStr(new Date());
+    const settings = getStore().settings.get();
+    const dayName = new Date(startDateStr + 'T12:00:00')
+      .toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+    const dayHours = (settings.venue?.openingHours as Record<string, { close: string; closed: boolean }> | undefined)?.[dayName];
+    const closeTime = dayHours && !dayHours.closed ? dayHours.close : '23:30';
+    const bookingEndsAt = calcBookingEndsAt(startDateStr, period!, closeTime);
+    const product: Product = {
+      id: `${space.id}-${rate.period}`,
+      name: `${space.name} — ${PERIOD_LABEL[rate.period]}`,
+      price: rate.price,
+      category: 'desks',
+      description: '',
+      stock: null,
+      lowStockAt: null,
+      sendToKitchen: false,
+    };
+    const tab: Tab = {
+      id: newId('tab'),
+      customerName: order.customerName,
+      type: 'desk',
+      label: space.name,
+      items: [{ id: newId('li'), productId: product.id, product, qty: 1 }],
+      openedAt: new Date(),
+      status: 'open',
+      bookingEndsAt,
+      bookingType: 'dedicated',
+    };
+    getStore().tabs.set(prev => [tab, ...prev]);
+    getStore().log('tab.web-booking-accepted', `${order.customerName} — ${space.name} (${PERIOD_LABEL[rate.period]})`, me?.id);
+    await updateDoc(doc(db, 'website-orders', order.id), { status: 'accepted', updatedAt: new Date().toISOString() });
+    toast.success(`Booking accepted — tab created for ${order.customerName}`);
+  }
+
+  async function declineWebOrder(order: WebCoworkOrder) {
+    const ok = await confirm({ title: 'Decline booking?', message: `Decline ${order.customerName}'s request for ${order.tableOrSpace}?`, danger: true, confirmLabel: 'Decline' });
+    if (!ok) return;
+    await updateDoc(doc(db, 'website-orders', order.id), { status: 'cancelled', updatedAt: new Date().toISOString() });
+    getStore().log('tab.web-booking-declined', `${order.customerName} — ${order.tableOrSpace}`, me?.id);
+    toast.success('Booking declined');
+  }
+
   function duplicateSpace(s: CoworkSpace) {
     const copy: CoworkSpace = {
       ...s,
@@ -296,6 +384,51 @@ export default function CoWorkingPage() {
       </header>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-8">
+
+        {/* ── Pending website booking requests ── */}
+        {webOrders.length > 0 && (
+          <section>
+            <h2 className="text-sm font-semibold mb-3 text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              {webOrders.length} pending web booking{webOrders.length !== 1 ? 's' : ''}
+            </h2>
+            <div className="space-y-2">
+              {webOrders.map(order => (
+                <div key={order.id} className="rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/10 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-foreground truncate">{order.customerName}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {order.tableOrSpace?.replace(/-/g, ' ')}
+                      {order.period && ` · ${order.period}`}
+                      {order.bookingDate && ` · ${new Date(order.bookingDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`}
+                      {order.bookingTime && ` at ${order.bookingTime}`}
+                    </p>
+                    {order.notes && <p className="text-xs text-muted-foreground mt-0.5 italic">"{order.notes}"</p>}
+                    {(order.customerEmail || order.customerPhone) && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {order.customerEmail}{order.customerEmail && order.customerPhone ? ' · ' : ''}{order.customerPhone}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      onClick={() => declineWebOrder(order)}
+                      className="h-8 px-3 rounded-xl text-xs font-medium border border-border bg-white/60 dark:bg-white/5 text-muted-foreground hover:text-foreground hover:bg-black/5 transition-colors cursor-pointer"
+                    >
+                      Decline
+                    </button>
+                    <button
+                      onClick={() => acceptWebOrder(order)}
+                      className="h-8 px-3 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:opacity-90 transition-colors cursor-pointer"
+                    >
+                      Accept
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* ── Active — customers physically at a desk right now ── */}
         {totalActive > 0 && (
@@ -1231,8 +1364,13 @@ function RentDialog({ equip: e, cur, availableSpaces, onClose, onConfirm }: {
         onSubmit={ev => {
           ev.preventDefault();
           if (!canSubmit || !selectedSpace) return;
+          const todayStr = toDateStr(new Date());
+          const settings = getStore().settings.get();
+          const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+          const todayHours = (settings.venue?.openingHours as Record<string, { close: string; closed: boolean }> | undefined)?.[todayName];
+          const closeTime = todayHours && !todayHours.closed ? todayHours.close : '23:30';
           const bookingEndsAt = isDedicatedDesk && selectedDedicatedRate
-            ? new Date(Date.now() + PERIOD_DURATION_MS[selectedDedicatedRate.period])
+            ? calcBookingEndsAt(todayStr, selectedDedicatedRate.period, closeTime)
             : undefined;
           onConfirm(name.trim(), hours, equipTotal, selectedSpace, deskTotal, bookingEndsAt, customerId);
         }}

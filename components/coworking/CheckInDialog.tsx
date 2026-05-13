@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import { CustomerPicker } from '@/components/customers/CustomerPicker';
+import { useSettings } from '@/lib/hooks/useStore';
 import { toast } from '@/components/ui/toast';
 import { fmtCur } from '@/lib/format';
-import type { CoworkSpace, CoworkSpaceRate, CoworkSpaceType, CoworkRatePeriod } from '@/lib/types';
+import type { CoworkSpace, CoworkSpaceRate, CoworkSpaceType, CoworkRatePeriod, DayOfWeek } from '@/lib/types';
 
 /* ── Shared constants (re-exported so callers don't redefine them) ── */
 
@@ -31,6 +32,45 @@ export const PERIOD_DURATION_MS: Record<CoworkRatePeriod, number> = {
   'yearly':   365 * 24 * 60 * 60 * 1000,
 };
 
+/** Days covered by each period (hourly = 0, handled separately). */
+const PERIOD_DAYS: Record<CoworkRatePeriod, number> = {
+  'hourly':   0,
+  'daily':    1,
+  'weekly':   7,
+  '2-weeks':  14,
+  'monthly':  30,
+  '3-months': 90,
+  '6-months': 180,
+  'yearly':   365,
+};
+
+/**
+ * Calculate bookingEndsAt as close-of-business on the last day of the period,
+ * rather than midnight of the next day. This ensures a "daily" booking booked
+ * on the 12th expires at 23:30 on the 12th, not midnight of the 13th.
+ */
+export function calcBookingEndsAt(
+  startDateStr: string,          // 'YYYY-MM-DD'
+  period: CoworkRatePeriod,
+  closeTime: string = '23:30',   // 'HH:MM' — venue closing time
+): Date {
+  if (period === 'hourly') return new Date(Date.now() + PERIOD_DURATION_MS.hourly);
+  const days = PERIOD_DAYS[period];
+  const [sy, sm, sd] = startDateStr.split('-').map(Number);
+  const lastDay = new Date(sy, sm - 1, sd + days - 1);
+  const [ch, cm] = closeTime.split(':').map(Number);
+  return new Date(lastDay.getFullYear(), lastDay.getMonth(), lastDay.getDate(), ch, cm);
+}
+
+function getCloseTime(openingHours: Partial<Record<DayOfWeek, { close: string; closed: boolean }>> | undefined, dateStr: string): string {
+  if (!openingHours) return '23:30';
+  const dayName = new Date(dateStr + 'T12:00:00')
+    .toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase() as DayOfWeek;
+  const h = openingHours[dayName];
+  if (!h || h.closed) return '23:30';
+  return h.close;
+}
+
 export const TYPE_LABEL: Record<CoworkSpaceType, string> = {
   'desk':           'Desk',
   'private-office': 'Private Office',
@@ -43,6 +83,13 @@ export function normalizeType(type: string): CoworkSpaceType {
   return type as CoworkSpaceType;
 }
 
+function toDateInputValue(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 /* ── CheckInDialog ──────────────────────────────────────────────── */
 
 export function CheckInDialog({ space, cur, onClose, onConfirm }: {
@@ -50,14 +97,16 @@ export function CheckInDialog({ space, cur, onClose, onConfirm }: {
   onClose: () => void;
   onConfirm: (customerName: string, rate: CoworkSpaceRate, bookingEndsAt: Date | undefined, customerId: string | undefined, bookingType: 'hot' | 'dedicated') => void;
 }) {
+  const settings              = useSettings();
   const enabledHotRates       = space.rates?.filter(r => r.enabled) ?? [];
   const enabledDedicatedRates = (space.dedicatedRates ?? []).filter(r => r.enabled);
   const hasBothTypes          = enabledHotRates.length > 0 && enabledDedicatedRates.length > 0;
 
-  const [name,        setName]        = useState('');
-  const [customerId,  setCustomerId]  = useState<string | undefined>();
-  const [bookingType, setBookingType] = useState<'hot' | 'dedicated'>('hot');
-  const [rateIdx,     setRateIdx]     = useState(0);
+  const [name,         setName]         = useState('');
+  const [customerId,   setCustomerId]   = useState<string | undefined>();
+  const [bookingType,  setBookingType]  = useState<'hot' | 'dedicated'>('hot');
+  const [rateIdx,      setRateIdx]      = useState(0);
+  const [startDateVal, setStartDateVal] = useState(() => toDateInputValue(new Date()));
 
   const activeRates = (hasBothTypes && bookingType === 'dedicated') ? enabledDedicatedRates : enabledHotRates;
   const isDedicated = hasBothTypes && bookingType === 'dedicated';
@@ -75,8 +124,10 @@ export function CheckInDialog({ space, cur, onClose, onConfirm }: {
     // Set bookingEndsAt for all non-hourly periods so the booking stays visible on the
     // Coworking page as a reservation (dedicated always; hot desk when not pay-as-you-go).
     const needsExpiry = isDedicated || rate.period !== 'hourly';
+    const startStr = startDateVal || toDateInputValue(new Date());
+    const closeTime = getCloseTime(settings.venue?.openingHours, startStr);
     const bookingEndsAt = needsExpiry
-      ? new Date(Date.now() + PERIOD_DURATION_MS[rate.period])
+      ? calcBookingEndsAt(startStr, rate.period, closeTime)
       : undefined;
     const effectiveBookingType: 'hot' | 'dedicated' = isDedicated ? 'dedicated' : 'hot';
     onConfirm(name.trim(), rate, bookingEndsAt, customerId, effectiveBookingType);
@@ -146,6 +197,18 @@ export function CheckInDialog({ space, cur, onClose, onConfirm }: {
             No rates enabled. Edit this space to add pricing.
           </p>
         )}
+
+        <label className="block space-y-1.5">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Start date</span>
+          <input
+            type="date"
+            value={startDateVal}
+            min={toDateInputValue(new Date())}
+            onChange={e => setStartDateVal(e.target.value)}
+            className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+          <p className="text-xs text-muted-foreground">Default is today. Set a future date to pre-book.</p>
+        </label>
 
         <div className="flex gap-2 pt-1">
           <button type="button" onClick={onClose} className="flex-1 h-11 rounded-2xl text-sm font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 active:scale-95 transition-all cursor-pointer">Cancel</button>

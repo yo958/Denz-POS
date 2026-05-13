@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.2.3] - 2026-05-13
+### Fixed
+- **Booking expiry now uses close-of-business, not midnight** — daily bookings made on the 12th now expire at 23:30 on the 12th instead of midnight of the 13th. Weekly bookings expire at 23:30 on the 7th day, monthly at 23:30 on the 30th day, etc. The close time is read from the venue's Business Hours settings and falls back to 23:30. This affects the coworking check-in dialog, web booking acceptance, and the equipment rental dialog.
+
 ## [1.2.2] - 2026-05-13
 ### Added
 - **Timezone & Business Hours settings** — Settings page now has a "Business Hours" section where managers can set the venue timezone (IANA, e.g. Asia/Bangkok) and configure open/close times per day of the week with a closed toggle. Hours are stored alongside the existing venue settings and auto-sync to Firestore, which means they are immediately reflected on the Denz Website (footer, contact page, map section, and "Open today" card on the about section).
