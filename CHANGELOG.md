@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.4.2] - 2026-05-13
+### Fixed
+- **Calendar** — now shows desk bookings created by adding a desk item to any tab (e.g. a café tab with a desk added from the POS), not just tabs with `type === 'desk'`. Space matching also checks line item product names so tabs without a matching label still appear in the correct space row.
+
 ## [1.4.1] - 2026-05-13
 ### Fixed
 - **Calendar** — POS desk tabs (created via the Tabs page) now appear on the calendar alongside web orders. Blue pill = POS booking, showing customer name and booking end date. Accepted web orders are deduplicated so they don't double-show once a tab exists.

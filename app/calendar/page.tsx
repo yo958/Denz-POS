@@ -136,9 +136,13 @@ export default function CalendarPage() {
   const rooms  = useMemo(() => allProducts.filter(p => p.category === 'rooms' && !p.archived), [allProducts]);
   const stays  = useMemo(() => allStays.filter(s => s.status === 'active'), [allStays]);
 
-  // All open desk tabs (created via POS or accepted from web orders)
+  // All open tabs that are either dedicated desk tabs OR have a desk line item
+  // (desk items can be added to any tab type from the POS desk chips)
   const deskTabs = useMemo(() =>
-    allTabs.filter(t => t.type === 'desk' && t.status === 'open'),
+    allTabs.filter(t =>
+      t.status === 'open' &&
+      (t.type === 'desk' || t.items.some(i => i.product.category === 'desks')),
+    ),
     [allTabs],
   );
 
@@ -161,8 +165,13 @@ export default function CalendarPage() {
   // ─── Grid cell helpers ────────────────────────────────────────────────────
 
   function coworkCellItems(spaceId: string, spaceName: string, day: Date) {
-    // POS desk tabs matching this space by label
-    const tabs = deskTabs.filter(t => t.label === spaceName && tabCoversDay(t, day));
+    // Match by tab label OR by a desk line item whose product name starts with the space name
+    const tabs = deskTabs.filter(t =>
+      tabCoversDay(t, day) && (
+        t.label === spaceName ||
+        t.items.some(i => i.product.category === 'desks' && i.product.name.startsWith(spaceName))
+      ),
+    );
     // Web orders for this space (pending shown amber; accepted shown green — only if no tab yet)
     const orders = webOrders.filter(o =>
       o.type === 'coworking' &&
@@ -172,8 +181,7 @@ export default function CalendarPage() {
     // Deduplicate: suppress accepted web orders if a tab already covers this day for this space
     const filteredOrders = orders.filter(o => {
       if (o.status === 'accepted') {
-        // A tab already represents this booking
-        return !tabs.some(t => t.label === spaceName);
+        return tabs.length === 0; // tab already represents this booking
       }
       return true; // always show pending
     });
@@ -198,8 +206,13 @@ export default function CalendarPage() {
     const tabs   = deskTabs.filter(t => tabCoversDay(t, day));
     const coworkOrders = webOrders.filter(o =>
       o.type === 'coworking' && webOrderCoversDay(o, day) &&
-      // Suppress accepted orders that have a matching tab
-      !(o.status === 'accepted' && deskTabs.some(t => t.label === (o.tableOrSpace ?? '') && tabCoversDay(t, day))),
+      // Suppress accepted orders that already have a matching tab on this day
+      !(o.status === 'accepted' && deskTabs.some(t =>
+        tabCoversDay(t, day) && (
+          t.label === (o.tableOrSpace ?? '') ||
+          t.items.some(i => i.product.category === 'desks' && i.product.name.startsWith(o.tableOrSpace ?? ''))
+        ),
+      )),
     );
     const roomOrders = webOrders.filter(o => o.type === 'room-enquiry' && webOrderCoversDay(o, day));
     const roomStays  = stays.filter(s => stayCoversDay(s, day));
