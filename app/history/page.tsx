@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Search, Receipt, Coffee, Monitor, BedDouble, RotateCcw, Trash2, X, Printer, Tag, CreditCard, QrCode, Banknote, Star, Check } from 'lucide-react';
 import { useTabs, useSettings, useCurrentStaff, useCustomers } from '@/lib/hooks/useStore';
 import {
@@ -240,12 +241,21 @@ function OrderDetailPanel({ tab, onClose, onDelete, cur }: {
 }
 
 export default function HistoryPage() {
-  const me = useCurrentStaff();
-  const tabs = useTabs();
-  const cur = useSettings().currency;
-  const [query, setQuery] = useState('');
+  const me           = useCurrentStaff();
+  const tabs         = useTabs();
+  const cur          = useSettings().currency;
+  const searchParams = useSearchParams();
+  const [query, setQuery]           = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | TabType>('all');
-  const [selected, setSelected] = useState<Tab | null>(null);
+  const [selected, setSelected]     = useState<Tab | null>(null);
+
+  /* Auto-select a tab when arriving from the calendar via ?tabId= */
+  useEffect(() => {
+    const id = searchParams.get('tabId');
+    if (!id || tabs.length === 0) return;
+    const tab = tabs.find(t => t.id === id);
+    if (tab) setSelected(tab);
+  }, [searchParams, tabs]);
   function toggleReceived(tab: Tab) {
     getStore().tabs.set(prev =>
       prev.map(t => t.id === tab.id ? { ...t, paymentReceived: !t.paymentReceived } : t)

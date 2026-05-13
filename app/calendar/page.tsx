@@ -194,7 +194,17 @@ function PendingPill({ name, onClick }: { name: string; onClick?: () => void }) 
   }
   return <span className="block w-full rounded px-1.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 truncate">{shortName(name)}</span>;
 }
-function TabPill({ name }: { name: string }) {
+function TabPill({ name, onClick }: { name: string; onClick?: () => void }) {
+  if (onClick) {
+    return (
+      <button
+        onClick={onClick}
+        className="block w-full text-left rounded px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 truncate hover:brightness-95 cursor-pointer"
+      >
+        {shortName(name)}
+      </button>
+    );
+  }
   return <span className="block w-full rounded px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 truncate">{shortName(name)}</span>;
 }
 function StayPill({ name }: { name: string }) {
@@ -411,7 +421,7 @@ export default function CalendarPage() {
                               <span className="text-[10px] text-muted-foreground/50 px-1">Closed</span>
                             ) : (
                               <div className="flex flex-col gap-0.5">
-                                {tabs.map(t   => <TabPill      key={t.id}  name={t.customerName} />)}
+                                {tabs.map(t => <TabPill key={t.id} name={t.customerName} onClick={() => router.push(t.status === 'paid' ? `/history?tabId=${t.id}` : `/?tabId=${t.id}`)} />)}
                                 {orders.map(o => o.status === 'accepted'
                                   ? <AcceptedPill key={o.id} name={o.customerName} />
                                   : <PendingPill  key={o.id} name={o.customerName} onClick={() => router.push(`/online-orders?id=${o.id}`)} />)}
@@ -499,8 +509,13 @@ export default function CalendarPage() {
                       // Find period label from the first desk line item
                       const deskItem = t.items.find(i => i.product.category === 'desks');
                       const itemName = deskItem?.product.name ?? t.label;
+                      const dest = t.status === 'paid' ? `/history?tabId=${t.id}` : `/?tabId=${t.id}`;
                       return (
-                        <div key={t.id} className="flex items-start gap-3 rounded-xl border border-border bg-card p-3">
+                        <div
+                          key={t.id}
+                          onClick={() => router.push(dest)}
+                          className="flex items-start gap-3 rounded-xl border border-border bg-card p-3 cursor-pointer hover:border-blue-400 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors"
+                        >
                           <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 flex items-center justify-center shrink-0">
                             <Monitor size={14} />
                           </div>

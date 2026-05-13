@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, type FormEvent } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { X } from 'lucide-react';
 import { Topbar } from '@/components/shell/Topbar';
 import { TabList } from '@/components/pos/TabList';
@@ -153,8 +154,16 @@ export default function POSPage() {
   const customers = useCustomers();
   const spaces = useSpaces();
   const store = getStore();
+  const searchParams = useSearchParams();
 
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
+
+  /* Auto-open a tab when arriving from the calendar via ?tabId= */
+  useEffect(() => {
+    const id = searchParams.get('tabId');
+    if (!id) return;
+    setActiveTabId(id);
+  }, [searchParams]);
   const [selectedWebOrderId, setSelectedWebOrderId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<'tabs' | 'menu' | 'cart'>('tabs');
   const [webOrders, setWebOrders] = useState<PendingWebOrder[]>([]);

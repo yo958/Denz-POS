@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.0] - 2026-05-13
+### Added
+- **Calendar** — clicking a blue POS booking pill now navigates directly to the relevant page with that tab pre-selected: open tabs open the Tabs page with the tab active; paid/historical tabs open the History page with the receipt visible. Works in both Grid and List views.
+
 ## [1.4.9] - 2026-05-13
 ### Fixed
 - **Calendar** — historical desk bookings now appear when navigating to past weeks. Previously only tabs with a future end date were included; now all paid desk tabs with a resolvable booking period are shown, and `tabCoversDay` handles the date-range matching per cell.
