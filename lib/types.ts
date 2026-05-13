@@ -179,6 +179,8 @@ export interface Tab {
   bookingEndsAt?: Date;
   /** Distinguishes Hot Desk from Dedicated Desk bookings (set when type === 'desk'). */
   bookingType?: 'hot' | 'dedicated';
+  /** Manager marks payment as physically received/reconciled. Syncs across devices via Firestore. */
+  paymentReceived?: boolean;
 }
 
 /* ── Stay (folio) ─────────────────────────────────────────────── */

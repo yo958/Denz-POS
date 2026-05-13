@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.2.5] - 2026-05-13
+### Fixed
+- **Payment received checkmarks now sync across devices** — the green checkmarks on the History page were previously stored only in localStorage (device-local). They are now stored as `paymentReceived` on the `Tab` record itself, so ticking a bill on one device is immediately reflected on all other devices and the live Firebase POS.
+
 ## [1.2.4] - 2026-05-13
 ### Fixed
 - **Daily desk bookings now expire at end of calendar day** — daily bookings from a previous calendar day no longer appear in "Away · May Return". Both open and paid daily tabs use calendar-day comparison (`date(openedAt) == date(today)`) instead of a rolling 24-hour window. Weekly/monthly/longer periods continue to use the stored `bookingEndsAt`. This affects existing stale tabs immediately — no data migration required.

@@ -232,20 +232,10 @@ export default function HistoryPage() {
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | TabType>('all');
   const [selected, setSelected] = useState<Tab | null>(null);
-  const [received, setReceived] = useState<Set<string>>(() => {
-    try {
-      const raw = localStorage.getItem('denz.paymentReceived');
-      return new Set(raw ? JSON.parse(raw) : []);
-    } catch { return new Set(); }
-  });
-
-  function toggleReceived(tabId: string) {
-    setReceived(prev => {
-      const next = new Set(prev);
-      if (next.has(tabId)) next.delete(tabId); else next.add(tabId);
-      try { localStorage.setItem('denz.paymentReceived', JSON.stringify([...next])); } catch {}
-      return next;
-    });
+  function toggleReceived(tab: Tab) {
+    getStore().tabs.set(prev =>
+      prev.map(t => t.id === tab.id ? { ...t, paymentReceived: !t.paymentReceived } : t)
+    );
   }
 
   if (me?.role !== 'manager') {
@@ -363,7 +353,7 @@ export default function HistoryPage() {
                     <div
                       key={tab.id}
                       className={`flex items-center gap-3 px-4 py-3 transition-colors ${
-                        received.has(tab.id)
+                        tab.paymentReceived
                           ? 'bg-emerald-50 dark:bg-emerald-900/15'
                           : 'hover:bg-black/3 dark:hover:bg-white/5'
                       }`}
@@ -400,10 +390,10 @@ export default function HistoryPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => toggleReceived(tab.id)}
-                        title={received.has(tab.id) ? 'Payment received' : 'Mark payment received'}
+                        onClick={() => toggleReceived(tab)}
+                        title={tab.paymentReceived ? 'Payment received' : 'Mark payment received'}
                         className={`shrink-0 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors cursor-pointer ${
-                          received.has(tab.id)
+                          tab.paymentReceived
                             ? 'bg-emerald-500 border-emerald-500 text-white'
                             : 'border-border text-transparent hover:border-emerald-400'
                         }`}
