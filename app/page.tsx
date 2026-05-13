@@ -26,7 +26,25 @@ import { decrementForTab, restock } from '@/lib/domain/inventory';
 import { fmtCur } from '@/lib/format';
 import { confirm } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/toast';
+import { collection, query, where, onSnapshot, updateDoc, doc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import type { CoworkSpace, CoworkSpaceRate, Discount, KitchenTicket, PartialPayment, PaymentMethod, Product, SelectedModifier, SplitPaymentLine, Stay, Tab, TabType } from '@/lib/types';
+
+export interface PendingWebOrder {
+  id: string;
+  type: 'cafe' | 'coworking' | 'room-enquiry';
+  customerName: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  tableOrSpace?: string;
+  period?: string;
+  bookingDate?: string;
+  bookingTime?: string;
+  notes?: string;
+  status: string;
+  createdAt: string;
+  items?: Array<{ productId: string; name: string; price: number; qty: number; note?: string }>;
+}
 
 /* ── Desk rate picker (used when a POS tab is already active) ─────── */
 function DeskRatePickerDialog({ space, cur, onClose, onConfirm }: {
@@ -137,6 +155,18 @@ export default function POSPage() {
 
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<'tabs' | 'menu' | 'cart'>('tabs');
+  const [webOrders, setWebOrders] = useState<PendingWebOrder[]>([]);
+
+  // Real-time listener for all pending website orders
+  useEffect(() => {
+    const q = query(collection(db, 'website-orders'), where('status', '==', 'pending'));
+    return onSnapshot(q, snap => {
+      const orders = snap.docs
+        .map(d => d.data() as PendingWebOrder)
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      setWebOrders(orders);
+    }, () => setWebOrders([]));
+  }, []);
 
   // Dialog state
   const [newTabOpen, setNewTabOpen] = useState(false);
@@ -212,6 +242,41 @@ export default function POSPage() {
     setNewTabOpen(false);
     setMobileView('menu');
     toast.success(`Tab opened for ${name}`);
+  }
+
+  async function handleAcceptWebOrder(order: PendingWebOrder) {
+    await updateDoc(doc(db, 'website-orders', order.id), { status: 'accepted', updatedAt: new Date().toISOString() });
+    if (order.type === 'cafe' && order.items?.length) {
+      const tab: Tab = {
+        id: newId('tab'),
+        customerName: order.customerName,
+        type: 'cafe',
+        label: order.tableOrSpace ?? 'Web order',
+        items: order.items.map(i => ({
+          id: newId('li'),
+          productId: i.productId,
+          product: { id: i.productId, name: i.name, price: i.price, category: 'food' as const, archived: false, description: '', stock: null, lowStockAt: null, sendToKitchen: true },
+          qty: i.qty,
+          unitPrice: i.price,
+          note: i.note ?? '',
+          modifiers: [],
+        })),
+        openedAt: new Date(),
+        status: 'open',
+      };
+      store.tabs.set(prev => [tab, ...prev]);
+      store.log('tab.create', `cafe · ${order.customerName} · web`, me?.id);
+      setActiveTabId(tab.id);
+      setMobileView('cart');
+      toast.success(`Tab created for ${order.customerName}`);
+    } else {
+      toast.success(`Booking accepted — check CoWorking or Rooms page`);
+    }
+  }
+
+  async function handleDeclineWebOrder(order: PendingWebOrder) {
+    await updateDoc(doc(db, 'website-orders', order.id), { status: 'cancelled', updatedAt: new Date().toISOString() });
+    toast.info(`Booking from ${order.customerName} declined`);
   }
 
   function handleAddProduct(product: Product) {
@@ -632,6 +697,9 @@ export default function POSPage() {
             activeTabId={activeTabId}
             onSelectTab={(id) => { setActiveTabId(id); setMobileView('cart'); }}
             onNewTab={() => setNewTabOpen(true)}
+            webOrders={webOrders}
+            onAcceptWebOrder={handleAcceptWebOrder}
+            onDeclineWebOrder={handleDeclineWebOrder}
           />
         </div>
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.7] - 2026-05-13
+### Fixed
+- **Firestore composite index error** — the website orders query was using a compound filter + orderBy that required a manually-created index. Simplified to a single-field filter with client-side filtering and sorting, which works without any index configuration.
+### Added
+- **Pending website orders in Tabs sidebar** — all pending website orders (café, desk, room) now appear at the top of the Tabs column with a globe icon. Staff can Accept or Decline directly from there. Accepting a café order immediately creates an open tab with the items. Coworking/room orders show a prompt to continue on the relevant page.
+
 ## [1.2.6] - 2026-05-13
 ### Added
 - **Category breakdown on History rows** — when a tab spans multiple categories (e.g. a desk booking that also includes café items), the total now shows a secondary line breaking it down: "CoWork ฿450 · Café ฿200". Single-category tabs are unchanged.

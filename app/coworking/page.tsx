@@ -56,6 +56,7 @@ function defaultDedicatedRates(): CoworkSpaceRate[] {
 
 interface WebCoworkOrder {
   id: string;
+  type?: string;
   customerName: string;
   customerEmail?: string;
   customerPhone?: string;
@@ -240,13 +241,15 @@ export default function CoWorkingPage() {
 
   // Real-time listener for pending website coworking booking requests
   useEffect(() => {
-    const q = query(
-      collection(db, 'website-orders'),
-      where('type', '==', 'coworking'),
-      where('status', '==', 'pending'),
-      orderBy('createdAt', 'asc'),
-    );
-    return onSnapshot(q, snap => setWebOrders(snap.docs.map(d => d.data() as WebCoworkOrder)));
+    // Single-field query avoids needing a composite Firestore index; filter + sort client-side
+    const q = query(collection(db, 'website-orders'), where('status', '==', 'pending'));
+    return onSnapshot(q, snap => {
+      const orders = snap.docs
+        .map(d => d.data() as WebCoworkOrder)
+        .filter(o => o.type === 'coworking')
+        .sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? ''));
+      setWebOrders(orders);
+    }, () => setWebOrders([]));
   }, []);
 
   async function acceptWebOrder(order: WebCoworkOrder) {
