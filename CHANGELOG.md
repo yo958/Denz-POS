@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.4.1] - 2026-05-13
+### Fixed
+- **Calendar** — POS desk tabs (created via the Tabs page) now appear on the calendar alongside web orders. Blue pill = POS booking, showing customer name and booking end date. Accepted web orders are deduplicated so they don't double-show once a tab exists.
+
 ## [1.4.0] - 2026-05-13
 ### Added
 - **Calendar page** (`/calendar`) — manager-only overview of all coworking and room bookings for the week. Two switchable views:
