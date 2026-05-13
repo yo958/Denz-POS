@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.2.8] - 2026-05-13
+### Changed
+- **Web order cards match regular tab style** — pending website orders in the Tabs sidebar now use the same `rounded-2xl` card layout as regular tabs, with matching type icon colours (sky for café, violet for desk, emerald for room). Cards have an amber tint and a small amber "WEB" pill badge so staff can immediately distinguish them from regular tabs.
+
 ## [1.2.7] - 2026-05-13
 ### Fixed
 - **Firestore composite index error** — the website orders query was using a compound filter + orderBy that required a manually-created index. Simplified to a single-field filter with client-side filtering and sorting, which works without any index configuration.

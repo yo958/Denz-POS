@@ -88,30 +88,48 @@ export function TabList({ tabs, activeTabId, onSelectTab, onNewTab, webOrders = 
               {webOrders.map(order => {
                 const Icon = WEB_ORDER_TYPE_ICON[order.type] ?? Globe;
                 const typeLabel = WEB_ORDER_TYPE_LABEL[order.type] ?? order.type;
+                // Icon colour matches TabListItem TYPE_COLOR: cafe→sky, coworking(desk)→violet, room-enquiry→emerald
+                const iconColor =
+                  order.type === 'cafe' ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400'
+                  : order.type === 'coworking' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400'
+                  : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400';
                 const itemSummary = order.items?.length
                   ? order.items.map(i => `${i.qty}× ${i.name}`).join(', ')
                   : order.tableOrSpace ?? order.period ?? '';
+                const dateStr = order.bookingDate
+                  ? new Date(order.bookingDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+                  + (order.bookingTime ? ` at ${order.bookingTime}` : '')
+                  : null;
                 return (
-                  <div key={order.id} className="rounded-xl border border-brand/30 bg-brand/5 p-2.5">
-                    <div className="flex items-start gap-2 mb-2">
-                      <span className="w-6 h-6 rounded-lg bg-brand/15 flex items-center justify-center shrink-0 mt-0.5">
-                        <Icon size={12} className="text-brand" />
+                  <div
+                    key={order.id}
+                    className="relative w-full text-left px-3 py-2.5 rounded-2xl border border-amber-200/70 bg-amber-50/80 dark:border-amber-700/30 dark:bg-amber-900/10"
+                  >
+                    <div className="flex items-start gap-2 min-w-0">
+                      <span className={`flex items-center justify-center w-7 h-7 rounded-lg shrink-0 mt-0.5 ${iconColor}`}>
+                        <Icon size={13} strokeWidth={2} />
                       </span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold leading-tight truncate">{order.customerName}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">{typeLabel}</p>
+                      <div className="min-w-0 flex-1">
+                        {/* Name + WEB badge */}
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <p className="text-sm font-semibold truncate leading-tight">{order.customerName}</p>
+                          <span className="shrink-0 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 leading-none">
+                            WEB
+                          </span>
+                        </div>
+                        {/* Type · date sub-line */}
+                        <div className="flex items-center justify-between gap-1 mt-0.5">
+                          <p className="text-xs text-muted-foreground truncate">{typeLabel}</p>
+                          {dateStr && <p className="text-xs text-muted-foreground tabular-nums shrink-0">{dateStr}</p>}
+                        </div>
+                        {/* Items / space */}
                         {itemSummary && (
-                          <p className="text-[10px] text-muted-foreground truncate mt-0.5">{itemSummary}</p>
-                        )}
-                        {order.bookingDate && (
-                          <p className="text-[10px] text-muted-foreground mt-0.5">
-                            {new Date(order.bookingDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                            {order.bookingTime && ` at ${order.bookingTime}`}
-                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground truncate">{itemSummary}</p>
                         )}
                       </div>
                     </div>
-                    <div className="flex gap-1.5">
+                    {/* Accept / Decline */}
+                    <div className="flex gap-1.5 mt-2.5">
                       <button
                         onClick={() => onDeclineWebOrder?.(order)}
                         className="flex-1 h-7 rounded-lg text-[11px] font-medium border border-border text-muted-foreground hover:border-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/10 transition-colors cursor-pointer flex items-center justify-center gap-1"
