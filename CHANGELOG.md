@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.2.11] - 2026-05-13
+### Added
+- **Click pending booking to preview in cart panel** — clicking an online booking card in the Tabs sidebar now opens a full order preview in the right-hand cart area, showing customer details, booking date/time/period, space/table, itemised list with total (café orders), notes, and contact info. Accept and Decline buttons are at the bottom of the preview. The selected card is highlighted with an amber ring to show it's active.
+
 ## [1.2.10] - 2026-05-13
 ### Fixed
 - **Accept/Decline buttons always visible** — switched from side-by-side `flex-1` buttons to stacked full-width buttons. The narrow sidebar (200px) was causing the Accept button to be invisible due to width constraints. Accept Booking appears first in primary colour, Decline below it.

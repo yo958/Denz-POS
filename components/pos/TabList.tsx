@@ -14,14 +14,16 @@ const WEB_ORDER_TYPE_LABEL = { cafe: 'Café', coworking: 'Desk', 'room-enquiry':
 interface TabListProps {
   tabs: Tab[];
   activeTabId: string | null;
+  selectedWebOrderId?: string | null;
   onSelectTab: (id: string) => void;
+  onSelectWebOrder?: (id: string) => void;
   onNewTab: () => void;
   webOrders?: PendingWebOrder[];
   onAcceptWebOrder?: (order: PendingWebOrder) => void;
   onDeclineWebOrder?: (order: PendingWebOrder) => void;
 }
 
-export function TabList({ tabs, activeTabId, onSelectTab, onNewTab, webOrders = [], onAcceptWebOrder, onDeclineWebOrder }: TabListProps) {
+export function TabList({ tabs, activeTabId, selectedWebOrderId, onSelectTab, onSelectWebOrder, onNewTab, webOrders = [], onAcceptWebOrder, onDeclineWebOrder }: TabListProps) {
   const customers = useCustomers();
   const open = tabs.filter(t => t.status === 'open');
   // Only show settled tabs from today; older tabs live on the History page.
@@ -100,10 +102,16 @@ export function TabList({ tabs, activeTabId, onSelectTab, onNewTab, webOrders = 
                   ? new Date(order.bookingDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
                   + (order.bookingTime ? ` at ${order.bookingTime}` : '')
                   : null;
+                const isSelected = order.id === selectedWebOrderId;
                 return (
                   <div
                     key={order.id}
-                    className="relative w-full text-left px-3 py-2.5 rounded-2xl border border-amber-200/70 bg-amber-50/80 dark:border-amber-700/30 dark:bg-amber-900/10"
+                    onClick={() => onSelectWebOrder?.(order.id)}
+                    className={`relative w-full text-left px-3 py-2.5 rounded-2xl border transition-all duration-150 cursor-pointer
+                      ${isSelected
+                        ? 'border-amber-400/60 bg-amber-100/80 dark:border-amber-500/40 dark:bg-amber-900/20 ring-1 ring-amber-300/50'
+                        : 'border-amber-200/70 bg-amber-50/80 dark:border-amber-700/30 dark:bg-amber-900/10 hover:bg-amber-100/60'
+                      }`}
                   >
                     <div className="flex items-start gap-2 min-w-0">
                       <span className={`flex items-center justify-center w-7 h-7 rounded-lg shrink-0 mt-0.5 ${iconColor}`}>
@@ -129,7 +137,7 @@ export function TabList({ tabs, activeTabId, onSelectTab, onNewTab, webOrders = 
                       </div>
                     </div>
                     {/* Accept / Decline — stacked so both are always visible */}
-                    <div className="flex flex-col gap-1.5 mt-2.5">
+                    <div className="flex flex-col gap-1.5 mt-2.5" onClick={e => e.stopPropagation()}>
                       <button
                         onClick={() => onAcceptWebOrder?.(order)}
                         className="w-full h-7 rounded-lg text-[11px] font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer flex items-center justify-center gap-1"

@@ -6,6 +6,7 @@ import { Topbar } from '@/components/shell/Topbar';
 import { TabList } from '@/components/pos/TabList';
 import { ProductGrid } from '@/components/pos/ProductGrid';
 import { Cart } from '@/components/pos/Cart';
+import { WebOrderPreview } from '@/components/pos/WebOrderPreview';
 import { NewTabDialog } from '@/components/pos/NewTabDialog';
 import { PaymentDialog } from '@/components/pos/PaymentDialog';
 import { SplitPaymentDialog } from '@/components/pos/SplitPaymentDialog';
@@ -154,6 +155,7 @@ export default function POSPage() {
   const store = getStore();
 
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const [selectedWebOrderId, setSelectedWebOrderId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<'tabs' | 'menu' | 'cart'>('tabs');
   const [webOrders, setWebOrders] = useState<PendingWebOrder[]>([]);
 
@@ -194,6 +196,7 @@ export default function POSPage() {
   const [addedCounts, setAddedCounts] = useState<Record<string, number>>({});
 
   const activeTab = tabs.find(t => t.id === activeTabId) ?? null;
+  const selectedWebOrder = webOrders.find(o => o.id === selectedWebOrderId) ?? null;
 
   /* ── Keyboard shortcuts ────────────────────────────── */
   useEffect(() => {
@@ -245,6 +248,7 @@ export default function POSPage() {
   }
 
   async function handleAcceptWebOrder(order: PendingWebOrder) {
+    setSelectedWebOrderId(null);
     await updateDoc(doc(db, 'website-orders', order.id), { status: 'accepted', updatedAt: new Date().toISOString() });
 
     if (order.type === 'cafe' && order.items?.length) {
@@ -321,6 +325,7 @@ export default function POSPage() {
   }
 
   async function handleDeclineWebOrder(order: PendingWebOrder) {
+    setSelectedWebOrderId(null);
     await updateDoc(doc(db, 'website-orders', order.id), { status: 'cancelled', updatedAt: new Date().toISOString() });
     toast.info(`Booking from ${order.customerName} declined`);
   }
@@ -741,7 +746,9 @@ export default function POSPage() {
           <TabList
             tabs={tabs}
             activeTabId={activeTabId}
-            onSelectTab={(id) => { setActiveTabId(id); setMobileView('cart'); }}
+            selectedWebOrderId={selectedWebOrderId}
+            onSelectTab={(id) => { setActiveTabId(id); setSelectedWebOrderId(null); setMobileView('cart'); }}
+            onSelectWebOrder={(id) => { setSelectedWebOrderId(id); setActiveTabId(null); setMobileView('cart'); }}
             onNewTab={() => setNewTabOpen(true)}
             webOrders={webOrders}
             onAcceptWebOrder={handleAcceptWebOrder}
@@ -758,20 +765,29 @@ export default function POSPage() {
         </div>
 
         <aside className={`${mobileView === 'cart' ? 'flex' : 'hidden'} md:flex w-full md:w-[260px] lg:w-[340px] shrink-0 md:border-l border-border flex-col overflow-hidden pt-11 md:pt-0`}>
-          <Cart
-            tab={activeTab}
-            onQtyChange={handleQtyChange}
-            onVoidLine={handleVoidLine}
-            onLineDiscount={handleLineDiscount}
-            onPay={handlePay}
-            onSplit={handleSplit}
-            onDiscount={() => setDiscountOpen(true)}
-            onSendKitchen={handleSendKitchen}
-            onPrint={handlePrintReceipt}
-            onRefund={() => setRefundOpen(true)}
-            onPartialPay={handlePartialPay}
-            hideCharge={isFolio || !hasActiveStays}
-          />
+          {selectedWebOrder ? (
+            <WebOrderPreview
+              order={selectedWebOrder}
+              spaces={spaces}
+              onAccept={() => handleAcceptWebOrder(selectedWebOrder)}
+              onDecline={() => handleDeclineWebOrder(selectedWebOrder)}
+            />
+          ) : (
+            <Cart
+              tab={activeTab}
+              onQtyChange={handleQtyChange}
+              onVoidLine={handleVoidLine}
+              onLineDiscount={handleLineDiscount}
+              onPay={handlePay}
+              onSplit={handleSplit}
+              onDiscount={() => setDiscountOpen(true)}
+              onSendKitchen={handleSendKitchen}
+              onPrint={handlePrintReceipt}
+              onRefund={() => setRefundOpen(true)}
+              onPartialPay={handlePartialPay}
+              hideCharge={isFolio || !hasActiveStays}
+            />
+          )}
         </aside>
       </main>
 
