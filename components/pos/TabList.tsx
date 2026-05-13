@@ -79,9 +79,9 @@ export function TabList({ tabs, activeTabId, onSelectTab, onNewTab, webOrders = 
         {webOrders.length > 0 && (
           <div className="mb-1">
             <div className="flex items-center gap-1.5 px-1 pb-1.5">
-              <Globe size={11} className="text-brand shrink-0" />
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-brand">
-                From website · {webOrders.length}
+              <Globe size={11} className="text-amber-600 shrink-0" />
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-600">
+                Online Bookings · {webOrders.length}
               </span>
             </div>
             <div className="space-y-1.5">
@@ -110,16 +110,16 @@ export function TabList({ tabs, activeTabId, onSelectTab, onNewTab, webOrders = 
                         <Icon size={13} strokeWidth={2} />
                       </span>
                       <div className="min-w-0 flex-1">
-                        {/* Name + WEB badge */}
+                        {/* Name + Pending badge */}
                         <div className="flex items-center gap-1.5 min-w-0">
                           <p className="text-sm font-semibold truncate leading-tight">{order.customerName}</p>
                           <span className="shrink-0 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 leading-none">
-                            WEB
+                            Pending
                           </span>
                         </div>
-                        {/* Type · date sub-line */}
+                        {/* "Online Booking · type" sub-line + date */}
                         <div className="flex items-center justify-between gap-1 mt-0.5">
-                          <p className="text-xs text-muted-foreground truncate">{typeLabel}</p>
+                          <p className="text-xs text-muted-foreground truncate">Online Booking · {typeLabel}</p>
                           {dateStr && <p className="text-xs text-muted-foreground tabular-nums shrink-0">{dateStr}</p>}
                         </div>
                         {/* Items / space */}

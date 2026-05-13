@@ -16,7 +16,7 @@ import { RefundDialog } from '@/components/pos/RefundDialog';
 import { VoidDialog } from '@/components/pos/VoidDialog';
 import { ProductOptionsDialog } from '@/components/pos/ProductOptionsDialog';
 import { useTabs, useStays, useCurrentStaff, useSettings, useCustomers, useSpaces } from '@/lib/hooks/useStore';
-import { CheckInDialog, PERIOD_LABEL, PERIOD_DURATION_MS, BOOKING_TYPE_LABEL } from '@/components/coworking/CheckInDialog';
+import { CheckInDialog, PERIOD_LABEL, PERIOD_DURATION_MS, BOOKING_TYPE_LABEL, calcBookingEndsAt } from '@/components/coworking/CheckInDialog';
 import { getStore } from '@/lib/store/store';
 import {
   effectiveQty, lineKey, lineUnitPrice, modifiersStableKey,
@@ -246,7 +246,9 @@ export default function POSPage() {
 
   async function handleAcceptWebOrder(order: PendingWebOrder) {
     await updateDoc(doc(db, 'website-orders', order.id), { status: 'accepted', updatedAt: new Date().toISOString() });
+
     if (order.type === 'cafe' && order.items?.length) {
+      // Café order → create a café tab with the items pre-loaded
       const tab: Tab = {
         id: newId('tab'),
         customerName: order.customerName,
@@ -269,8 +271,52 @@ export default function POSPage() {
       setActiveTabId(tab.id);
       setMobileView('cart');
       toast.success(`Tab created for ${order.customerName}`);
+
+    } else if (order.type === 'coworking') {
+      // Desk/coworking order → find the space + rate and create a desk tab
+      const space = spaces.find(s => s.id === order.tableOrSpace || s.name === order.tableOrSpace);
+      const period = order.period as import('@/lib/types').CoworkRatePeriod | undefined;
+      const rate: CoworkSpaceRate | undefined = period
+        ? space?.rates?.find(r => r.period === period) ?? space?.rates?.[0]
+        : space?.rates?.[0];
+
+      if (!space || !rate) {
+        toast.info(`Desk booking accepted for ${order.customerName} — open CoWorking page to check in manually`);
+        return;
+      }
+
+      const startDateStr = order.bookingDate ?? new Date().toISOString().slice(0, 10);
+      const bookingEndsAt = calcBookingEndsAt(startDateStr, rate.period);
+
+      const product: Product = {
+        id: `${space.id}-${rate.period}`,
+        name: `${space.name} — ${PERIOD_LABEL[rate.period]}`,
+        price: rate.price,
+        category: 'desks',
+        description: '',
+        stock: null,
+        lowStockAt: null,
+        sendToKitchen: false,
+      };
+      const tab: Tab = {
+        id: newId('tab'),
+        customerName: order.customerName,
+        type: 'desk',
+        label: space.name,
+        items: [{ id: newId('li'), productId: product.id, product, qty: 1, modifiers: [] }],
+        openedAt: new Date(),
+        status: 'open',
+        bookingEndsAt,
+        bookingType: 'hot',
+      };
+      store.tabs.set(prev => [tab, ...prev]);
+      store.log('tab.create', `${order.customerName} checked in to ${space.name} (${PERIOD_LABEL[rate.period]}) via web`, me?.id);
+      setActiveTabId(tab.id);
+      toast.success(`${order.customerName} checked in to ${space.name}`);
+
     } else {
-      toast.success(`Booking accepted — check CoWorking or Rooms page`);
+      // Room enquiry or other — no automatic tab creation, just notify
+      toast.success(`Booking accepted for ${order.customerName} — open Rooms page to complete check-in`);
     }
   }
 
