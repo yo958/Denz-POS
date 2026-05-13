@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.4.7] - 2026-05-13
+### Added
+- **Calendar** — clicking a pending (amber) order pill now navigates directly to the Online Orders page with that order pre-selected and the Pending filter active, so you can review and approve/decline without hunting for it manually.
+
 ## [1.4.6] - 2026-05-13
 ### Fixed
 - **Calendar** — weekly desk bookings now display as exactly 5 open (working) days from the start date, rather than 7 raw calendar days. Previously a Monday weekly pass would bleed into the following Monday (the 6th visible day). The calendar now counts forward 5 non-closed days based on the venue's opening hours settings.

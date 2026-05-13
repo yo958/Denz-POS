@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { collection, orderBy, query, limit, onSnapshot, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Coffee, Monitor, BedDouble, Search, ArrowLeft, Globe } from 'lucide-react';
@@ -61,15 +62,16 @@ type TypeFilter   = 'all' | 'cafe' | 'coworking' | 'room-enquiry';
 /* ── page ────────────────────────────────────────────────────────── */
 
 export default function OnlineOrdersPage() {
-  const me     = useCurrentStaff();
-  const spaces = useSpaces();
-  const store  = getStore();
+  const me           = useCurrentStaff();
+  const spaces       = useSpaces();
+  const store        = getStore();
+  const searchParams = useSearchParams();
 
-  const [orders, setOrders]           = useState<PendingWebOrder[]>([]);
-  const [statusFilter, setStatus]     = useState<StatusFilter>('all');
-  const [typeFilter, setType]         = useState<TypeFilter>('all');
-  const [search, setSearch]           = useState('');
-  const [selectedId, setSelectedId]   = useState<string | null>(null);
+  const [orders, setOrders]             = useState<PendingWebOrder[]>([]);
+  const [statusFilter, setStatus]       = useState<StatusFilter>('all');
+  const [typeFilter, setType]           = useState<TypeFilter>('all');
+  const [search, setSearch]             = useState('');
+  const [selectedId, setSelectedId]     = useState<string | null>(null);
   const [mobileDetail, setMobileDetail] = useState(false);
 
   /* Real-time listener — all orders, newest first */
@@ -79,6 +81,15 @@ export default function OnlineOrdersPage() {
       setOrders(snap.docs.map(d => ({ id: d.id, ...d.data() } as PendingWebOrder)));
     }, () => setOrders([]));
   }, []);
+
+  /* Auto-select order when arriving from the calendar via ?id= */
+  useEffect(() => {
+    const id = searchParams.get('id');
+    if (!id) return;
+    setStatus('pending');
+    selectOrder(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   /* Derived */
   const stats = useMemo(() => ({

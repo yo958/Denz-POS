@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Monitor, BedDouble, CalendarDays } from 'lucide-react';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -180,7 +181,17 @@ function shortName(full: string): string {
 function AcceptedPill({ name }: { name: string }) {
   return <span className="block w-full rounded px-1.5 py-0.5 text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 truncate">{shortName(name)}</span>;
 }
-function PendingPill({ name }: { name: string }) {
+function PendingPill({ name, onClick }: { name: string; onClick?: () => void }) {
+  if (onClick) {
+    return (
+      <button
+        onClick={onClick}
+        className="block w-full text-left rounded px-1.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 truncate hover:brightness-95 cursor-pointer"
+      >
+        {shortName(name)}
+      </button>
+    );
+  }
   return <span className="block w-full rounded px-1.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 truncate">{shortName(name)}</span>;
 }
 function TabPill({ name }: { name: string }) {
@@ -193,6 +204,7 @@ function StayPill({ name }: { name: string }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function CalendarPage() {
+  const router      = useRouter();
   const me          = useCurrentStaff();
   const allSpaces   = useSpaces();
   const allStays    = useStays();
@@ -399,7 +411,7 @@ export default function CalendarPage() {
                                 {tabs.map(t   => <TabPill      key={t.id}  name={t.customerName} />)}
                                 {orders.map(o => o.status === 'accepted'
                                   ? <AcceptedPill key={o.id} name={o.customerName} />
-                                  : <PendingPill  key={o.id} name={o.customerName} />)}
+                                  : <PendingPill  key={o.id} name={o.customerName} onClick={() => router.push(`/online-orders?id=${o.id}`)} />)}
                               </div>
                             )}
                           </td>
@@ -429,7 +441,7 @@ export default function CalendarPage() {
                               {fromStays.map(s  => <StayPill    key={s.id}  name={s.guestName} />)}
                               {fromOrders.map(o => o.status === 'accepted'
                                 ? <AcceptedPill key={o.id} name={o.customerName} />
-                                : <PendingPill  key={o.id} name={o.customerName} />)}
+                                : <PendingPill  key={o.id} name={o.customerName} onClick={() => router.push(`/online-orders?id=${o.id}`)} />)}
                             </div>
                           </td>
                         );
@@ -508,8 +520,13 @@ export default function CalendarPage() {
                       const space = spaces.find(s => s.id === o.tableOrSpace || s.name === o.tableOrSpace);
                       const periodLabel = o.period ? (PERIOD_LABEL[o.period as CoworkRatePeriod] ?? o.period) : null;
                       const startDate = o.bookingDate ? new Date(o.bookingDate + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : null;
+                      const isPending = o.status === 'pending';
                       return (
-                        <div key={o.id} className="flex items-start gap-3 rounded-xl border border-border bg-card p-3">
+                        <div
+                          key={o.id}
+                          onClick={isPending ? () => router.push(`/online-orders?id=${o.id}`) : undefined}
+                          className={`flex items-start gap-3 rounded-xl border border-border bg-card p-3 ${isPending ? 'cursor-pointer hover:border-amber-400 hover:bg-amber-50/40 dark:hover:bg-amber-900/10 transition-colors' : ''}`}
+                        >
                           <div className="w-8 h-8 rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 flex items-center justify-center shrink-0">
                             <Monitor size={14} />
                           </div>
@@ -530,8 +547,13 @@ export default function CalendarPage() {
                     {roomOrders.map(o => {
                       const periodLabel = o.period ? (PERIOD_LABEL[o.period as CoworkRatePeriod] ?? o.period) : null;
                       const startDate = o.bookingDate ? new Date(o.bookingDate + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : null;
+                      const isPending = o.status === 'pending';
                       return (
-                        <div key={o.id} className="flex items-start gap-3 rounded-xl border border-border bg-card p-3">
+                        <div
+                          key={o.id}
+                          onClick={isPending ? () => router.push(`/online-orders?id=${o.id}`) : undefined}
+                          className={`flex items-start gap-3 rounded-xl border border-border bg-card p-3 ${isPending ? 'cursor-pointer hover:border-amber-400 hover:bg-amber-50/40 dark:hover:bg-amber-900/10 transition-colors' : ''}`}
+                        >
                           <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 flex items-center justify-center shrink-0">
                             <BedDouble size={14} />
                           </div>
