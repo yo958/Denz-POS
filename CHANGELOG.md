@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.2.10] - 2026-05-13
+### Fixed
+- **Accept/Decline buttons always visible** — switched from side-by-side `flex-1` buttons to stacked full-width buttons. The narrow sidebar (200px) was causing the Accept button to be invisible due to width constraints. Accept Booking appears first in primary colour, Decline below it.
+
 ## [1.2.9] - 2026-05-13
 ### Fixed
 - **Accept desk booking now creates a real tab** — accepting a coworking online booking from the Tabs sidebar now creates a proper desk tab with the correct space, rate, and `bookingEndsAt` computed from the booking date. Previously it just showed a toast and did nothing.
