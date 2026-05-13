@@ -7,7 +7,8 @@ const CATEGORIES: Array<{ value: ProductCategory | 'all'; label: string }> = [
   { value: 'food',   label: 'Food'   },
   { value: 'drinks', label: 'Drinks' },
   { value: 'desks',  label: 'Desks'  },
-  { value: 'rooms',  label: 'Rooms'  },
+  { value: 'rooms',            label: 'Rooms'     },
+  { value: 'equipment-rental', label: 'Equipment' },
 ];
 
 interface CategoryChipsProps {

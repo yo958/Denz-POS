@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.4] - 2026-05-14
+### Fixed
+- **POS** — Incrementing/decrementing an equipment rental or hourly desk line item in the cart now follows tiered hourly pricing. The + button adds 1 hour (recalculating from tiers), the − button removes 1 hour, and the name updates (e.g. "Mac Mini (2hr)", "Private Office (3hr)"). Applies to both Equipment-tab items and desk items where the space has a matching equipment entry with tiers.
+
+## [1.5.3] - 2026-05-13
+### Fixed
+- **POS** — Equipment rentals now appear in the product grid. An "Equipment" category chip is added to the filter bar. Tapping an equipment card with an active tab opens a hours-picker dialog with live tiered-price total; confirming adds a line item (e.g. "Camera (2hr)") to the tab. Equipment also appears when "All" is selected.
+
 ## [1.5.2] - 2026-05-13
 ### Fixed
 - **Calendar** — room stay pills (violet) are now clickable. Tapping one navigates to the Rooms page with that stay's folio opened automatically. Works in both Grid and List views.

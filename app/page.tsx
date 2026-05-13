@@ -17,7 +17,7 @@ import { ChargeToRoomDialog } from '@/components/pos/ChargeToRoomDialog';
 import { RefundDialog } from '@/components/pos/RefundDialog';
 import { VoidDialog } from '@/components/pos/VoidDialog';
 import { ProductOptionsDialog } from '@/components/pos/ProductOptionsDialog';
-import { useTabs, useStays, useCurrentStaff, useSettings, useCustomers, useSpaces } from '@/lib/hooks/useStore';
+import { useTabs, useStays, useCurrentStaff, useSettings, useCustomers, useSpaces, useEquipment } from '@/lib/hooks/useStore';
 import { CheckInDialog, PERIOD_LABEL, PERIOD_DURATION_MS, BOOKING_TYPE_LABEL, calcBookingEndsAt } from '@/components/coworking/CheckInDialog';
 import { getStore } from '@/lib/store/store';
 import {
@@ -30,7 +30,7 @@ import { confirm } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/toast';
 import { collection, query, where, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { CoworkSpace, CoworkSpaceRate, Discount, KitchenTicket, PartialPayment, PaymentMethod, Product, SelectedModifier, SplitPaymentLine, Stay, Tab, TabType } from '@/lib/types';
+import type { CoworkSpace, CoworkSpaceRate, Discount, Equipment, EquipmentTier, KitchenTicket, PartialPayment, PaymentMethod, Product, SelectedModifier, SplitPaymentLine, Stay, Tab, TabType } from '@/lib/types';
 
 export interface PendingWebOrder {
   id: string;
@@ -49,6 +49,83 @@ export interface PendingWebOrder {
 }
 
 /* ── Desk rate picker (used when a POS tab is already active) ─────── */
+function calcRentalTotal(tiers: EquipmentTier[], hours: number): number {
+  let total = 0;
+  for (let h = 1; h <= hours; h++) {
+    total += tiers[Math.min(h - 1, tiers.length - 1)]?.price ?? 0;
+  }
+  return total;
+}
+
+function EquipmentHoursDialog({ equip, cur, onClose, onConfirm }: {
+  equip: Equipment; cur: string;
+  onClose: () => void;
+  onConfirm: (hours: number, total: number) => void;
+}) {
+  const [hours, setHours] = useState(1);
+  const total = calcRentalTotal(equip.tiers, hours);
+  const noTiers = equip.tiers.length === 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-sm glass-strong rounded-3xl p-6 shadow-2xl space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Add Equipment to Tab</h2>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground cursor-pointer"><X size={18} /></button>
+        </div>
+        <p className="text-sm text-muted-foreground -mt-2">{equip.name} — select rental duration</p>
+
+        {noTiers ? (
+          <p className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/10 rounded-xl px-3 py-2.5">
+            No pricing configured. Edit this equipment in Settings to add rates.
+          </p>
+        ) : (
+          <>
+            <div className="space-y-1.5">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Hours</span>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setHours(h => Math.max(1, h - 1))}
+                  className="flex items-center justify-center w-10 h-10 rounded-xl border border-border bg-white/50 dark:bg-white/5 text-foreground hover:bg-black/5 transition-colors cursor-pointer shrink-0"
+                >
+                  <span className="text-lg font-bold leading-none">−</span>
+                </button>
+                <span className="flex-1 text-center text-2xl font-bold tabular-nums">{hours}</span>
+                <button
+                  type="button"
+                  onClick={() => setHours(h => h + 1)}
+                  className="flex items-center justify-center w-10 h-10 rounded-xl border border-border bg-white/50 dark:bg-white/5 text-foreground hover:bg-black/5 transition-colors cursor-pointer shrink-0"
+                >
+                  <span className="text-lg font-bold leading-none">+</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-black/5 dark:bg-white/5">
+              <span className="text-sm text-muted-foreground">Total</span>
+              <span className="text-base font-bold tabular-nums">{cur}{total.toLocaleString()}</span>
+            </div>
+          </>
+        )}
+
+        <div className="flex gap-2 pt-1">
+          <button type="button" onClick={onClose} className="flex-1 h-11 rounded-2xl text-sm font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 active:scale-95 transition-all cursor-pointer">Cancel</button>
+          <button
+            type="button"
+            disabled={noTiers}
+            onClick={() => onConfirm(hours, total)}
+            className="flex-1 h-11 rounded-2xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 transition-all cursor-pointer disabled:opacity-40"
+          >
+            Add to Tab
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DeskRatePickerDialog({ space, cur, onClose, onConfirm }: {
   space: CoworkSpace; cur: string;
   onClose: () => void;
@@ -153,6 +230,7 @@ export default function POSPage() {
   const cur = useSettings().currency;
   const customers = useCustomers();
   const spaces = useSpaces();
+  const equipment = useEquipment();
   const store = getStore();
   const searchParams = useSearchParams();
 
@@ -200,6 +278,8 @@ export default function POSPage() {
   const [checkingInSpace, setCheckingInSpace] = useState<CoworkSpace | null>(null);
   // Rate-only picker when a tab is already active (no new tab needed)
   const [deskRateSpace, setDeskRateSpace] = useState<CoworkSpace | null>(null);
+  // Equipment hours picker — set when tapping an equipment card with an active tab
+  const [equipRentEquip, setEquipRentEquip] = useState<Equipment | null>(null);
 
   // Tracks cumulative add count per product to trigger card flash animations
   const [addedCounts, setAddedCounts] = useState<Record<string, number>>({});
@@ -339,6 +419,12 @@ export default function POSPage() {
   }
 
   function handleAddProduct(product: Product) {
+    if (product.category === 'equipment-rental') {
+      if (!activeTab) return;
+      const equip = equipment.find(e => e.id === product.id);
+      if (equip) setEquipRentEquip(equip);
+      return;
+    }
     // Desk products are CoworkSpace cards. The product id equals the space id (set in ProductGrid).
     if (product.category === 'desks') {
       const space = spaces.find(s => s.id === product.id);
@@ -395,7 +481,44 @@ export default function POSPage() {
     if (!activeTab || qty < 1) return;
     store.tabs.set(prev => prev.map(t => t.id !== activeTab.id ? t : {
       ...t,
-      items: t.items.map(li => lineKey(li) === key ? { ...li, qty } : li),
+      items: t.items.map(li => {
+        if (lineKey(li) !== key) return li;
+
+        // Shared helper: recalculate hours + tiered total, keep qty=1.
+        const applyTiers = (equip: Equipment, baseName: string) => {
+          const match = li.product.name.match(/\((\d+)hr\)$/);
+          const currentHours = match ? parseInt(match[1]) : 1;
+          const newHours = Math.max(1, currentHours + (qty - li.qty));
+          const newTotal = calcRentalTotal(equip.tiers, newHours);
+          return { ...li, qty: 1, product: { ...li.product, price: newTotal, name: `${baseName} (${newHours}hr)` } };
+        };
+
+        // Equipment rentals: qty=1 always; price = tiered total; hours encoded in name.
+        if (li.product.category === 'equipment-rental') {
+          const equipId = li.product.id.replace(/^equip:/, '');
+          const equip = equipment.find(e => e.id === equipId);
+          if (equip) return applyTiers(equip, equip.name);
+        }
+
+        // Hourly desk items: look up matching equipment by name for tiered pricing.
+        if (li.product.category === 'desks') {
+          const isHourlyItem = li.product.name.includes('Per Hour') || /\(\d+hr\)$/.test(li.product.name);
+          if (isHourlyItem) {
+            // Extract base name from "Private Office — Per Hour" or "Private Office (2hr)"
+            const baseName = li.product.name
+              .replace(/\s*—\s*Per Hour.*/, '')
+              .replace(/\s*\(\d+hr\)$/, '')
+              .trim();
+            const equip = equipment.find(e =>
+              e.name.trim().toLowerCase() === baseName.toLowerCase() &&
+              (e.tiers?.length ?? 0) > 0,
+            );
+            if (equip) return applyTiers(equip, baseName);
+          }
+        }
+
+        return { ...li, qty };
+      }),
     }));
   }
 
@@ -889,6 +1012,30 @@ export default function POSPage() {
             store.log('tab.desk-added', `${activeTab.customerName} · ${deskRateSpace.name} (${PERIOD_LABEL[rate.period]})`, me?.id);
             toast.success(`${deskRateSpace.name} added to tab`);
             setDeskRateSpace(null);
+          }}
+        />
+      )}
+
+      {/* Equipment hours picker — adds rental line item to the active tab */}
+      {equipRentEquip && activeTab && (
+        <EquipmentHoursDialog
+          equip={equipRentEquip}
+          cur={cur}
+          onClose={() => setEquipRentEquip(null)}
+          onConfirm={(hours, total) => {
+            const equipProduct: Product = {
+              id: `equip:${equipRentEquip.id}`,
+              name: `${equipRentEquip.name} (${hours}hr)`,
+              price: total,
+              category: 'equipment-rental',
+              description: '',
+              stock: null,
+              lowStockAt: null,
+              sendToKitchen: false,
+            };
+            addLineWithModifiers(equipProduct, []);
+            toast.success(`${equipRentEquip.name} added to tab`);
+            setEquipRentEquip(null);
           }}
         />
       )}

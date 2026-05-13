@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { Search, X } from 'lucide-react';
-import { useProducts, useSpaces } from '@/lib/hooks/useStore';
+import { useProducts, useSpaces, useEquipment } from '@/lib/hooks/useStore';
 import { isOutOfStock, isLowStock } from '@/lib/domain/inventory';
 import type { Product, ProductCategory } from '@/lib/types';
 import { CategoryChips } from './CategoryChips';
@@ -17,9 +17,26 @@ interface ProductGridProps {
 export function ProductGrid({ onAddProduct, hasActiveTab, addedCounts }: ProductGridProps) {
   const products = useProducts();
   const spaces = useSpaces();
+  const equipment = useEquipment();
   const [category, setCategory] = useState<ProductCategory | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Synthesise Product-shaped objects from Equipment so they appear in the POS
+  // grid. Display price = first tier (1-hour rate). The actual charge is
+  // calculated via the hours-picker dialog in app/page.tsx.
+  const equipProducts: Product[] = equipment
+    .filter(e => !e.archived)
+    .map(e => ({
+      id: e.id,
+      name: e.name,
+      price: e.tiers[0]?.price ?? 0,
+      category: 'equipment-rental' as ProductCategory,
+      description: e.description ?? '',
+      stock: null,
+      lowStockAt: null,
+      sendToKitchen: false,
+    }));
 
   // Synthesise Product-shaped objects from CoworkSpaces so the POS grid can
   // render them without touching the product store. Price = enabled hourly rate
@@ -44,25 +61,41 @@ export function ProductGrid({ onAddProduct, hasActiveTab, addedCounts }: Product
     });
 
   const filtered = (() => {
+    const q = searchQuery.toLowerCase();
+
     if (category === 'desks') {
       // Desks come from CoworkSpaces, not the product store
-      const q = searchQuery.toLowerCase();
       return deskProducts.filter(p =>
         q === '' || p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q),
       );
     }
 
-    return products.filter(p => {
+    if (category === 'equipment-rental') {
+      return equipProducts.filter(p =>
+        q === '' || p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q),
+      );
+    }
+
+    const fromProducts = products.filter(p => {
       if (p.archived) return false;
-      // Legacy desk products in the product store are never shown — desks are
-      // now managed as CoworkSpaces and shown above.
+      // Desks and equipment come from their own stores, not the product store
       if (p.category === 'desks') return false;
+      if (p.category === 'equipment-rental') return false;
       const matchCat = category === 'all' || p.category === category;
-      const matchSearch = searchQuery === '' ||
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.description.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchSearch = q === '' ||
+        p.name.toLowerCase().includes(q) ||
+        p.description.toLowerCase().includes(q);
       return matchCat && matchSearch;
     });
+
+    if (category === 'all') {
+      const filteredEquip = equipProducts.filter(p =>
+        q === '' || p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q),
+      );
+      return [...fromProducts, ...filteredEquip];
+    }
+
+    return fromProducts;
   })();
 
   return (
