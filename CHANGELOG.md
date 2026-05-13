@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.2.6] - 2026-05-13
+### Added
+- **Category breakdown on History rows** — when a tab spans multiple categories (e.g. a desk booking that also includes café items), the total now shows a secondary line breaking it down: "CoWork ฿450 · Café ฿200". Single-category tabs are unchanged.
+
 ## [1.2.5] - 2026-05-13
 ### Fixed
 - **Payment received checkmarks now sync across devices** — the green checkmarks on the History page were previously stored only in localStorage (device-local). They are now stored as `paymentReceived` on the `Tab` record itself, so ticking a bill on one device is immediately reflected on all other devices and the live Firebase POS.

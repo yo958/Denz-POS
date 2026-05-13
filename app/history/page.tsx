@@ -22,6 +22,20 @@ const TYPE_COLOR: Record<TabType, string> = {
 const METHOD_ICON: Record<string, typeof CreditCard> = { card: CreditCard, qr: QrCode, cash: Banknote, room: BedDouble, split: CreditCard };
 const METHOD_LABEL: Record<string, string> = { card: 'Card', qr: 'QR', cash: 'Cash', room: 'Room charge', split: 'Split (Cash + Card)' };
 
+/** Group a tab's line items by section and return per-section subtotals. */
+function catBreakdown(items: Tab['items']): { label: string; amount: number }[] {
+  const map: Record<string, number> = {};
+  for (const li of items) {
+    const qty = effectiveQty(li);
+    if (qty <= 0) continue;
+    const cat = li.product.category === 'desks' ? 'CoWork'
+      : li.product.category === 'rooms' ? 'Room'
+      : 'Café';
+    map[cat] = (map[cat] ?? 0) + lineEffectiveUnitPrice(li) * qty;
+  }
+  return Object.entries(map).map(([label, amount]) => ({ label, amount }));
+}
+
 function startOfDayKey(d: Date) {
   const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime();
 }
@@ -386,6 +400,17 @@ export default function HistoryPage() {
                           {refunded > 0 && (
                             <p className="text-xs text-rose-600 dark:text-rose-400 tabular-nums">−{cur}{fmtCur(refunded)}</p>
                           )}
+                          {(() => {
+                            const breakdown = catBreakdown(tab.items);
+                            if (breakdown.length <= 1) return null;
+                            return (
+                              <p className="text-[10px] text-muted-foreground tabular-nums mt-0.5">
+                                {breakdown.map(({ label, amount }, i) => (
+                                  <span key={label}>{i > 0 && ' · '}{label} {cur}{fmtCur(amount)}</span>
+                                ))}
+                              </p>
+                            );
+                          })()}
                         </div>
                       </button>
                       <button
