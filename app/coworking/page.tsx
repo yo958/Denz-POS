@@ -98,9 +98,19 @@ export default function CoWorkingPage() {
   //   2. Regular POS tabs that have a desk line item added via the rate picker
   //
   // A tab counts as active on the coworking page when:
-  //   - Its status is 'open', OR
-  //   - It has been paid but has a future bookingEndsAt (dedicated desk paid upfront on the POS page)
+  //   - Its status is 'open' AND it hasn't expired by calendar day (daily) or bookingEndsAt (others), OR
+  //   - It has been paid but has a future effective expiry
   const now = new Date();
+
+  // Returns true if the tab has any desk item booked as a daily period.
+  function hasDailyDeskItem(t: Tab): boolean {
+    return t.items.some(i => i.product.category === 'desks' && i.product.name.endsWith(` — ${PERIOD_LABEL['daily']}`));
+  }
+  // True if both dates fall on the same calendar day.
+  function sameCalendarDay(a: Date, b: Date): boolean {
+    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  }
+
   const activeTabsByLabel = new Map<string, Tab[]>();
   for (const t of tabs) {
     // A tab that was explicitly checked out early has bookingEndsAt set to epoch (new Date(0)).
@@ -109,24 +119,35 @@ export default function CoWorkingPage() {
       new Date(t.bookingEndsAt as unknown as string).getTime() < 1000;
     if (isExplicitlyExpired) continue;
 
-    const isPaidBookingStillActive =
-      t.status === 'paid' && (
-        // 1. Explicit bookingEndsAt — set for all new multi-day bookings.
-        (!!t.bookingEndsAt && new Date(t.bookingEndsAt as unknown as string) > now) ||
-        // 2. Legacy inference — tabs paid before bookingEndsAt was tracked for hot desks.
-        //    Derive the expiry from the desk line item's product name + paidAt.
-        (!!t.paidAt && t.items.some(item => {
-          if (item.product.category !== 'desks') return false;
-          const paidMs = new Date(t.paidAt as unknown as string).getTime();
-          return (Object.entries(PERIOD_LABEL) as [CoworkRatePeriod, string][]).some(
-            ([period, label]) =>
-              period !== 'hourly' &&
-              item.product.name.endsWith(` — ${label}`) &&
-              new Date(paidMs + PERIOD_DURATION_MS[period]).getTime() > now.getTime(),
-          );
-        }))
-      );
-    if (t.status !== 'open' && !isPaidBookingStillActive) continue;
+    // Open tabs: daily desk bookings expire at end of the calendar day they were opened.
+    // Weekly/monthly/etc. open tabs are always shown (the customer holds the space).
+    const isOpenAndActive = t.status === 'open' && (() => {
+      if (t.bookingEndsAt && new Date(t.bookingEndsAt as unknown as string) > now) return true;
+      if (hasDailyDeskItem(t)) return sameCalendarDay(new Date(t.openedAt as unknown as string), now);
+      return true;
+    })();
+
+    // Paid tabs: daily bookings expire at end of the calendar day they were opened.
+    // Other periods use bookingEndsAt or legacy paidAt+duration inference.
+    const isPaidBookingStillActive = t.status === 'paid' && (() => {
+      // Daily: calendar-day comparison regardless of stored bookingEndsAt (which may be paidAt+24h).
+      if (hasDailyDeskItem(t)) return sameCalendarDay(new Date(t.openedAt as unknown as string), now);
+      // Non-daily: use explicit bookingEndsAt first.
+      if (!!t.bookingEndsAt && new Date(t.bookingEndsAt as unknown as string) > now) return true;
+      // Legacy inference for weekly/monthly etc. (tabs created before bookingEndsAt tracking).
+      return !!t.paidAt && t.items.some(item => {
+        if (item.product.category !== 'desks') return false;
+        const paidMs = new Date(t.paidAt as unknown as string).getTime();
+        return (Object.entries(PERIOD_LABEL) as [CoworkRatePeriod, string][]).some(
+          ([period, label]) =>
+            period !== 'hourly' && period !== 'daily' &&
+            item.product.name.endsWith(` — ${label}`) &&
+            new Date(paidMs + PERIOD_DURATION_MS[period]).getTime() > now.getTime(),
+        );
+      });
+    })();
+
+    if (!isOpenAndActive && !isPaidBookingStillActive) continue;
     if (t.type === 'desk') {
       // Use the label if it still matches a space name; otherwise fall back to
       // productId matching (handles tabs created before a space was renamed).

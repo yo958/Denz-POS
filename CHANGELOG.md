@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.2.4] - 2026-05-13
+### Fixed
+- **Daily desk bookings now expire at end of calendar day** — daily bookings from a previous calendar day no longer appear in "Away · May Return". Both open and paid daily tabs use calendar-day comparison (`date(openedAt) == date(today)`) instead of a rolling 24-hour window. Weekly/monthly/longer periods continue to use the stored `bookingEndsAt`. This affects existing stale tabs immediately — no data migration required.
+
 ## [1.2.3] - 2026-05-13
 ### Fixed
 - **Booking expiry now uses close-of-business, not midnight** — daily bookings made on the 12th now expire at 23:30 on the 12th instead of midnight of the 13th. Weekly bookings expire at 23:30 on the 7th day, monthly at 23:30 on the 30th day, etc. The close time is read from the venue's Business Hours settings and falls back to 23:30. This affects the coworking check-in dialog, web booking acceptance, and the equipment rental dialog.
