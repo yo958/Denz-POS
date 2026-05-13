@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.2.9] - 2026-05-13
+### Fixed
+- **Accept desk booking now creates a real tab** — accepting a coworking online booking from the Tabs sidebar now creates a proper desk tab with the correct space, rate, and `bookingEndsAt` computed from the booking date. Previously it just showed a toast and did nothing.
+- **Online booking card labels** — section header is now "Online Bookings", the amber badge reads "Pending" instead of "WEB", and the sub-label reads "Online Booking · Desk/Café/Room" to be clearer to staff.
+
 ## [1.2.8] - 2026-05-13
 ### Changed
 - **Web order cards match regular tab style** — pending website orders in the Tabs sidebar now use the same `rounded-2xl` card layout as regular tabs, with matching type icon colours (sky for café, violet for desk, emerald for room). Cards have an amber tint and a small amber "WEB" pill badge so staff can immediately distinguish them from regular tabs.
