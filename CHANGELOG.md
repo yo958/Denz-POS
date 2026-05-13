@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.4.8] - 2026-05-13
+### Fixed
+- **Tabs sidebar** — pending online booking cards now show the space name (e.g. "Standup + 27"") instead of the raw internal space ID.
+
 ## [1.4.7] - 2026-05-13
 ### Added
 - **Calendar** — clicking a pending (amber) order pill now navigates directly to the Online Orders page with that order pre-selected and the Pending filter active, so you can review and approve/decline without hunting for it manually.

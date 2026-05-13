@@ -5,7 +5,7 @@ import type { Tab } from '@/lib/types';
 import type { PendingWebOrder } from '@/app/page';
 import { TabListItem } from './TabListItem';
 import { getStore } from '@/lib/store/store';
-import { useCustomers } from '@/lib/hooks/useStore';
+import { useCustomers, useSpaces } from '@/lib/hooks/useStore';
 import { confirm } from '@/components/ui/confirm-dialog';
 
 const WEB_ORDER_TYPE_ICON = { cafe: Coffee, coworking: Monitor, 'room-enquiry': BedDouble } as const;
@@ -25,6 +25,7 @@ interface TabListProps {
 
 export function TabList({ tabs, activeTabId, selectedWebOrderId, onSelectTab, onSelectWebOrder, onNewTab, webOrders = [], onAcceptWebOrder, onDeclineWebOrder }: TabListProps) {
   const customers = useCustomers();
+  const spaces    = useSpaces();
   const open = tabs.filter(t => t.status === 'open');
   // Only show settled tabs from today; older tabs live on the History page.
   const startOfToday = new Date();
@@ -95,9 +96,13 @@ export function TabList({ tabs, activeTabId, selectedWebOrderId, onSelectTab, on
                   order.type === 'cafe' ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400'
                   : order.type === 'coworking' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400'
                   : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400';
+                // Resolve tableOrSpace (may be a raw ID) to a human-readable name
+                const resolvedSpace = order.tableOrSpace
+                  ? (spaces.find(s => s.id === order.tableOrSpace || s.name === order.tableOrSpace)?.name ?? order.tableOrSpace)
+                  : null;
                 const itemSummary = order.items?.length
                   ? order.items.map(i => `${i.qty}× ${i.name}`).join(', ')
-                  : order.tableOrSpace ?? order.period ?? '';
+                  : resolvedSpace ?? order.period ?? '';
                 const dateStr = order.bookingDate
                   ? new Date(order.bookingDate + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
                   + (order.bookingTime ? ` at ${order.bookingTime}` : '')
