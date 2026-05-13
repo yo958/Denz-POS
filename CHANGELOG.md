@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.1] - 2026-05-13
+### Added
+- **Calendar** — unpaid/open desk tabs now appear in orange, paid tabs remain blue. Grid pills, list card borders, icons, and badges all reflect the payment status. Legend updated with "Pending payment" and "Paid booking" entries.
+
 ## [1.5.0] - 2026-05-13
 ### Added
 - **Calendar** — clicking a blue POS booking pill now navigates directly to the relevant page with that tab pre-selected: open tabs open the Tabs page with the tab active; paid/historical tabs open the History page with the receipt visible. Works in both Grid and List views.

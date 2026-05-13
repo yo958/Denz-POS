@@ -194,18 +194,18 @@ function PendingPill({ name, onClick }: { name: string; onClick?: () => void }) 
   }
   return <span className="block w-full rounded px-1.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 truncate">{shortName(name)}</span>;
 }
-function TabPill({ name, onClick }: { name: string; onClick?: () => void }) {
+function TabPill({ name, paid, onClick }: { name: string; paid: boolean; onClick?: () => void }) {
+  const cls = paid
+    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+    : 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300';
   if (onClick) {
     return (
-      <button
-        onClick={onClick}
-        className="block w-full text-left rounded px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 truncate hover:brightness-95 cursor-pointer"
-      >
+      <button onClick={onClick} className={`block w-full text-left rounded px-1.5 py-0.5 text-xs font-medium truncate hover:brightness-95 cursor-pointer ${cls}`}>
         {shortName(name)}
       </button>
     );
   }
-  return <span className="block w-full rounded px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 truncate">{shortName(name)}</span>;
+  return <span className={`block w-full rounded px-1.5 py-0.5 text-xs font-medium truncate ${cls}`}>{shortName(name)}</span>;
 }
 function StayPill({ name }: { name: string }) {
   return <span className="block w-full rounded px-1.5 py-0.5 text-xs font-medium bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300 truncate">{shortName(name)}</span>;
@@ -367,8 +367,9 @@ export default function CalendarPage() {
           <button onClick={() => setWeekStart(getMondayOfWeek(new Date()))} className="px-3 h-8 rounded-lg border border-border text-xs font-medium hover:bg-muted transition-colors">Today</button>
         </div>
 
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-blue-400 inline-block" />POS booking</span>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-orange-400 inline-block" />Pending payment</span>
+          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-blue-400 inline-block" />Paid booking</span>
           <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-green-400 inline-block" />Accepted online</span>
           <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-amber-400 inline-block" />Pending online</span>
           <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-violet-400 inline-block" />Room stay</span>
@@ -421,7 +422,7 @@ export default function CalendarPage() {
                               <span className="text-[10px] text-muted-foreground/50 px-1">Closed</span>
                             ) : (
                               <div className="flex flex-col gap-0.5">
-                                {tabs.map(t => <TabPill key={t.id} name={t.customerName} onClick={() => router.push(t.status === 'paid' ? `/history?tabId=${t.id}` : `/?tabId=${t.id}`)} />)}
+                                {tabs.map(t => <TabPill key={t.id} name={t.customerName} paid={t.status === 'paid'} onClick={() => router.push(t.status === 'paid' ? `/history?tabId=${t.id}` : `/?tabId=${t.id}`)} />)}
                                 {orders.map(o => o.status === 'accepted'
                                   ? <AcceptedPill key={o.id} name={o.customerName} />
                                   : <PendingPill  key={o.id} name={o.customerName} onClick={() => router.push(`/online-orders?id=${o.id}`)} />)}
@@ -509,14 +510,23 @@ export default function CalendarPage() {
                       // Find period label from the first desk line item
                       const deskItem = t.items.find(i => i.product.category === 'desks');
                       const itemName = deskItem?.product.name ?? t.label;
-                      const dest = t.status === 'paid' ? `/history?tabId=${t.id}` : `/?tabId=${t.id}`;
+                      const isPaid = t.status === 'paid';
+                      const dest = isPaid ? `/history?tabId=${t.id}` : `/?tabId=${t.id}`;
                       return (
                         <div
                           key={t.id}
                           onClick={() => router.push(dest)}
-                          className="flex items-start gap-3 rounded-xl border border-border bg-card p-3 cursor-pointer hover:border-blue-400 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors"
+                          className={`flex items-start gap-3 rounded-xl border bg-card p-3 cursor-pointer transition-colors ${
+                            isPaid
+                              ? 'border-border hover:border-blue-400 hover:bg-blue-50/40 dark:hover:bg-blue-900/10'
+                              : 'border-orange-200 bg-orange-50/40 dark:border-orange-800/40 dark:bg-orange-900/10 hover:border-orange-400'
+                          }`}
                         >
-                          <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 flex items-center justify-center shrink-0">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                            isPaid
+                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                              : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+                          }`}>
                             <Monitor size={14} />
                           </div>
                           <div className="flex-1 min-w-0">
@@ -526,8 +536,12 @@ export default function CalendarPage() {
                               {endStr ? ` · until ${endStr}` : startStr ? ` · from ${startStr}` : ''}
                             </p>
                           </div>
-                          <span className="shrink-0 text-[10px] font-bold uppercase px-2 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400">
-                            POS
+                          <span className={`shrink-0 text-[10px] font-bold uppercase px-2 py-1 rounded-full ${
+                            isPaid
+                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400'
+                              : 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400'
+                          }`}>
+                            {isPaid ? 'Paid' : 'Unpaid'}
                           </span>
                         </div>
                       );
