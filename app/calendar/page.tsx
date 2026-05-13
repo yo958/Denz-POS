@@ -238,17 +238,20 @@ export default function CalendarPage() {
   const rooms  = useMemo(() => allProducts.filter(p => p.category === 'rooms' && !p.archived), [allProducts]);
   const stays  = useMemo(() => allStays.filter(s => s.status === 'active'), [allStays]);
 
-  // All tabs that have a desk booking — open OR paid-but-still-within-period
-  // (mirrors coworking page isPaidBookingStillActive logic)
+  // All tabs that have a desk booking — open OR paid with a resolvable booking period.
+  // We include expired paid tabs too so historical weeks show correctly when navigating back.
+  // tabCoversDay() handles the actual date-range check for each cell/day.
   const deskTabs = useMemo(() => {
-    const now = new Date();
     return allTabs.filter(t => {
       const hasDeskContent = t.type === 'desk' || t.items.some(i => i.product?.category === 'desks');
       if (!hasDeskContent) return false;
       if (t.status === 'open') return true;
       if (t.status === 'paid') {
-        const endsAt = getEffectiveEndsAt(t);
-        return endsAt !== null && endsAt > now;
+        // Include if we can determine which day(s) it covers (daily = openedAt day always works;
+        // weekly/monthly = need an endsAt; no period info = skip, can't place it on the grid)
+        const period = inferPeriodFromItems(t);
+        if (period === 'daily') return true; // openedAt day is always known
+        return getEffectiveEndsAt(t) !== null; // weekly/monthly need an end date
       }
       return false;
     });

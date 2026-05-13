@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.4.9] - 2026-05-13
+### Fixed
+- **Calendar** — historical desk bookings now appear when navigating to past weeks. Previously only tabs with a future end date were included; now all paid desk tabs with a resolvable booking period are shown, and `tabCoversDay` handles the date-range matching per cell.
+
 ## [1.4.8] - 2026-05-13
 ### Fixed
 - **Tabs sidebar** — pending online booking cards now show the space name (e.g. "Standup + 27"") instead of the raw internal space ID.
