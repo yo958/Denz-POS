@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { BedDouble, User, CalendarDays, Receipt, LogOut, Plus, Pencil, Archive, ArchiveRestore, Trash2 } from 'lucide-react';
 import { useProducts, useStays, useTabs, useCurrentStaff, useSettings } from '@/lib/hooks/useStore';
 import { fmtCur } from '@/lib/format';
@@ -16,18 +17,27 @@ import {
 import type { Product, Stay } from '@/lib/types';
 
 export default function RoomsPage() {
-  const products = useProducts();
-  const stays = useStays();
-  const tabs = useTabs();
-  const me = useCurrentStaff();
-  const cur = useSettings().currency;
-  const store = getStore();
+  const products     = useProducts();
+  const stays        = useStays();
+  const tabs         = useTabs();
+  const me           = useCurrentStaff();
+  const cur          = useSettings().currency;
+  const store        = getStore();
+  const searchParams = useSearchParams();
 
   const [showArchived, setShowArchived] = useState(false);
-  const [editing, setEditing] = useState<Product | null>(null);
-  const [creating, setCreating] = useState(false);
-  const [checkInRoom, setCheckInRoom] = useState<Product | null>(null);
-  const [folioStay, setFolioStay] = useState<Stay | null>(null);
+  const [editing, setEditing]           = useState<Product | null>(null);
+  const [creating, setCreating]         = useState(false);
+  const [checkInRoom, setCheckInRoom]   = useState<Product | null>(null);
+  const [folioStay, setFolioStay]       = useState<Stay | null>(null);
+
+  /* Auto-open a stay's folio when arriving from the calendar via ?stayId= */
+  useEffect(() => {
+    const id = searchParams.get('stayId');
+    if (!id || stays.length === 0) return;
+    const stay = stays.find(s => s.id === id);
+    if (stay) setFolioStay(stay);
+  }, [searchParams, stays]);
 
   const rooms = products.filter(p => p.category === 'rooms' && (showArchived || !p.archived));
   const availableCount = products.filter(p => p.category === 'rooms' && !p.archived && !findActiveStayByRoom(stays, p.id)).length;

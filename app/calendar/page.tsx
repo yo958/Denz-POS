@@ -207,7 +207,14 @@ function TabPill({ name, paid, onClick }: { name: string; paid: boolean; onClick
   }
   return <span className={`block w-full rounded px-1.5 py-0.5 text-xs font-medium truncate ${cls}`}>{shortName(name)}</span>;
 }
-function StayPill({ name }: { name: string }) {
+function StayPill({ name, onClick }: { name: string; onClick?: () => void }) {
+  if (onClick) {
+    return (
+      <button onClick={onClick} className="block w-full text-left rounded px-1.5 py-0.5 text-xs font-medium bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300 truncate hover:brightness-95 cursor-pointer">
+        {shortName(name)}
+      </button>
+    );
+  }
   return <span className="block w-full rounded px-1.5 py-0.5 text-xs font-medium bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300 truncate">{shortName(name)}</span>;
 }
 
@@ -452,7 +459,7 @@ export default function CalendarPage() {
                         return (
                           <td key={i} className={`border-r border-border px-1 py-1 align-top min-w-[80px] ${isToday(day) ? 'bg-primary/5' : ''}`}>
                             <div className="flex flex-col gap-0.5">
-                              {fromStays.map(s  => <StayPill    key={s.id}  name={s.guestName} />)}
+                              {fromStays.map(s => <StayPill key={s.id} name={s.guestName} onClick={() => router.push(`/rooms?stayId=${s.id}`)} />)}
                               {fromOrders.map(o => o.status === 'accepted'
                                 ? <AcceptedPill key={o.id} name={o.customerName} />
                                 : <PendingPill  key={o.id} name={o.customerName} onClick={() => router.push(`/online-orders?id=${o.id}`)} />)}
@@ -606,7 +613,11 @@ export default function CalendarPage() {
                     {roomStays.map(s => {
                       const checkIn = new Date(s.checkInAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
                       return (
-                        <div key={s.id} className="flex items-start gap-3 rounded-xl border border-border bg-card p-3">
+                        <div
+                          key={s.id}
+                          onClick={() => router.push(`/rooms?stayId=${s.id}`)}
+                          className="flex items-start gap-3 rounded-xl border border-border bg-card p-3 cursor-pointer hover:border-violet-400 hover:bg-violet-50/40 dark:hover:bg-violet-900/10 transition-colors"
+                        >
                           <div className="w-8 h-8 rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 flex items-center justify-center shrink-0">
                             <BedDouble size={14} />
                           </div>
