@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.4.0] - 2026-05-13
+### Added
+- **Calendar page** (`/calendar`) — manager-only overview of all coworking and room bookings for the week. Two switchable views:
+  - **Grid view**: spaces and rooms as rows, Mon–Sun as columns; accepted bookings show as green pills, pending as amber, room stays as violet.
+  - **List view**: diary-style cards grouped by day, showing space/room, period, and start date.
+- Week navigation with ← → arrows and a Today button.
+- Firestore listener pulls accepted + pending web orders with a `bookingDate`; room stays from local store.
+- `CalendarDays` icon added to sidebar and mobile nav (manager-only, after Online Orders).
+
 ## [1.3.1] - 2026-05-13
 ### Added
 - **Delete online order** — a "Delete order" button now appears at the bottom of the order detail panel on the Online Orders page. Requires confirmation before permanently removing the record from Firestore.
