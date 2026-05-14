@@ -149,6 +149,11 @@ export default function MenuPage() {
                         {p.description && <p className="text-xs text-muted-foreground truncate">{p.description}</p>}
                       </div>
                       <span className="text-sm font-semibold tabular-nums w-20 text-right">{cur}{fmtCur(p.price)}</span>
+                      {me?.role === 'manager' && (
+                        <span className="text-xs tabular-nums w-20 text-right text-muted-foreground">
+                          {p.cost != null ? <span className="text-teal-600 dark:text-teal-400">cost {cur}{fmtCur(p.cost)}</span> : <span className="opacity-30">—</span>}
+                        </span>
+                      )}
                       <span className="text-xs text-muted-foreground tabular-nums w-16 text-right">{p.stock ?? '—'}</span>
                       <button onClick={() => setEditing(p)} aria-label={`Edit ${p.name}`} className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer">
                         <Pencil size={13} />

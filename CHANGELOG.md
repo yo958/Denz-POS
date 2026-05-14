@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.10] - 2026-05-14
+### Added
+- **Menu** — Cost price is now visible on each menu item row for managers (shown in teal, "cost £X.XX"; dash for items without a cost set).
+
 ## [1.5.9] - 2026-05-14
 ### Added
 - **Reports** — Gross Profit card shows when any menu item has a cost price set: displays total gross profit and overall margin % for items with cost data.
