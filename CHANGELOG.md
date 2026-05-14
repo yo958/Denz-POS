@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.24] - 2026-05-15
+### Added
+- **History** — Managers can now correct the date and time of a past order. In edit mode, the Date/Time rows are replaced by a single datetime picker pre-filled with the current value. Saving writes the corrected timestamp to the order.
+
 ## [1.5.23] - 2026-05-15
 ### Added
 - **History** — "Reopen in POS" button (manager-only, external-link icon) on the order detail panel. After confirmation, moves the tab back to Open Tabs (clearing payment info) and navigates directly to the POS with that tab selected, ready to add or change items. Re-paying the tab sends it back to history as normal.

@@ -65,6 +65,7 @@ function OrderDetailPanel({ tab, onClose, onDelete, onReopenInPOS, cur, isManage
   const [editLabel, setEditLabel]   = useState(tab.label);
   const [editMethod, setEditMethod] = useState<PaymentMethod | ''>(tab.paymentMethod ?? '');
   const [editItems, setEditItems]   = useState(tab.items);
+  const [editPaidAt, setEditPaidAt] = useState('');
 
   // Customer link state
   const [showLink, setShowLink]             = useState(false);
@@ -89,15 +90,25 @@ function OrderDetailPanel({ tab, onClose, onDelete, onReopenInPOS, cur, isManage
   const TypeIcon   = TYPE_ICON[tab.type];
   const MethodIcon = tab.paymentMethod ? (METHOD_ICON[tab.paymentMethod] ?? Receipt) : Receipt;
 
+  function toDatetimeLocal(d: Date | string | undefined): string {
+    if (!d) return '';
+    const dt = new Date(d);
+    // Format as YYYY-MM-DDTHH:mm in local time
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+  }
+
   function saveEdit() {
     if (!editName.trim()) return;
     if (editItems.length === 0) return;
+    const paidAt = editPaidAt ? new Date(editPaidAt) : tab.paidAt;
     getStore().tabs.set(prev => prev.map(t => t.id === tab.id ? {
       ...t,
       customerName:   editName.trim(),
       label:          editLabel.trim() || t.label,
       paymentMethod:  (editMethod as PaymentMethod) || t.paymentMethod,
       items:          editItems,
+      paidAt,
     } : t));
     setIsEditing(false);
   }
@@ -107,6 +118,7 @@ function OrderDetailPanel({ tab, onClose, onDelete, onReopenInPOS, cur, isManage
     setEditLabel(tab.label);
     setEditMethod(tab.paymentMethod ?? '');
     setEditItems(tab.items);
+    setEditPaidAt(toDatetimeLocal(tab.paidAt));
     setIsEditing(true);
   }
 
@@ -201,14 +213,28 @@ function OrderDetailPanel({ tab, onClose, onDelete, onReopenInPOS, cur, isManage
 
           {/* Order meta */}
           <section className="space-y-1 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Date</span>
-              <span>{tab.paidAt ? formatDate(tab.paidAt) : '—'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Time</span>
-              <span>{tab.paidAt ? formatTime(tab.paidAt) : '—'}</span>
-            </div>
+            {isEditing ? (
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Date &amp; Time</span>
+                <input
+                  type="datetime-local"
+                  value={editPaidAt}
+                  onChange={e => setEditPaidAt(e.target.value)}
+                  className="h-7 px-2 rounded-lg text-xs border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ring tabular-nums"
+                />
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Date</span>
+                  <span>{tab.paidAt ? formatDate(tab.paidAt) : '—'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Time</span>
+                  <span>{tab.paidAt ? formatTime(tab.paidAt) : '—'}</span>
+                </div>
+              </>
+            )}
             {isEditing ? (
               <div className="flex justify-between items-center pt-1">
                 <span className="text-muted-foreground">Payment</span>
