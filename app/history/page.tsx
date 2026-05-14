@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { Search, Receipt, Coffee, Monitor, BedDouble, RotateCcw, Trash2, X, Printer, Tag, CreditCard, QrCode, Banknote, Star, Check, Pencil, UserPlus, UserCheck } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Search, Receipt, Coffee, Monitor, BedDouble, RotateCcw, Trash2, X, Printer, Tag, CreditCard, QrCode, Banknote, Star, Check, Pencil, UserPlus, UserCheck, ExternalLink } from 'lucide-react';
 import { useTabs, useSettings, useCurrentStaff, useCustomers } from '@/lib/hooks/useStore';
 import {
   tabDiscountAmount, tabTax, tabGrandTotal, tabCardFee,
@@ -53,8 +53,8 @@ function dayLabel(d: Date) {
   return d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function OrderDetailPanel({ tab, onClose, onDelete, cur, isManager }: {
-  tab: Tab; onClose: () => void; onDelete: (tab: Tab) => void; cur: string; isManager: boolean;
+function OrderDetailPanel({ tab, onClose, onDelete, onReopenInPOS, cur, isManager }: {
+  tab: Tab; onClose: () => void; onDelete: (tab: Tab) => void; onReopenInPOS: (tab: Tab) => void; cur: string; isManager: boolean;
 }) {
   const settings  = useSettings();
   const customers = useCustomers();
@@ -442,6 +442,15 @@ function OrderDetailPanel({ tab, onClose, onDelete, cur, isManager }: {
                   <Pencil size={15} />
                 </button>
               )}
+              {isManager && (
+                <button
+                  onClick={() => onReopenInPOS(tab)}
+                  className="flex items-center justify-center w-10 h-10 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer shrink-0"
+                  title="Reopen in POS to add items"
+                >
+                  <ExternalLink size={15} />
+                </button>
+              )}
               <a
                 href={`/receipt/${tab.id}`}
                 target="_blank"
@@ -463,6 +472,7 @@ export default function HistoryPage() {
   const me           = useCurrentStaff();
   const tabs         = useTabs();
   const cur          = useSettings().currency;
+  const router       = useRouter();
   const searchParams = useSearchParams();
   const [query, setQuery]           = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | TabType>('all');
@@ -499,6 +509,25 @@ export default function HistoryPage() {
     if (!ok) return;
     getStore().tabs.set(prev => prev.filter(t => t.id !== tab.id));
     if (selectedId === tab.id) setSelectedId(null);
+  }
+
+  async function reopenInPOS(tab: Tab) {
+    const ok = await confirm({
+      title: 'Reopen in POS?',
+      message: `This will move "${tab.customerName} · ${tab.label}" back to Open Tabs so you can add or change items. You'll need to re-process payment when done.`,
+      confirmLabel: 'Reopen',
+    });
+    if (!ok) return;
+    getStore().tabs.set(prev => prev.map(t => t.id === tab.id ? {
+      ...t,
+      status: 'open',
+      paidAt: undefined,
+      paymentMethod: undefined,
+      partialPayments: undefined,
+      paymentReceived: false,
+    } : t));
+    setSelectedId(null);
+    router.push(`/?tabId=${tab.id}`);
   }
 
   const { groups, totals } = useMemo(() => {
@@ -670,6 +699,7 @@ export default function HistoryPage() {
           isManager={me?.role === 'manager'}
           onClose={() => setSelectedId(null)}
           onDelete={async (tab) => { await deleteTab(tab); }}
+          onReopenInPOS={reopenInPOS}
         />
       )}
     </div>

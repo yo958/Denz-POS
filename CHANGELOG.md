@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.23] - 2026-05-15
+### Added
+- **History** — "Reopen in POS" button (manager-only, external-link icon) on the order detail panel. After confirmation, moves the tab back to Open Tabs (clearing payment info) and navigates directly to the POS with that tab selected, ready to add or change items. Re-paying the tab sends it back to history as normal.
+
 ## [1.5.22] - 2026-05-15
 ### Added
 - **History** — Managers can now edit line items on past orders. In the order detail panel, clicking the edit (pencil) button shows qty +/− controls and a remove button next to each item. Totals update live as items are changed. Refunded items cannot be removed. At least one item must remain before saving.
