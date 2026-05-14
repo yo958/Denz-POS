@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.22] - 2026-05-15
+### Added
+- **History** — Managers can now edit line items on past orders. In the order detail panel, clicking the edit (pencil) button shows qty +/− controls and a remove button next to each item. Totals update live as items are changed. Refunded items cannot be removed. At least one item must remain before saving.
+
 ## [1.5.21] - 2026-05-15
 ### Fixed
 - **POS** — Desk hourly rate picker now calculates the total using tiered pricing (same `calcRentalTotal` logic as equipment), so spaces with per-hour volume tiers (e.g. Hour 1 = ฿200, Hour 2 = ฿190, …) show the correct price instead of a flat multiplication.

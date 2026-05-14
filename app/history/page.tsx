@@ -64,6 +64,7 @@ function OrderDetailPanel({ tab, onClose, onDelete, cur, isManager }: {
   const [editName, setEditName]     = useState(tab.customerName);
   const [editLabel, setEditLabel]   = useState(tab.label);
   const [editMethod, setEditMethod] = useState<PaymentMethod | ''>(tab.paymentMethod ?? '');
+  const [editItems, setEditItems]   = useState(tab.items);
 
   // Customer link state
   const [showLink, setShowLink]             = useState(false);
@@ -71,14 +72,15 @@ function OrderDetailPanel({ tab, onClose, onDelete, cur, isManager }: {
   const [linkCustomerId, setLinkCustomerId] = useState<string | undefined>(undefined);
 
   const taxRate    = settings.taxEnabled === false ? 0 : settings.taxRate;
-  const subtotal   = tab.items.reduce((s, li) => s + lineUnitPrice(li) * Math.max(0, li.qty - (li.refundedQty ?? 0)), 0);
-  const lineDiscountTotal = tab.items.reduce((s, li) => {
+  const displayItems = isEditing ? editItems : tab.items;
+  const subtotal   = displayItems.reduce((s, li) => s + lineUnitPrice(li) * Math.max(0, li.qty - (li.refundedQty ?? 0)), 0);
+  const lineDiscountTotal = displayItems.reduce((s, li) => {
     const saving = lineUnitPrice(li) - lineEffectiveUnitPrice(li);
     return s + saving * Math.max(0, li.qty - (li.refundedQty ?? 0));
   }, 0);
-  const discount   = tabDiscountAmount(tab.items, tab.discount);
-  const tax        = tabTax(tab.items, tab.discount, taxRate);
-  const baseTotal  = tabGrandTotal(tab.items, tab.discount, taxRate);
+  const discount   = tabDiscountAmount(displayItems, tab.discount);
+  const tax        = tabTax(displayItems, tab.discount, taxRate);
+  const baseTotal  = tabGrandTotal(displayItems, tab.discount, taxRate);
   const isCard     = (isEditing ? editMethod : tab.paymentMethod) === 'card';
   const cardFee    = isCard ? tabCardFee(tab.items, tab.discount, taxRate) : 0;
   const total      = baseTotal + cardFee;
@@ -89,13 +91,37 @@ function OrderDetailPanel({ tab, onClose, onDelete, cur, isManager }: {
 
   function saveEdit() {
     if (!editName.trim()) return;
+    if (editItems.length === 0) return;
     getStore().tabs.set(prev => prev.map(t => t.id === tab.id ? {
       ...t,
       customerName:   editName.trim(),
       label:          editLabel.trim() || t.label,
       paymentMethod:  (editMethod as PaymentMethod) || t.paymentMethod,
+      items:          editItems,
     } : t));
     setIsEditing(false);
+  }
+
+  function startEdit() {
+    setEditName(tab.customerName);
+    setEditLabel(tab.label);
+    setEditMethod(tab.paymentMethod ?? '');
+    setEditItems(tab.items);
+    setIsEditing(true);
+  }
+
+  function setItemQty(id: string | undefined, delta: number) {
+    if (!id) return;
+    setEditItems(prev => prev.map(li => {
+      if (li.id !== id) return li;
+      const min = Math.max(1, li.refundedQty ?? 0);
+      return { ...li, qty: Math.max(min, li.qty + delta) };
+    }));
+  }
+
+  function removeItem(id: string | undefined) {
+    if (!id) return;
+    setEditItems(prev => prev.filter(li => li.id !== id));
   }
 
   function confirmLink() {
@@ -269,15 +295,36 @@ function OrderDetailPanel({ tab, onClose, onDelete, cur, isManager }: {
 
           {/* Line items */}
           <section>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Items</p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Items</p>
+              {isEditing && <p className="text-[10px] text-muted-foreground">Adjust qty or remove items</p>}
+            </div>
             <div className="rounded-2xl border border-border overflow-hidden divide-y divide-border">
-              {tab.items.map((li, i) => {
+              {displayItems.map((li, i) => {
                 const qty  = effectiveQty(li);
                 const unit = lineEffectiveUnitPrice(li);
                 const mods = modifiersSummary(li.modifiers);
+                const canRemove = !li.refundedQty || li.refundedQty === 0;
                 return (
                   <div key={li.id ?? i} className="flex items-start gap-3 px-4 py-3">
-                    <span className="text-sm text-muted-foreground tabular-nums w-5 shrink-0">{qty}×</span>
+                    {isEditing ? (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setItemQty(li.id, -1)}
+                          disabled={li.qty <= Math.max(1, li.refundedQty ?? 0)}
+                          className="w-6 h-6 rounded-md flex items-center justify-center border border-border text-muted-foreground hover:text-foreground hover:bg-black/5 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed transition-colors text-sm font-bold leading-none"
+                        >−</button>
+                        <span className="text-sm tabular-nums w-5 text-center">{li.qty}</span>
+                        <button
+                          type="button"
+                          onClick={() => setItemQty(li.id, 1)}
+                          className="w-6 h-6 rounded-md flex items-center justify-center border border-border text-muted-foreground hover:text-foreground hover:bg-black/5 cursor-pointer transition-colors text-sm font-bold leading-none"
+                        >+</button>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground tabular-nums w-5 shrink-0">{qty}×</span>
+                    )}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium">{li.product.name}</p>
                       {mods && <p className="text-xs text-muted-foreground">{mods}</p>}
@@ -286,11 +333,26 @@ function OrderDetailPanel({ tab, onClose, onDelete, cur, isManager }: {
                         <p className="text-xs text-rose-500">refunded ×{li.refundedQty}</p>
                       )}
                     </div>
-                    <span className="text-sm tabular-nums shrink-0">{cur}{fmtCur(unit * qty)}</span>
+                    {isEditing ? (
+                      <button
+                        type="button"
+                        onClick={() => canRemove && removeItem(li.id)}
+                        disabled={!canRemove}
+                        title={canRemove ? 'Remove item' : 'Cannot remove refunded item'}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors shrink-0"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    ) : (
+                      <span className="text-sm tabular-nums shrink-0">{cur}{fmtCur(unit * qty)}</span>
+                    )}
                   </div>
                 );
               })}
             </div>
+            {isEditing && editItems.length === 0 && (
+              <p className="text-xs text-rose-500 mt-2 text-center">At least one item is required</p>
+            )}
           </section>
 
           {/* Totals */}
@@ -373,7 +435,7 @@ function OrderDetailPanel({ tab, onClose, onDelete, cur, isManager }: {
               </button>
               {isManager && (
                 <button
-                  onClick={() => { setIsEditing(true); setEditName(tab.customerName); setEditLabel(tab.label); setEditMethod(tab.paymentMethod ?? ''); }}
+                  onClick={startEdit}
                   className="flex items-center justify-center w-10 h-10 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer shrink-0"
                   title="Edit order"
                 >
