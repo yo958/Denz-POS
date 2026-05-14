@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.11] - 2026-05-14
+### Added
+- **Menu** — Profit per item now shown alongside cost price for managers: "+฿X.XX (Y%)" in green, or negative in red.
+
 ## [1.5.10] - 2026-05-14
 ### Added
 - **Menu** — Cost price is now visible on each menu item row for managers (shown in teal, "cost £X.XX"; dash for items without a cost set).

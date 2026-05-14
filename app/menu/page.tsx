@@ -154,6 +154,17 @@ export default function MenuPage() {
                           {p.cost != null ? <span className="text-teal-600 dark:text-teal-400">cost {cur}{fmtCur(p.cost)}</span> : <span className="opacity-30">—</span>}
                         </span>
                       )}
+                      {me?.role === 'manager' && (() => {
+                        if (p.cost == null) return <span className="text-xs tabular-nums w-20 text-right opacity-30">—</span>;
+                        const profit = p.price - p.cost;
+                        const margin = p.price > 0 ? (profit / p.price) * 100 : 0;
+                        const pos = profit >= 0;
+                        return (
+                          <span className={`text-xs tabular-nums w-20 text-right ${pos ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                            {pos ? '+' : ''}{cur}{fmtCur(profit)} <span className="opacity-60">({Math.round(margin)}%)</span>
+                          </span>
+                        );
+                      })()}
                       <span className="text-xs text-muted-foreground tabular-nums w-16 text-right">{p.stock ?? '—'}</span>
                       <button onClick={() => setEditing(p)} aria-label={`Edit ${p.name}`} className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer">
                         <Pencil size={13} />
