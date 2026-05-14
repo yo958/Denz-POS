@@ -404,14 +404,14 @@ export default function HistoryPage() {
   const searchParams = useSearchParams();
   const [query, setQuery]           = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | TabType>('all');
-  const [selected, setSelected]     = useState<Tab | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = selectedId ? tabs.find(t => t.id === selectedId) ?? null : null;
 
   /* Auto-select a tab when arriving from the calendar via ?tabId= */
   useEffect(() => {
     const id = searchParams.get('tabId');
     if (!id || tabs.length === 0) return;
-    const tab = tabs.find(t => t.id === id);
-    if (tab) setSelected(tab);
+    if (tabs.find(t => t.id === id)) setSelectedId(id);
   }, [searchParams, tabs]);
   function toggleReceived(tab: Tab) {
     getStore().tabs.set(prev =>
@@ -436,7 +436,7 @@ export default function HistoryPage() {
     });
     if (!ok) return;
     getStore().tabs.set(prev => prev.filter(t => t.id !== tab.id));
-    if (selected?.id === tab.id) setSelected(null);
+    if (selectedId === tab.id) setSelectedId(null);
   }
 
   const { groups, totals } = useMemo(() => {
@@ -541,7 +541,7 @@ export default function HistoryPage() {
                     >
                       <button
                         type="button"
-                        onClick={() => setSelected(tab)}
+                        onClick={() => setSelectedId(tab.id)}
                         className="flex-1 flex items-center gap-3 text-left cursor-pointer min-w-0"
                       >
                         <span className={`flex items-center justify-center w-8 h-8 rounded-lg shrink-0 ${TYPE_COLOR[tab.type]}`}>
@@ -606,7 +606,7 @@ export default function HistoryPage() {
           tab={selected}
           cur={cur}
           isManager={me?.role === 'manager'}
-          onClose={() => setSelected(null)}
+          onClose={() => setSelectedId(null)}
           onDelete={async (tab) => { await deleteTab(tab); }}
         />
       )}
