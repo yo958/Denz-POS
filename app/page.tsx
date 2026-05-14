@@ -129,7 +129,7 @@ function EquipmentHoursDialog({ equip, cur, onClose, onConfirm }: {
 function DeskRatePickerDialog({ space, cur, onClose, onConfirm }: {
   space: CoworkSpace; cur: string;
   onClose: () => void;
-  onConfirm: (rate: CoworkSpaceRate, bookingEndsAt: Date | undefined, bookingType: 'hot' | 'dedicated', hours?: number) => void;
+  onConfirm: (rate: CoworkSpaceRate, bookingEndsAt: Date | undefined, bookingType: 'hot' | 'dedicated', hours?: number, total?: number) => void;
 }) {
   const enabledHotRates       = space.rates?.filter(r => r.enabled) ?? [];
   const enabledDedicatedRates = (space.dedicatedRates ?? []).filter(r => r.enabled);
@@ -164,7 +164,10 @@ function DeskRatePickerDialog({ space, cur, onClose, onConfirm }: {
       : needsExpiry
         ? new Date(Date.now() + PERIOD_DURATION_MS[rate.period])
         : undefined;
-    onConfirm(rate, bookingEndsAt, effectiveBookingType, rate.period === 'hourly' ? hours : undefined);
+    const hourlyTotal = rate.period === 'hourly'
+      ? calcRentalTotal(rate.tiers ?? [], hours)
+      : undefined;
+    onConfirm(rate, bookingEndsAt, effectiveBookingType, rate.period === 'hourly' ? hours : undefined, hourlyTotal);
   }
 
   return (
@@ -248,7 +251,7 @@ function DeskRatePickerDialog({ space, cur, onClose, onConfirm }: {
             </div>
             <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-black/5 dark:bg-white/5">
               <span className="text-sm text-muted-foreground">Total</span>
-              <span className="text-base font-bold tabular-nums">{cur}{((selectedRate?.price ?? 0) * hours).toLocaleString()}</span>
+              <span className="text-base font-bold tabular-nums">{cur}{calcRentalTotal(selectedRate?.tiers ?? [], hours).toLocaleString()}</span>
             </div>
           </div>
         )}
@@ -1034,13 +1037,13 @@ export default function POSPage() {
           space={deskRateSpace}
           cur={cur}
           onClose={() => setDeskRateSpace(null)}
-          onConfirm={(rate, bookingEndsAt, bookingType, hours) => {
+          onConfirm={(rate, bookingEndsAt, bookingType, hours, total) => {
             const deskProduct: Product = {
               id: deskRateSpace.id,
               name: hours && hours > 1
                 ? `${deskRateSpace.name} — Per Hour (${hours}hr)`
                 : `${deskRateSpace.name} — ${PERIOD_LABEL[rate.period]}`,
-              price: rate.price * (hours ?? 1),
+              price: total ?? rate.price,
               cost: rate.cost != null ? rate.cost * (hours ?? 1) : null,
               category: 'desks',
               description: '',

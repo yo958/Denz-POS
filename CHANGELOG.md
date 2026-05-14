@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.21] - 2026-05-15
+### Fixed
+- **POS** — Desk hourly rate picker now calculates the total using tiered pricing (same `calcRentalTotal` logic as equipment), so spaces with per-hour volume tiers (e.g. Hour 1 = ฿200, Hour 2 = ฿190, …) show the correct price instead of a flat multiplication.
+
 ## [1.5.20] - 2026-05-15
 ### Changed
 - **POS** — Selecting "Per Hour" in the desk rate picker now shows a second step with an hours stepper (same UX as equipment rental). Price is multiplied by hours and the line item name shows the duration (e.g. "Private Office — Per Hour (3hr)"). Non-hourly rates (Daily, Weekly, etc.) add to the tab immediately as before. Back button returns to rate selection.
