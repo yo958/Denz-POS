@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.7] - 2026-05-14
+### Fixed
+- **Firestore sync** — Paid tabs reverting to unpaid seconds after payment. Root cause: full-document `setDoc` writes with no locking meant a stale write from another open device/tab could overwrite a newer local write. Fix: every Firestore write now includes a `writtenAt` timestamp; incoming snapshots are rejected if their `writtenAt` is older than the last local write, preventing stale remote data from overwriting recent changes.
+
 ## [1.5.6] - 2026-05-14
 ### Added
 - **Bills** — "Paid By" field on bills: select JD or Sasinee (or leave blank) when adding/editing a bill. Payer badge appears on each row. Per-payer totals (JD vs Sasinee) shown in the summary banner. Filter chips to view bills by payer.

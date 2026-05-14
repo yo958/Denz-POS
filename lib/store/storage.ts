@@ -32,6 +32,9 @@ export class StorageSlice<T> {
   private firestoreUnsub?: () => void;
   private firestoreDoc?: DocumentReference;
   private _suppressFirestoreWrite = false;
+  // Timestamp of our last write to Firestore. Used to reject stale remote
+  // snapshots that arrive after a local write (race condition guard).
+  private _lastLocalWriteAt = 0;
 
   constructor(
     private readonly key: string,
@@ -94,8 +97,12 @@ export class StorageSlice<T> {
     if (!this.firestoreDoc) return;
     // Serialize with our custom replacer so Dates survive the round-trip
     const serialized = JSON.stringify(value, replacer);
+    // Record write time BEFORE the async import so the guard is set
+    // even if the import takes a moment to resolve.
+    this._lastLocalWriteAt = Date.now();
+    const writtenAt = this._lastLocalWriteAt;
     import('firebase/firestore').then(({ setDoc }) => {
-      setDoc(this.firestoreDoc!, { v: this.version, serialized })
+      setDoc(this.firestoreDoc!, { v: this.version, serialized, writtenAt })
         .catch(e => console.warn(`[firestore] write error for ${this.key}`, e));
     });
   }
@@ -129,7 +136,7 @@ export class StorageSlice<T> {
   rawWrite(data: T) {
     this.cache = data;
     this.localPersist(data);
-    this.firestorePersist(data);
+    this.firestorePersist(data); // sets _lastLocalWriteAt internally
     this.listeners.forEach(l => l());
   }
 
@@ -156,8 +163,16 @@ export class StorageSlice<T> {
             this.firestorePersist(this.cache);
             return;
           }
-          const remote = snap.data() as { v: number; serialized: string } | null;
+          const remote = snap.data() as { v: number; serialized: string; writtenAt?: number } | null;
           if (!remote?.serialized) return;
+          // Reject snapshots that are older than our last local write.
+          // This prevents a stale write from another device (or a slow
+          // Firestore delivery) from overwriting a more-recent local change
+          // (e.g. a tab being marked paid and then reverting to open).
+          const remoteWrittenAt = remote.writtenAt ?? 0;
+          if (this._lastLocalWriteAt > 0 && remoteWrittenAt < this._lastLocalWriteAt) {
+            return;
+          }
           try {
             const parsed = JSON.parse(remote.serialized, reviver) as T;
             this._suppressFirestoreWrite = true;
