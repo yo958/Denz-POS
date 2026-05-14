@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.12] - 2026-05-14
+### Added
+- **Menu** — Stock filter chips: "Low stock" (amber) and "Out of stock" (rose) show badge counts and filter the list to only those items.
+
 ## [1.5.11] - 2026-05-14
 ### Added
 - **Menu** — Profit per item now shown alongside cost price for managers: "+฿X.XX (Y%)" in green, or negative in red.

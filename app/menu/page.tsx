@@ -30,8 +30,17 @@ export default function MenuPage() {
   const [creating, setCreating] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [stockFilter, setStockFilter] = useState<'all' | 'low' | 'out'>('all');
 
-  const visible = products.filter(p => showArchived || !p.archived);
+  const outCount = products.filter(p => !p.archived && p.stock !== null && p.stock <= 0).length;
+  const lowCount = products.filter(p => !p.archived && p.stock !== null && p.lowStockAt !== null && p.stock > 0 && p.stock <= p.lowStockAt).length;
+
+  const visible = products.filter(p => {
+    if (!showArchived && p.archived) return false;
+    if (stockFilter === 'out') return p.stock !== null && p.stock <= 0;
+    if (stockFilter === 'low') return p.stock !== null && p.lowStockAt !== null && p.stock > 0 && p.stock <= p.lowStockAt;
+    return true;
+  });
   const grouped = CATEGORY_ORDER.map(cat => ({
     category: cat,
     products: visible.filter(p => p.category === cat),
@@ -106,10 +115,10 @@ export default function MenuPage() {
         </div>
       </header>
 
-      {/* Category quick-jump bar */}
-      {grouped.some(g => g.products.length > 0) && (
-        <div className="flex items-center gap-2 px-6 py-2 border-b border-border bg-background/60">
-          {grouped.map(({ category, products: list }) => (
+      {/* Category quick-jump + stock filter bar */}
+      <div className="flex items-center justify-between gap-4 px-6 py-2 border-b border-border bg-background/60">
+        <div className="flex items-center gap-2 flex-wrap">
+          {stockFilter === 'all' && grouped.map(({ category, products: list }) => list.length > 0 && (
             <button
               key={category}
               onClick={() => document.getElementById(`cat-${category}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
@@ -120,7 +129,18 @@ export default function MenuPage() {
             </button>
           ))}
         </div>
-      )}
+        <div className="flex items-center gap-1 shrink-0">
+          <button onClick={() => setStockFilter('all')} className={`h-7 px-3 rounded-lg text-xs font-medium transition-all cursor-pointer ${stockFilter === 'all' ? 'bg-card shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+            All
+          </button>
+          <button onClick={() => setStockFilter('low')} className={`h-7 px-3 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 ${stockFilter === 'low' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+            Low stock {lowCount > 0 && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${stockFilter === 'low' ? 'bg-amber-200/60 dark:bg-amber-800/40' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>{lowCount}</span>}
+          </button>
+          <button onClick={() => setStockFilter('out')} className={`h-7 px-3 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 ${stockFilter === 'out' ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+            Out of stock {outCount > 0 && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${stockFilter === 'out' ? 'bg-rose-200/60 dark:bg-rose-800/40' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'}`}>{outCount}</span>}
+          </button>
+        </div>
+      </div>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         {grouped.map(({ category, products: list }) => (
