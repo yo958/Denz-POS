@@ -9,7 +9,14 @@ import { useBills, useBillTags, useSettings, useCurrentStaff } from '@/lib/hooks
 import { getStore } from '@/lib/store/store';
 import { newId } from '@/lib/domain/id';
 import { fmtCur } from '@/lib/format';
-import type { Bill, BillCategory, BillTag } from '@/lib/types';
+import type { Bill, BillCategory, BillTag, BillPayer } from '@/lib/types';
+
+const PAYERS: BillPayer[] = ['JD', 'Sasinee'];
+
+const PAYER_COLORS: Record<BillPayer, string> = {
+  JD:      'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  Sasinee: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400',
+};
 
 /* ── Constants ────────────────────────────────────────────────── */
 
@@ -87,6 +94,7 @@ function BillDialog({ open, editBill, onClose, tags, cur }: BillDialogProps) {
   const [description, setDescription] = useState('');
   const [amount,      setAmount]      = useState('');
   const [category,   setCategory]   = useState<BillCategory>('general');
+  const [paidBy,     setPaidBy]     = useState<BillPayer | undefined>(undefined);
   const [supplier,   setSupplier]   = useState('');
   const [notes,      setNotes]      = useState('');
   const [dateVal,    setDateVal]    = useState('');
@@ -103,13 +111,14 @@ function BillDialog({ open, editBill, onClose, tags, cur }: BillDialogProps) {
         setDescription(editBill.description);
         setAmount(String(editBill.amount));
         setCategory(editBill.category);
+        setPaidBy(editBill.paidBy);
         setSupplier(editBill.supplier ?? '');
         setNotes(editBill.notes ?? '');
         setDateVal(toDateInputValue(new Date(editBill.date)));
         setSelTagIds(editBill.tagIds ?? []);
       } else {
         setDescription(''); setAmount(''); setCategory('general');
-        setSupplier(''); setNotes(''); setSelTagIds([]);
+        setPaidBy(undefined); setSupplier(''); setNotes(''); setSelTagIds([]);
         setDateVal(toDateInputValue(new Date()));
       }
       setNewTagName(''); setNewTagColor('gray'); setShowTagForm(false);
@@ -138,6 +147,7 @@ function BillDialog({ open, editBill, onClose, tags, cur }: BillDialogProps) {
         description: description.trim(),
         amount: parseFloat(amount),
         category,
+        paidBy: paidBy ?? undefined,
         tagIds: selTagIds,
         date: new Date(dateVal + 'T00:00:00'),
         supplier: supplier.trim() || undefined,
@@ -150,6 +160,7 @@ function BillDialog({ open, editBill, onClose, tags, cur }: BillDialogProps) {
         description: description.trim(),
         amount: parseFloat(amount),
         category,
+        paidBy: paidBy ?? undefined,
         tagIds: selTagIds,
         date: new Date(dateVal + 'T00:00:00'),
         supplier: supplier.trim() || undefined,
@@ -242,6 +253,27 @@ function BillDialog({ open, editBill, onClose, tags, cur }: BillDialogProps) {
                 </button>
               );
             })}
+          </div>
+        </div>
+
+        {/* Paid by */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Paid By</label>
+          <div className="flex gap-2">
+            {PAYERS.map(p => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPaidBy(prev => prev === p ? undefined : p)}
+                className={`flex-1 h-9 rounded-xl text-sm font-semibold transition-all cursor-pointer ring-offset-1 ${
+                  paidBy === p
+                    ? `${PAYER_COLORS[p]} ring-2 ring-current`
+                    : 'bg-black/5 dark:bg-white/5 text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {p}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -360,7 +392,14 @@ function BillRow({ bill, tags, cur, onEdit, onDelete }: {
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-sm font-medium truncate">{bill.description}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm font-medium truncate">{bill.description}</p>
+              {bill.paidBy && (
+                <span className={`shrink-0 px-1.5 py-0.5 rounded-md text-[10px] font-semibold ${PAYER_COLORS[bill.paidBy]}`}>
+                  {bill.paidBy}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
               {dateStr}{bill.supplier ? ` · ${bill.supplier}` : ''}
             </p>
@@ -403,11 +442,12 @@ export default function BillsPage() {
   const tags    = useBillTags();
   const cur     = useSettings().currency;
 
-  const [range,       setRange]       = useState<Range>('30d');
-  const [filterCat,   setFilterCat]   = useState<BillCategory | 'all'>('all');
-  const [filterTagId, setFilterTagId] = useState<string | 'all'>('all');
-  const [showDialog,  setShowDialog]  = useState(false);
-  const [editingBill, setEditingBill] = useState<Bill | null>(null);
+  const [range,          setRange]          = useState<Range>('30d');
+  const [filterCat,      setFilterCat]      = useState<BillCategory | 'all'>('all');
+  const [filterTagId,    setFilterTagId]    = useState<string | 'all'>('all');
+  const [filterPaidBy,   setFilterPaidBy]   = useState<BillPayer | 'all'>('all');
+  const [showDialog,     setShowDialog]     = useState(false);
+  const [editingBill,    setEditingBill]    = useState<Bill | null>(null);
 
   function openAdd()          { setEditingBill(null); setShowDialog(true); }
   function openEdit(b: Bill)  { setEditingBill(b);    setShowDialog(true); }
@@ -430,20 +470,23 @@ export default function BillsPage() {
         if (d < since) return false;
         if (filterCat !== 'all' && b.category !== filterCat) return false;
         if (filterTagId !== 'all' && !b.tagIds.includes(filterTagId)) return false;
+        if (filterPaidBy !== 'all' && b.paidBy !== filterPaidBy) return false;
         return true;
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [bills, range, filterCat, filterTagId]);
+  }, [bills, range, filterCat, filterTagId, filterPaidBy]);
 
   /* ── Totals ─────────────────────────────────────────────────── */
   const totals = useMemo(() => {
     const byCategory: Record<BillCategory, number> = { cafe: 0, rooms: 0, coworking: 0, general: 0 };
+    const byPayer: Record<BillPayer, number> = { JD: 0, Sasinee: 0 };
     let grand = 0;
     for (const b of filtered) {
       byCategory[b.category] += b.amount;
       grand += b.amount;
+      if (b.paidBy) byPayer[b.paidBy] += b.amount;
     }
-    return { byCategory, grand };
+    return { byCategory, byPayer, grand };
   }, [filtered]);
 
   function handleDelete(id: string) {
@@ -495,15 +538,25 @@ export default function BillsPage() {
           })}
         </div>
 
-        {/* Grand total banner */}
-        <div className="glass rounded-2xl p-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-            <TrendingDown size={16} strokeWidth={2} />
-            Total expenses ({range === 'today' ? 'today' : range === '7d' ? 'last 7 days' : range === '30d' ? 'last 30 days' : 'all time'})
+        {/* Per-payer totals + grand total */}
+        <div className="glass rounded-2xl p-4 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <TrendingDown size={16} strokeWidth={2} />
+              Total expenses ({range === 'today' ? 'today' : range === '7d' ? 'last 7 days' : range === '30d' ? 'last 30 days' : 'all time'})
+            </div>
+            <span className="text-xl font-bold tabular-nums text-red-600 dark:text-red-400">
+              -{cur}{fmtCur(totals.grand)}
+            </span>
           </div>
-          <span className="text-xl font-bold tabular-nums text-red-600 dark:text-red-400">
-            -{cur}{fmtCur(totals.grand)}
-          </span>
+          <div className="flex gap-3 border-t border-border pt-3">
+            {PAYERS.map(p => (
+              <div key={p} className={`flex-1 flex items-center justify-between px-3 py-2 rounded-xl ${PAYER_COLORS[p]}`}>
+                <span className="text-xs font-semibold">{p}</span>
+                <span className="text-sm font-bold tabular-nums">-{cur}{fmtCur(totals.byPayer[p])}</span>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Filters */}
@@ -534,6 +587,29 @@ export default function BillsPage() {
             <option value="all">All categories</option>
             {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
+
+          {/* Paid-by filter */}
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => setFilterPaidBy('all')}
+              className={`h-8 px-3 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                filterPaidBy === 'all' ? 'bg-primary text-primary-foreground' : 'bg-black/5 dark:bg-white/5 text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              All
+            </button>
+            {PAYERS.map(p => (
+              <button
+                key={p}
+                onClick={() => setFilterPaidBy(prev => prev === p ? 'all' : p)}
+                className={`h-8 px-3 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                  filterPaidBy === p ? `${PAYER_COLORS[p]} ring-2 ring-current ring-offset-1` : 'bg-black/5 dark:bg-white/5 text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
 
           {/* Tag filter */}
           {activeTags.length > 0 && (

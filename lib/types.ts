@@ -344,6 +344,8 @@ export interface BillTag {
   archived?: boolean;
 }
 
+export type BillPayer = 'JD' | 'Sasinee';
+
 export interface Bill {
   id: string;
   description: string;
@@ -352,6 +354,8 @@ export interface Bill {
   /** IDs of BillTags. */
   tagIds: string[];
   date: Date;
+  /** Who paid this bill. */
+  paidBy?: BillPayer;
   /** Optional supplier / payee name. */
   supplier?: string;
   /** Optional free-text notes. */

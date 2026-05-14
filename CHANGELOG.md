@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.6] - 2026-05-14
+### Added
+- **Bills** — "Paid By" field on bills: select JD or Sasinee (or leave blank) when adding/editing a bill. Payer badge appears on each row. Per-payer totals (JD vs Sasinee) shown in the summary banner. Filter chips to view bills by payer.
+
 ## [1.5.5] - 2026-05-14
 ### Fixed
 - **POS** — Added missing "Desserts" category chip to the POS product grid filter bar. Dessert products were stored correctly but had no dedicated tab to filter by, making them hard to find. They now appear under both "All" and the new "Desserts" chip.
