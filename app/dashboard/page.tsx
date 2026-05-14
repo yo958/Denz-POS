@@ -259,6 +259,21 @@ export default function DashboardPage() {
     const activeEquip   = allEquip.filter(e => activeEquipIds.has(e.id));
     const availEquip    = allEquip.filter(e => !activeEquipIds.has(e.id));
 
+    /* ── COGS today ────────────────────── */
+    let cogsToday = 0;
+    let hasCostDataToday = false;
+    for (const t of paidToday) {
+      for (const li of t.items) {
+        const qty = Math.max(0, li.qty - (li.refundedQty ?? 0));
+        if (li.product.cost != null && qty > 0) {
+          cogsToday += li.product.cost * qty;
+          hasCostDataToday = true;
+        }
+      }
+    }
+    const grossProfitToday = revenueToday - cogsToday;
+    const grossMarginToday = revenueToday > 0 ? (grossProfitToday / revenueToday) * 100 : 0;
+
     /* ── Bills / Expenses today ─────────── */
     const billsToday = bills.filter(b => isToday(new Date(b.date)));
     const expensesToday = billsToday.reduce((s, b) => s + b.amount, 0);
@@ -279,6 +294,7 @@ export default function DashboardPage() {
     return {
       openTabs, openSorted, paidToday, recentPaid,
       revenueToday, outstanding, partialCollected, netOutstanding,
+      grossProfitToday, grossMarginToday, hasCostDataToday,
       expensesToday, expensesByCategory, billsToday,
       methodTotals, typeTotals,
       kitNew, kitPreparing, kitReady, kitDoneToday,
@@ -318,7 +334,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ── Top stat row ────────────────────────────── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className={`grid gap-3 ${me?.role === 'manager' && d.hasCostDataToday ? 'grid-cols-2 lg:grid-cols-5' : 'grid-cols-2 lg:grid-cols-4'}`}>
           <StatCard
             label="Revenue today"
             value={`${cur}${fmtCur(d.revenueToday)}`}
@@ -342,6 +358,17 @@ export default function DashboardPage() {
               ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
               : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}
           />
+          {me?.role === 'manager' && d.hasCostDataToday && (
+            <StatCard
+              label="Gross Profit today"
+              value={`${cur}${fmtCur(d.grossProfitToday)}`}
+              sub={`${Math.round(d.grossMarginToday)}% margin · costed items`}
+              icon={Percent}
+              accent={d.grossProfitToday >= 0
+                ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400'
+                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}
+            />
+          )}
           <StatCard
             label="Outstanding"
             value={`${cur}${fmtCur(d.netOutstanding)}`}

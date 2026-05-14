@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.5.13] - 2026-05-14
+### Added
+- **Dashboard** — "Gross Profit today" stat card (manager-only) showing revenue minus COGS and margin %, appears when any sold item has a cost price set.
+- **Reports** — "By Area" section now shows COGS and gross margin % per area (Cafe/CoWorking/Rooms) when cost data is available.
+- **Reports** — New "Top Items by Profit" section sorted by gross profit (revenue − COGS), showing margin % and profit per item.
+
 ## [1.5.12] - 2026-05-14
 ### Added
 - **Menu** — Stock filter chips: "Low stock" (amber) and "Out of stock" (rose) show badge counts and filter the list to only those items.

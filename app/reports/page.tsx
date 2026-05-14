@@ -76,6 +76,7 @@ export default function ReportsPage() {
     const totalItems = inRange.reduce((s, t) => s + t.items.reduce((s2, li) => s2 + li.qty, 0), 0);
 
     const byType: Record<TabType, number> = { cafe: 0, desk: 0, room: 0 };
+    const byTypeCogs: Record<TabType, number> = { cafe: 0, desk: 0, room: 0 };
     const byMethod: Record<PaymentMethod, number> = { card: 0, qr: 0, cash: 0, room: 0, split: 0 };
     for (const t of paid) {
       // Bucket revenue by each line item's product category, not the tab type,
@@ -92,6 +93,7 @@ export default function ReportsPage() {
           li.product.category === 'rooms' ? 'room' :
           'cafe'; // food + drinks
         byType[bucket] += lineRevenue;
+        if (li.product.cost != null) byTypeCogs[bucket] += li.product.cost * qty;
       }
       if (t.paymentMethod) {
         const base = tabGrandTotal(t.items, t.discount);
@@ -117,8 +119,12 @@ export default function ReportsPage() {
     const itemsWithCost = Object.values(itemCounts).filter(i => i.hasCost);
     const grossProfit = itemsWithCost.reduce((s, i) => s + (i.revenue - i.cogs), 0);
     const hasCostData = itemsWithCost.length > 0;
+    const topByProfit = itemsWithCost
+      .map(i => ({ ...i, profit: i.revenue - i.cogs, margin: i.revenue > 0 ? ((i.revenue - i.cogs) / i.revenue) * 100 : 0 }))
+      .sort((a, b) => b.profit - a.profit)
+      .slice(0, 5);
 
-    return { revenue, refunds, net: revenue - refunds, pipeline, netPipeline, partialCollected, openTabs: open.length, paidTabs: paid.length, totalItems, byType, byMethod, topItems, grossProfit, hasCostData };
+    return { revenue, refunds, net: revenue - refunds, pipeline, netPipeline, partialCollected, openTabs: open.length, paidTabs: paid.length, totalItems, byType, byTypeCogs, byMethod, topItems, grossProfit, hasCostData, topByProfit };
   }, [tabs, range]);
 
   const expenseStats = useMemo(() => {
@@ -430,6 +436,12 @@ export default function ReportsPage() {
                         <span>Expenses <span className="tabular-nums text-red-600 dark:text-red-400">−{cur}{fmtCur(expenses)}</span></span>
                       </div>
                     )}
+                    {stats.byTypeCogs[type] > 0 && (
+                      <div className="flex items-center justify-end gap-6 text-xs text-muted-foreground pl-7">
+                        <span>COGS <span className="tabular-nums text-foreground">−{cur}{fmtCur(stats.byTypeCogs[type])}</span></span>
+                        <span>Gross margin <span className="tabular-nums text-teal-600 dark:text-teal-400">{Math.round(((revenue - stats.byTypeCogs[type]) / revenue) * 100)}%</span></span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -496,6 +508,32 @@ export default function ReportsPage() {
             })}
           </div>
         </section>
+
+        {stats.hasCostData && stats.topByProfit.length > 0 && (
+          <section>
+            <h2 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <Percent size={14} className="text-teal-600 dark:text-teal-400" /> Top Items by Profit
+            </h2>
+            <div className="rounded-2xl border border-border overflow-hidden bg-white/50 dark:bg-white/3 divide-y divide-border">
+              {stats.topByProfit.map((item, i) => {
+                const pos = item.profit >= 0;
+                return (
+                  <div key={item.name} className="flex items-center gap-4 px-4 py-3">
+                    <span className="text-xs font-bold text-muted-foreground tabular-nums w-4">{i + 1}</span>
+                    <span className="text-sm font-medium flex-1">{item.name}</span>
+                    <span className="text-xs text-muted-foreground tabular-nums">{item.qty}×</span>
+                    <span className={`text-xs tabular-nums px-1.5 py-0.5 rounded-full ${pos ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                      {Math.round(item.margin)}%
+                    </span>
+                    <span className={`text-sm font-semibold tabular-nums w-20 text-right ${pos ? 'text-teal-600 dark:text-teal-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {pos ? '+' : ''}{cur}{fmtCur(item.profit)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {stats.refunds > 0 && (
           <section>
