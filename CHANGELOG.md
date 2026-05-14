@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.25] - 2026-05-15
+### Fixed
+- **History / Calendar** — Correcting an order's date now also shifts `openedAt` and `bookingEndsAt` by the same delta, so desk bookings appear on the right day in the calendar grid (which uses `openedAt` for placement, not `paidAt`). Multi-day bookings (weekly, monthly) keep their original duration.
+
 ## [1.5.24] - 2026-05-15
 ### Added
 - **History** — Managers can now correct the date and time of a past order. In edit mode, the Date/Time rows are replaced by a single datetime picker pre-filled with the current value. Saving writes the corrected timestamp to the order.
