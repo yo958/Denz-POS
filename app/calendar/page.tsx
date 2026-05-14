@@ -154,6 +154,13 @@ function tabCoversDay(
     return dayStart >= openDay && dayStart <= displayEnd;
   }
 
+  // For paid/refunded hourly bookings, bookingEndsAt = payment_time + hours.
+  // That's a billing sentinel, not a date range — anchor to the openedAt day only
+  // so correcting a booking date in History moves it to the right calendar day.
+  if ((tab.status === 'paid' || tab.status === 'refunded') && inferPeriodFromItems(tab) === 'hourly') {
+    return openedAt >= dayStart && openedAt <= dayEnd;
+  }
+
   const endsAt = getEffectiveEndsAt(tab);
   if (!endsAt) {
     // No expiry info (hourly walk-ins) — show only on openedAt day

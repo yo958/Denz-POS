@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.5.26] - 2026-05-15
+### Fixed
+- **Calendar** — Paid/refunded hourly bookings now anchor to the `openedAt` day only. Previously, `bookingEndsAt = payment_time + hours` caused the booking to bleed into the next calendar day; it is a billing sentinel, not a date range.
+- **History** — Date correction delta now uses `paidAt` as the reference point (not `openedAt`), so editing a tab date correctly shifts `openedAt` and `bookingEndsAt` for future corrections.
+
 ## [1.5.25] - 2026-05-15
 ### Fixed
 - **History / Calendar** — Correcting an order's date now also shifts `openedAt` and `bookingEndsAt` by the same delta, so desk bookings appear on the right day in the calendar grid (which uses `openedAt` for placement, not `paidAt`). Multi-day bookings (weekly, monthly) keep their original duration.

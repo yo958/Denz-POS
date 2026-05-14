@@ -101,14 +101,19 @@ function OrderDetailPanel({ tab, onClose, onDelete, onReopenInPOS, cur, isManage
   function saveEdit() {
     if (!editName.trim()) return;
     if (editItems.length === 0) return;
-    const paidAt   = editPaidAt ? new Date(editPaidAt) : tab.paidAt;
-    const openedAt = editPaidAt ? new Date(editPaidAt) : tab.openedAt;
-    // Shift bookingEndsAt by the same delta so multi-day bookings keep
-    // their duration (e.g. a monthly booking stays one month long).
+    const paidAt = editPaidAt ? new Date(editPaidAt) : tab.paidAt;
+    // Use paidAt as the shift reference (not openedAt) so the delta reflects
+    // how many days the order is being moved, regardless of prior edits.
+    let openedAt: Date | string = tab.openedAt;
     let bookingEndsAt = tab.bookingEndsAt;
-    if (editPaidAt && tab.bookingEndsAt && tab.openedAt) {
-      const delta = new Date(editPaidAt).getTime() - new Date(tab.openedAt as unknown as string).getTime();
-      bookingEndsAt = new Date(new Date(tab.bookingEndsAt as unknown as string).getTime() + delta);
+    if (editPaidAt && tab.paidAt) {
+      const delta = new Date(editPaidAt).getTime() - new Date(tab.paidAt as unknown as string).getTime();
+      if (delta !== 0) {
+        openedAt = new Date(new Date(tab.openedAt as unknown as string).getTime() + delta);
+        if (tab.bookingEndsAt) {
+          bookingEndsAt = new Date(new Date(tab.bookingEndsAt as unknown as string).getTime() + delta);
+        }
+      }
     }
     getStore().tabs.set(prev => prev.map(t => t.id === tab.id ? {
       ...t,
