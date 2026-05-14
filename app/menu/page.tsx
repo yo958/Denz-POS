@@ -192,6 +192,7 @@ interface ProductDialogProps {
 }
 
 function ProductDialog({ product, onClose, onSave }: ProductDialogProps) {
+  const isManager = useCurrentStaff()?.role === 'manager';
   const groups = useModifierGroups();
   const [form, setForm] = useState<Product>(product ?? {
     id: newId('prod'),
@@ -301,16 +302,19 @@ function ProductDialog({ product, onClose, onSave }: ProductDialogProps) {
           </div>
         </div>
 
-        <Switch
-          checked={form.cost != null}
-          onChange={on => setForm({ ...form, cost: on ? (form.cost ?? 0) : null })}
-          label="Track cost price"
-        />
-
-        {form.cost != null && (
-          <Field label="Cost price">
-            <input type="number" min={0} step={0.01} value={form.cost} onChange={e => setForm({ ...form, cost: parseFloat(e.target.value) || 0 })} className={inputCls + ' tabular-nums'} />
-          </Field>
+        {isManager && (
+          <>
+            <Switch
+              checked={form.cost != null}
+              onChange={on => setForm({ ...form, cost: on ? (form.cost ?? 0) : null })}
+              label="Track cost price"
+            />
+            {form.cost != null && (
+              <Field label="Cost price">
+                <input type="number" min={0} step={0.01} value={form.cost} onChange={e => setForm({ ...form, cost: parseFloat(e.target.value) || 0 })} className={inputCls + ' tabular-nums'} />
+              </Field>
+            )}
+          </>
         )}
 
         {canTrackStock && (
@@ -326,13 +330,15 @@ function ProductDialog({ product, onClose, onSave }: ProductDialogProps) {
             />
 
             {tracksStock && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className={`grid gap-3 ${isManager ? 'grid-cols-2' : 'grid-cols-1'}`}>
                 <Field label="Stock">
                   <input type="number" min={0} step={1} value={form.stock ?? 0} onChange={e => setForm({ ...form, stock: parseInt(e.target.value, 10) || 0 })} className={inputCls + ' tabular-nums'} />
                 </Field>
-                <Field label="Low-stock alert at">
-                  <input type="number" min={0} step={1} value={form.lowStockAt ?? ''} placeholder="off" onChange={e => setForm({ ...form, lowStockAt: e.target.value === '' ? null : parseInt(e.target.value, 10) })} className={inputCls + ' tabular-nums'} />
-                </Field>
+                {isManager && (
+                  <Field label="Low-stock alert at">
+                    <input type="number" min={0} step={1} value={form.lowStockAt ?? ''} placeholder="off" onChange={e => setForm({ ...form, lowStockAt: e.target.value === '' ? null : parseInt(e.target.value, 10) })} className={inputCls + ' tabular-nums'} />
+                  </Field>
+                )}
               </div>
             )}
           </>

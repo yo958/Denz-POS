@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
-import { TrendingUp, TrendingDown, ShoppingBag, Clock, DollarSign, Coffee, Monitor, BedDouble, RotateCcw, CreditCard, QrCode, Banknote, Layers, Receipt } from 'lucide-react';
+import { TrendingUp, TrendingDown, ShoppingBag, Clock, DollarSign, Coffee, Monitor, BedDouble, RotateCcw, CreditCard, QrCode, Banknote, Layers, Receipt, Percent } from 'lucide-react';
 import { useTabs, useShift, useSettings, useCurrentStaff, useBills, useBillTags } from '@/lib/hooks/useStore';
 import { fmtCur } from '@/lib/format';
 import { lineUnitPrice, lineEffectiveUnitPrice, tabGrandTotal, tabRefundedAmount, tabCardFee, tabPartialPaidAmount } from '@/lib/domain/tabs';
@@ -100,17 +100,25 @@ export default function ReportsPage() {
       }
     }
 
-    const itemCounts: Record<string, { name: string; qty: number; revenue: number }> = {};
+    const itemCounts: Record<string, { name: string; qty: number; revenue: number; cogs: number; hasCost: boolean }> = {};
     for (const t of inRange) {
       for (const li of t.items) {
-        if (!itemCounts[li.productId]) itemCounts[li.productId] = { name: li.product.name, qty: 0, revenue: 0 };
+        const qty = Math.max(0, li.qty - (li.refundedQty ?? 0));
+        if (!itemCounts[li.productId]) itemCounts[li.productId] = { name: li.product.name, qty: 0, revenue: 0, cogs: 0, hasCost: li.product.cost != null };
         itemCounts[li.productId].qty += li.qty;
         itemCounts[li.productId].revenue += lineEffectiveUnitPrice(li) * li.qty;
+        if (li.product.cost != null && qty > 0) {
+          itemCounts[li.productId].cogs += li.product.cost * qty;
+          itemCounts[li.productId].hasCost = true;
+        }
       }
     }
     const topItems = Object.values(itemCounts).sort((a, b) => b.qty - a.qty).slice(0, 5);
+    const itemsWithCost = Object.values(itemCounts).filter(i => i.hasCost);
+    const grossProfit = itemsWithCost.reduce((s, i) => s + (i.revenue - i.cogs), 0);
+    const hasCostData = itemsWithCost.length > 0;
 
-    return { revenue, refunds, net: revenue - refunds, pipeline, netPipeline, partialCollected, openTabs: open.length, paidTabs: paid.length, totalItems, byType, byMethod, topItems };
+    return { revenue, refunds, net: revenue - refunds, pipeline, netPipeline, partialCollected, openTabs: open.length, paidTabs: paid.length, totalItems, byType, byMethod, topItems, grossProfit, hasCostData };
   }, [tabs, range]);
 
   const expenseStats = useMemo(() => {
@@ -349,6 +357,22 @@ export default function ReportsPage() {
               </div>
             );
           })}
+          {stats.hasCostData && (() => {
+            const margin = stats.revenue > 0 ? (stats.grossProfit / stats.revenue) * 100 : 0;
+            const positive = stats.grossProfit >= 0;
+            return (
+              <div className="flex flex-col gap-3 p-4 rounded-2xl border border-border bg-white/60 dark:bg-white/5">
+                <div className={`flex items-center justify-center w-9 h-9 rounded-xl ${positive ? 'bg-teal-100 dark:bg-teal-900/20' : 'bg-red-100 dark:bg-red-900/20'}`}>
+                  <Percent size={18} className={positive ? 'text-teal-600 dark:text-teal-400' : 'text-red-600 dark:text-red-400'} />
+                </div>
+                <div>
+                  <p className="text-xl font-bold tabular-nums">{cur}{fmtCur(stats.grossProfit)}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Gross Profit</p>
+                  <p className="text-xs text-muted-foreground">{Math.round(margin)}% margin · items with cost set</p>
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Secondary stats */}
@@ -454,14 +478,22 @@ export default function ReportsPage() {
           <h2 className="text-sm font-semibold mb-3">Top Items</h2>
           <div className="rounded-2xl border border-border overflow-hidden bg-white/50 dark:bg-white/3 divide-y divide-border">
             {stats.topItems.length === 0 && <p className="px-4 py-3 text-sm text-muted-foreground">No data.</p>}
-            {stats.topItems.map((item, i) => (
-              <div key={item.name} className="flex items-center gap-4 px-4 py-3">
-                <span className="text-xs font-bold text-muted-foreground tabular-nums w-4">{i + 1}</span>
-                <span className="text-sm font-medium flex-1">{item.name}</span>
-                <span className="text-xs text-muted-foreground tabular-nums">{item.qty}×</span>
-                <span className="text-sm font-semibold tabular-nums w-16 text-right">{cur}{fmtCur(item.revenue)}</span>
-              </div>
-            ))}
+            {stats.topItems.map((item, i) => {
+              const margin = item.hasCost && item.revenue > 0 ? ((item.revenue - item.cogs) / item.revenue) * 100 : null;
+              return (
+                <div key={item.name} className="flex items-center gap-4 px-4 py-3">
+                  <span className="text-xs font-bold text-muted-foreground tabular-nums w-4">{i + 1}</span>
+                  <span className="text-sm font-medium flex-1">{item.name}</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">{item.qty}×</span>
+                  {margin !== null && (
+                    <span className={`text-xs tabular-nums px-1.5 py-0.5 rounded-full ${margin >= 0 ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                      {Math.round(margin)}%
+                    </span>
+                  )}
+                  <span className="text-sm font-semibold tabular-nums w-16 text-right">{cur}{fmtCur(item.revenue)}</span>
+                </div>
+              );
+            })}
           </div>
         </section>
 

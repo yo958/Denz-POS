@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.9] - 2026-05-14
+### Added
+- **Reports** — Gross Profit card shows when any menu item has a cost price set: displays total gross profit and overall margin % for items with cost data.
+- **Reports** — Top Items now shows a margin % badge per item where cost data is available.
+### Changed
+- **Menu** — Cost price toggle and Low-stock alert threshold are now hidden from non-manager staff. Non-managers can still update stock counts but cannot see cost prices or alert thresholds.
+
 ## [1.5.8] - 2026-05-14
 ### Added
 - **History page** — Managers can now edit a paid order's customer name, label, and payment method via a new pencil icon in the order detail panel footer.
