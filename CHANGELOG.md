@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.5.8] - 2026-05-14
+### Added
+- **History page** — Managers can now edit a paid order's customer name, label, and payment method via a new pencil icon in the order detail panel footer.
+- **History page** — Managers can link any unlinked order to a customer profile via a new "Link to customer profile" section in the order detail. Supports searching existing customers or creating a new customer record from the tab name.
+
 ## [1.5.7] - 2026-05-14
 ### Fixed
 - **Firestore sync** — Paid tabs reverting to unpaid seconds after payment. Root cause: full-document `setDoc` writes with no locking meant a stale write from another open device/tab could overwrite a newer local write. Fix: every Firestore write now includes a `writtenAt` timestamp; incoming snapshots are rejected if their `writtenAt` is older than the last local write, preventing stale remote data from overwriting recent changes.

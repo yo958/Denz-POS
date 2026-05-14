@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Search, Receipt, Coffee, Monitor, BedDouble, RotateCcw, Trash2, X, Printer, Tag, CreditCard, QrCode, Banknote, Star, Check } from 'lucide-react';
+import { Search, Receipt, Coffee, Monitor, BedDouble, RotateCcw, Trash2, X, Printer, Tag, CreditCard, QrCode, Banknote, Star, Check, Pencil, UserPlus, UserCheck } from 'lucide-react';
 import { useTabs, useSettings, useCurrentStaff, useCustomers } from '@/lib/hooks/useStore';
 import {
   tabDiscountAmount, tabTax, tabGrandTotal, tabCardFee,
@@ -12,7 +12,9 @@ import {
 import { fmtCur } from '@/lib/format';
 import { getStore } from '@/lib/store/store';
 import { confirm } from '@/components/ui/confirm-dialog';
-import type { Tab, TabType } from '@/lib/types';
+import { newId } from '@/lib/domain/id';
+import { CustomerPicker } from '@/components/customers/CustomerPicker';
+import type { Tab, TabType, PaymentMethod } from '@/lib/types';
 
 const TYPE_ICON = { cafe: Coffee, desk: Monitor, room: BedDouble } as const;
 const TYPE_COLOR: Record<TabType, string> = {
@@ -51,11 +53,23 @@ function dayLabel(d: Date) {
   return d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function OrderDetailPanel({ tab, onClose, onDelete, cur }: {
-  tab: Tab; onClose: () => void; onDelete: (tab: Tab) => void; cur: string;
+function OrderDetailPanel({ tab, onClose, onDelete, cur, isManager }: {
+  tab: Tab; onClose: () => void; onDelete: (tab: Tab) => void; cur: string; isManager: boolean;
 }) {
-  const settings = useSettings();
+  const settings  = useSettings();
   const customers = useCustomers();
+
+  // Edit state
+  const [isEditing, setIsEditing]   = useState(false);
+  const [editName, setEditName]     = useState(tab.customerName);
+  const [editLabel, setEditLabel]   = useState(tab.label);
+  const [editMethod, setEditMethod] = useState<PaymentMethod | ''>(tab.paymentMethod ?? '');
+
+  // Customer link state
+  const [showLink, setShowLink]             = useState(false);
+  const [linkName, setLinkName]             = useState('');
+  const [linkCustomerId, setLinkCustomerId] = useState<string | undefined>(undefined);
+
   const taxRate    = settings.taxEnabled === false ? 0 : settings.taxRate;
   const subtotal   = tab.items.reduce((s, li) => s + lineUnitPrice(li) * Math.max(0, li.qty - (li.refundedQty ?? 0)), 0);
   const lineDiscountTotal = tab.items.reduce((s, li) => {
@@ -65,13 +79,40 @@ function OrderDetailPanel({ tab, onClose, onDelete, cur }: {
   const discount   = tabDiscountAmount(tab.items, tab.discount);
   const tax        = tabTax(tab.items, tab.discount, taxRate);
   const baseTotal  = tabGrandTotal(tab.items, tab.discount, taxRate);
-  const isCard     = tab.paymentMethod === 'card';
+  const isCard     = (isEditing ? editMethod : tab.paymentMethod) === 'card';
   const cardFee    = isCard ? tabCardFee(tab.items, tab.discount, taxRate) : 0;
   const total      = baseTotal + cardFee;
   const refunded   = tabRefundedAmount(tab);
   const customer   = customers.find(c => c.id === tab.customerId);
   const TypeIcon   = TYPE_ICON[tab.type];
   const MethodIcon = tab.paymentMethod ? (METHOD_ICON[tab.paymentMethod] ?? Receipt) : Receipt;
+
+  function saveEdit() {
+    if (!editName.trim()) return;
+    getStore().tabs.set(prev => prev.map(t => t.id === tab.id ? {
+      ...t,
+      customerName:   editName.trim(),
+      label:          editLabel.trim() || t.label,
+      paymentMethod:  (editMethod as PaymentMethod) || t.paymentMethod,
+    } : t));
+    setIsEditing(false);
+  }
+
+  function confirmLink() {
+    const name = linkName.trim() || tab.customerName;
+    if (linkCustomerId) {
+      // Link to existing customer
+      getStore().tabs.set(prev => prev.map(t => t.id === tab.id ? { ...t, customerId: linkCustomerId, customerName: customers.find(c => c.id === linkCustomerId)?.name ?? t.customerName } : t));
+    } else {
+      // Create a new customer from tab data
+      const id = newId('cust');
+      getStore().customers.set(prev => [...prev, { id, name, createdAt: new Date() }]);
+      getStore().tabs.set(prev => prev.map(t => t.id === tab.id ? { ...t, customerId: id, customerName: name } : t));
+    }
+    setShowLink(false);
+    setLinkName('');
+    setLinkCustomerId(undefined);
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
@@ -80,19 +121,37 @@ function OrderDetailPanel({ tab, onClose, onDelete, cur }: {
 
         {/* Header */}
         <div className="flex items-start justify-between p-6 pb-4 border-b border-border shrink-0">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
             <span className={`flex items-center justify-center w-10 h-10 rounded-xl shrink-0 ${TYPE_COLOR[tab.type]}`}>
               <TypeIcon size={18} strokeWidth={2} />
             </span>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <h2 className="text-base font-semibold">{tab.customerName}</h2>
-                {customer?.vip && <Star size={13} className="text-amber-400 fill-amber-400 shrink-0" />}
+            {isEditing ? (
+              <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                <input
+                  autoFocus
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  className="h-8 px-2.5 rounded-lg text-sm font-semibold border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                  placeholder="Customer name"
+                />
+                <input
+                  value={editLabel}
+                  onChange={e => setEditLabel(e.target.value)}
+                  className="h-7 px-2.5 rounded-lg text-xs border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ring text-muted-foreground"
+                  placeholder="Label"
+                />
               </div>
-              <p className="text-sm text-muted-foreground">{tab.label}</p>
-            </div>
+            ) : (
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <h2 className="text-base font-semibold">{tab.customerName}</h2>
+                  {customer?.vip && <Star size={13} className="text-amber-400 fill-amber-400 shrink-0" />}
+                </div>
+                <p className="text-sm text-muted-foreground">{tab.label}</p>
+              </div>
+            )}
           </div>
-          <button onClick={onClose} className="flex items-center justify-center w-8 h-8 rounded-xl text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer">
+          <button onClick={onClose} className="flex items-center justify-center w-8 h-8 rounded-xl text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer ml-2 shrink-0">
             <X size={16} />
           </button>
         </div>
@@ -124,7 +183,22 @@ function OrderDetailPanel({ tab, onClose, onDelete, cur }: {
               <span className="text-muted-foreground">Time</span>
               <span>{tab.paidAt ? formatTime(tab.paidAt) : '—'}</span>
             </div>
-            {tab.paymentMethod && (
+            {isEditing ? (
+              <div className="flex justify-between items-center pt-1">
+                <span className="text-muted-foreground">Payment</span>
+                <div className="flex gap-1">
+                  {(['card', 'qr', 'cash', 'room', 'split'] as PaymentMethod[]).map(m => (
+                    <button
+                      key={m}
+                      onClick={() => setEditMethod(m)}
+                      className={`h-6 px-2 rounded-md text-[11px] font-medium transition-all cursor-pointer ${editMethod === m ? 'bg-primary text-primary-foreground' : 'bg-black/5 dark:bg-white/10 text-muted-foreground hover:text-foreground'}`}
+                    >
+                      {METHOD_LABEL[m]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : tab.paymentMethod ? (
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Payment</span>
                 <span className="flex items-center gap-1.5">
@@ -132,7 +206,7 @@ function OrderDetailPanel({ tab, onClose, onDelete, cur }: {
                   {METHOD_LABEL[tab.paymentMethod] ?? tab.paymentMethod}
                 </span>
               </div>
-            )}
+            ) : null}
             {tab.status === 'refunded' && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Status</span>
@@ -140,6 +214,58 @@ function OrderDetailPanel({ tab, onClose, onDelete, cur }: {
               </div>
             )}
           </section>
+
+          {/* Link to customer */}
+          {isManager && !tab.customerId && (
+            <section className="rounded-2xl border border-dashed border-border p-4">
+              {showLink ? (
+                <div className="space-y-3">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Link to Customer</p>
+                  <CustomerPicker
+                    value={linkName}
+                    customerId={linkCustomerId}
+                    onChange={(name, id) => { setLinkName(name); setLinkCustomerId(id); }}
+                    placeholder="Search or create customer…"
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={confirmLink}
+                      disabled={!linkName.trim() && !linkCustomerId}
+                      className="flex-1 h-8 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-40 transition-opacity cursor-pointer"
+                    >
+                      {linkCustomerId ? 'Link Customer' : 'Create & Link'}
+                    </button>
+                    <button
+                      onClick={() => { setShowLink(false); setLinkName(''); setLinkCustomerId(undefined); }}
+                      className="h-8 px-3 rounded-xl text-xs text-muted-foreground hover:text-foreground border border-border cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { setShowLink(true); setLinkName(tab.customerName); }}
+                  className="w-full flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                >
+                  <UserPlus size={13} />
+                  Link to customer profile
+                </button>
+              )}
+            </section>
+          )}
+          {isManager && tab.customerId && !customer && (
+            <section className="rounded-2xl border border-dashed border-border p-4">
+              <button
+                onClick={() => { setShowLink(true); setLinkName(tab.customerName); }}
+                className="w-full flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              >
+                <UserCheck size={13} />
+                Re-link customer profile
+              </button>
+            </section>
+          )}
 
           {/* Line items */}
           <section>
@@ -218,22 +344,53 @@ function OrderDetailPanel({ tab, onClose, onDelete, cur }: {
 
         {/* Footer actions */}
         <div className="p-4 border-t border-border flex gap-2 shrink-0">
-          <button
-            onClick={() => onDelete(tab)}
-            className="flex items-center justify-center w-10 h-10 rounded-xl border border-border text-muted-foreground hover:text-rose-600 hover:border-rose-300 dark:hover:border-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors cursor-pointer shrink-0"
-            title="Delete order"
-          >
-            <Trash2 size={15} />
-          </button>
-          <a
-            href={`/receipt/${tab.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 h-10 rounded-2xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2"
-          >
-            <Printer size={15} strokeWidth={2} />
-            Print Receipt
-          </a>
+          {isEditing ? (
+            <>
+              <button
+                onClick={() => setIsEditing(false)}
+                className="flex items-center justify-center w-10 h-10 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer shrink-0"
+                title="Cancel edit"
+              >
+                <X size={15} />
+              </button>
+              <button
+                onClick={saveEdit}
+                disabled={!editName.trim()}
+                className="flex-1 h-10 rounded-2xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-40 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Check size={15} strokeWidth={2.5} />
+                Save Changes
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => onDelete(tab)}
+                className="flex items-center justify-center w-10 h-10 rounded-xl border border-border text-muted-foreground hover:text-rose-600 hover:border-rose-300 dark:hover:border-rose-700 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors cursor-pointer shrink-0"
+                title="Delete order"
+              >
+                <Trash2 size={15} />
+              </button>
+              {isManager && (
+                <button
+                  onClick={() => { setIsEditing(true); setEditName(tab.customerName); setEditLabel(tab.label); setEditMethod(tab.paymentMethod ?? ''); }}
+                  className="flex items-center justify-center w-10 h-10 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer shrink-0"
+                  title="Edit order"
+                >
+                  <Pencil size={15} />
+                </button>
+              )}
+              <a
+                href={`/receipt/${tab.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 h-10 rounded-2xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2"
+              >
+                <Printer size={15} strokeWidth={2} />
+                Print Receipt
+              </a>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -448,6 +605,7 @@ export default function HistoryPage() {
         <OrderDetailPanel
           tab={selected}
           cur={cur}
+          isManager={me?.role === 'manager'}
           onClose={() => setSelected(null)}
           onDelete={async (tab) => { await deleteTab(tab); }}
         />
