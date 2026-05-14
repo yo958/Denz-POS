@@ -643,6 +643,7 @@ export default function CoWorkingPage() {
         <SpaceDialog
           space={editingSpace}
           cur={cur}
+          isManager={isManager}
           onClose={() => { setAddingSpace(false); setEditingSpace(null); }}
           onSave={saveSpace}
         />
@@ -946,8 +947,8 @@ function ActiveCard({ space, tab, cur, isManager, customer, onEdit, onCheckOut, 
 }
 
 /* ── Space add/edit dialog ──────────────────────────────────────── */
-function SpaceDialog({ space, cur, onClose, onSave }: {
-  space: CoworkSpace | null; cur: string;
+function SpaceDialog({ space, cur, isManager, onClose, onSave }: {
+  space: CoworkSpace | null; cur: string; isManager: boolean;
   onClose: () => void;
   onSave: (s: CoworkSpace) => void;
 }) {
@@ -1125,6 +1126,17 @@ function SpaceDialog({ space, cur, onClose, onSave }: {
                             disabled={!r.enabled} placeholder="0"
                             className="flex-1 h-9 px-3 rounded-xl text-sm tabular-nums bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed"
                           />
+                          {isManager && (
+                            <>
+                              <span className="text-[10px] text-muted-foreground shrink-0 ml-1">cost</span>
+                              <input
+                                type="number" min={0} step={1} value={r.cost ?? ''}
+                                onChange={e => patchRate(r.period, { cost: e.target.value === '' ? null : parseFloat(e.target.value) || 0 })}
+                                disabled={!r.enabled} placeholder="—"
+                                className="w-16 h-9 px-2 rounded-xl text-sm tabular-nums bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed text-teal-600 dark:text-teal-400"
+                              />
+                            </>
+                          )}
                         </div>
                       )}
                       {/* Toggle tiers button for hourly only */}
@@ -1222,6 +1234,17 @@ function SpaceDialog({ space, cur, onClose, onSave }: {
                           disabled={!r.enabled} placeholder="0"
                           className="flex-1 h-9 px-3 rounded-xl text-sm tabular-nums bg-white/60 dark:bg-white/5 border border-indigo-200 dark:border-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:cursor-not-allowed"
                         />
+                        {isManager && (
+                          <>
+                            <span className="text-[10px] text-muted-foreground shrink-0 ml-1">cost</span>
+                            <input
+                              type="number" min={0} step={1} value={r.cost ?? ''}
+                              onChange={e => patchDedicatedRate(r.period, { cost: e.target.value === '' ? null : parseFloat(e.target.value) || 0 })}
+                              disabled={!r.enabled} placeholder="—"
+                              className="w-16 h-9 px-2 rounded-xl text-sm tabular-nums bg-white/60 dark:bg-white/5 border border-indigo-200 dark:border-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:cursor-not-allowed text-teal-600 dark:text-teal-400"
+                            />
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}

@@ -260,7 +260,15 @@ export default function DashboardPage() {
     const availEquip    = allEquip.filter(e => !activeEquipIds.has(e.id));
 
     /* ── COGS today ────────────────────── */
-    const costByProductId = new Map(products.map(p => [p.id, p.cost ?? null]));
+    const costByProductId = new Map<string, number | null>(products.map(p => [p.id, p.cost ?? null]));
+    for (const s of spaces) {
+      for (const r of s.rates) {
+        if (r.cost != null) costByProductId.set(`${s.id}-${r.period}`, r.cost);
+      }
+      for (const r of s.dedicatedRates ?? []) {
+        if (r.cost != null) costByProductId.set(`${s.id}-${r.period}`, r.cost);
+      }
+    }
     let cogsToday = 0;
     let hasCostDataToday = false;
     for (const t of paidToday) {

@@ -5,7 +5,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 import { TrendingUp, TrendingDown, ShoppingBag, Clock, DollarSign, Coffee, Monitor, BedDouble, RotateCcw, CreditCard, QrCode, Banknote, Layers, Receipt, Percent } from 'lucide-react';
-import { useTabs, useShift, useSettings, useCurrentStaff, useBills, useBillTags, useProducts } from '@/lib/hooks/useStore';
+import { useTabs, useShift, useSettings, useCurrentStaff, useBills, useBillTags, useProducts, useSpaces } from '@/lib/hooks/useStore';
 import { fmtCur } from '@/lib/format';
 import { lineUnitPrice, lineEffectiveUnitPrice, tabGrandTotal, tabRefundedAmount, tabCardFee, tabPartialPaidAmount } from '@/lib/domain/tabs';
 import { buildZReport } from '@/lib/domain/shift';
@@ -49,10 +49,22 @@ export default function ReportsPage() {
   const bills    = useBills();
   const shift    = useShift();
   const products = useProducts();
+  const spaces   = useSpaces();
   const cur = useSettings().currency;
   const [range, setRange] = useState<Range>('30d');
-  // Cost lookup: fall back to current product cost when line item snapshot predates cost being set
-  const costByProductId = useMemo(() => new Map(products.map(p => [p.id, p.cost ?? null])), [products]);
+  // Cost lookup: fall back to current product/space cost when line item snapshot predates cost being set
+  const costByProductId = useMemo(() => {
+    const map = new Map<string, number | null>(products.map(p => [p.id, p.cost ?? null]));
+    for (const s of spaces) {
+      for (const r of s.rates) {
+        if (r.cost != null) map.set(`${s.id}-${r.period}`, r.cost);
+      }
+      for (const r of s.dedicatedRates ?? []) {
+        if (r.cost != null) map.set(`${s.id}-${r.period}`, r.cost);
+      }
+    }
+    return map;
+  }, [products, spaces]);
 
   if (me?.role !== 'manager') {
     return (

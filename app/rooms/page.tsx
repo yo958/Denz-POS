@@ -270,6 +270,7 @@ export default function RoomsPage() {
       {(editing || creating) && (
         <RoomDialog
           room={editing}
+          isManager={me?.role === 'manager'}
           onClose={() => { setEditing(null); setCreating(false); }}
           onSave={handleSave}
         />
@@ -289,11 +290,12 @@ export default function RoomsPage() {
 
 interface RoomDialogProps {
   room: Product | null;
+  isManager: boolean;
   onClose: () => void;
   onSave: (p: Product) => void;
 }
 
-function RoomDialog({ room, onClose, onSave }: RoomDialogProps) {
+function RoomDialog({ room, isManager, onClose, onSave }: RoomDialogProps) {
   const [form, setForm] = useState<Product>(room ?? {
     id: newId('prod'),
     name: '',
@@ -338,6 +340,12 @@ function RoomDialog({ room, onClose, onSave }: RoomDialogProps) {
         <Field label="Nightly rate">
           <input type="number" min={0} step={0.01} value={form.price || ''} onChange={e => setForm({ ...form, price: parseFloat(e.target.value) || 0 })} className={inputCls + ' tabular-nums'} />
         </Field>
+
+        {isManager && (
+          <Field label="Cost per night">
+            <input type="number" min={0} step={0.01} value={form.cost ?? ''} onChange={e => setForm({ ...form, cost: e.target.value === '' ? null : parseFloat(e.target.value) || 0 })} placeholder="—" className={inputCls + ' tabular-nums'} />
+          </Field>
+        )}
 
         <Field label="Description">
           <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className={inputCls} />

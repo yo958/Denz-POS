@@ -210,6 +210,7 @@ export type CoworkRatePeriod = 'hourly' | 'daily' | 'weekly' | '2-weeks' | 'mont
 export interface CoworkSpaceRate {
   period: CoworkRatePeriod;
   price: number;
+  cost?: number | null;
   enabled: boolean;
   /** Per-hour tiers — only used when period === 'hourly'.
    *  tiers[0] = hr 1 price, tiers[1] = hr 2 price, last entry repeats.

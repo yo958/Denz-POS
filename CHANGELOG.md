@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.5.15] - 2026-05-14
+### Added
+- **CoWorking** — Cost price field per rate period (manager-only) in the space editor, for both hot desk and dedicated desk rates. Cost shows inline next to the price input in teal.
+- **Rooms** — "Cost per night" field in the room editor (manager-only).
+- **Dashboard / Reports** — Gross profit cards and COGS calculations now include desk and room cost prices, not just cafe/food products.
+
 ## [1.5.14] - 2026-05-14
 ### Fixed
 - **Dashboard / Reports** — Gross profit, COGS, and margin now correctly appear for historical sales. Line item snapshots don't carry cost data when cost was set after the sale; both pages now fall back to the current product cost so all existing data is included.
