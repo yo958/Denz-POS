@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.20] - 2026-05-15
+### Changed
+- **POS** — Selecting "Per Hour" in the desk rate picker now shows a second step with an hours stepper (same UX as equipment rental). Price is multiplied by hours and the line item name shows the duration (e.g. "Private Office — Per Hour (3hr)"). Non-hourly rates (Daily, Weekly, etc.) add to the tab immediately as before. Back button returns to rate selection.
+
 ## [1.5.19] - 2026-05-15
 ### Changed
 - **Calendar** — Clicking a tab pill (grid or list view) now opens an inline side panel with item breakdown, total, discount, and payment info instead of redirecting to another page. A "View in History" / "Open in POS" link is available in the panel footer for full access.

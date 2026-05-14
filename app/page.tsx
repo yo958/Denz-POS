@@ -129,7 +129,7 @@ function EquipmentHoursDialog({ equip, cur, onClose, onConfirm }: {
 function DeskRatePickerDialog({ space, cur, onClose, onConfirm }: {
   space: CoworkSpace; cur: string;
   onClose: () => void;
-  onConfirm: (rate: CoworkSpaceRate, bookingEndsAt: Date | undefined, bookingType: 'hot' | 'dedicated') => void;
+  onConfirm: (rate: CoworkSpaceRate, bookingEndsAt: Date | undefined, bookingType: 'hot' | 'dedicated', hours?: number) => void;
 }) {
   const enabledHotRates       = space.rates?.filter(r => r.enabled) ?? [];
   const enabledDedicatedRates = (space.dedicatedRates ?? []).filter(r => r.enabled);
@@ -137,9 +137,12 @@ function DeskRatePickerDialog({ space, cur, onClose, onConfirm }: {
 
   const [bookingType, setBookingType] = useState<'hot' | 'dedicated'>('hot');
   const [rateIdx, setRateIdx]         = useState(0);
+  const [step, setStep]               = useState<'rate' | 'hours'>('rate');
+  const [hours, setHours]             = useState(1);
 
   const activeRates = (hasBothTypes && bookingType === 'dedicated') ? enabledDedicatedRates : enabledHotRates;
   const isDedicated = hasBothTypes && bookingType === 'dedicated';
+  const selectedRate = activeRates[rateIdx];
 
   function switchBookingType(t: 'hot' | 'dedicated') {
     setBookingType(t);
@@ -150,14 +153,18 @@ function DeskRatePickerDialog({ space, cur, onClose, onConfirm }: {
     e.preventDefault();
     const rate = activeRates[rateIdx];
     if (!rate) { toast.error('No rates available — edit this space to add rates'); return; }
-    // Set bookingEndsAt for all non-hourly periods so pre-paid reservations stay
-    // visible on the Coworking page (dedicated always; hot desk when not pay-as-you-go).
+    if (step === 'rate' && rate.period === 'hourly') {
+      setStep('hours');
+      return;
+    }
     const effectiveBookingType: 'hot' | 'dedicated' = isDedicated ? 'dedicated' : 'hot';
     const needsExpiry = isDedicated || rate.period !== 'hourly';
-    const bookingEndsAt = needsExpiry
-      ? new Date(Date.now() + PERIOD_DURATION_MS[rate.period])
-      : undefined;
-    onConfirm(rate, bookingEndsAt, effectiveBookingType);
+    const bookingEndsAt = rate.period === 'hourly'
+      ? new Date(Date.now() + hours * 3600 * 1000)
+      : needsExpiry
+        ? new Date(Date.now() + PERIOD_DURATION_MS[rate.period])
+        : undefined;
+    onConfirm(rate, bookingEndsAt, effectiveBookingType, rate.period === 'hourly' ? hours : undefined);
   }
 
   return (
@@ -168,55 +175,95 @@ function DeskRatePickerDialog({ space, cur, onClose, onConfirm }: {
           <h2 className="text-lg font-semibold">Add Desk to Tab</h2>
           <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground cursor-pointer"><X size={18} /></button>
         </div>
-        <p className="text-sm text-muted-foreground -mt-2">{space.name} — select a rate to add to the current tab</p>
+        <p className="text-sm text-muted-foreground -mt-2">{space.name} — {step === 'hours' ? 'select rental duration' : 'select a rate to add to the current tab'}</p>
 
-        {/* Booking type toggle — only shown when the space has both hot-desk and dedicated rates */}
-        {hasBothTypes && (
-          <div className="space-y-1.5">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Booking Type</span>
-            <div className="grid grid-cols-2 gap-2">
-              {(['hot', 'dedicated'] as const).map(t => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => switchBookingType(t)}
-                  className={`h-9 rounded-xl text-sm font-medium border transition-colors cursor-pointer ${
-                    bookingType === t
-                      ? 'border-primary/50 bg-primary/10 text-primary'
-                      : 'border-border bg-black/3 dark:bg-white/3 text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5'
-                  }`}
-                >
-                  {BOOKING_TYPE_LABEL[t]}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        {step === 'rate' ? (
+          <>
+            {/* Booking type toggle — only shown when the space has both hot-desk and dedicated rates */}
+            {hasBothTypes && (
+              <div className="space-y-1.5">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Booking Type</span>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['hot', 'dedicated'] as const).map(t => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => switchBookingType(t)}
+                      className={`h-9 rounded-xl text-sm font-medium border transition-colors cursor-pointer ${
+                        bookingType === t
+                          ? 'border-primary/50 bg-primary/10 text-primary'
+                          : 'border-border bg-black/3 dark:bg-white/3 text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5'
+                      }`}
+                    >
+                      {BOOKING_TYPE_LABEL[t]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
-        {activeRates.length > 0 ? (
-          <div className="space-y-1.5">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Rate</span>
-            <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
-              {activeRates.map((r, i) => (
-                <label key={r.period} className={`flex items-center justify-between gap-3 px-3 py-2 rounded-xl border cursor-pointer transition-colors ${rateIdx === i ? 'border-primary bg-primary/5' : 'border-border bg-black/3 dark:bg-white/3 hover:bg-black/5 dark:hover:bg-white/5'}`}>
-                  <div className="flex items-center gap-2">
-                    <input type="radio" name="rate" checked={rateIdx === i} onChange={() => setRateIdx(i)} className="accent-primary" />
-                    <span className="text-sm font-medium">{PERIOD_LABEL[r.period]}</span>
-                  </div>
-                  <span className="text-sm font-semibold tabular-nums shrink-0">{cur}{r.price.toLocaleString()}</span>
-                </label>
-              ))}
-            </div>
-          </div>
+            {activeRates.length > 0 ? (
+              <div className="space-y-1.5">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Rate</span>
+                <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                  {activeRates.map((r, i) => (
+                    <label key={r.period} className={`flex items-center justify-between gap-3 px-3 py-2 rounded-xl border cursor-pointer transition-colors ${rateIdx === i ? 'border-primary bg-primary/5' : 'border-border bg-black/3 dark:bg-white/3 hover:bg-black/5 dark:hover:bg-white/5'}`}>
+                      <div className="flex items-center gap-2">
+                        <input type="radio" name="rate" checked={rateIdx === i} onChange={() => setRateIdx(i)} className="accent-primary" />
+                        <span className="text-sm font-medium">{PERIOD_LABEL[r.period]}</span>
+                      </div>
+                      <span className="text-sm font-semibold tabular-nums shrink-0">{cur}{r.price.toLocaleString()}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/10 rounded-xl px-3 py-2.5">
+                No rates enabled. Edit this space to add pricing.
+              </p>
+            )}
+          </>
         ) : (
-          <p className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/10 rounded-xl px-3 py-2.5">
-            No rates enabled. Edit this space to add pricing.
-          </p>
+          /* Hours picker — shown only when Per Hour rate selected */
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Hours</span>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setHours(h => Math.max(1, h - 1))}
+                  className="flex items-center justify-center w-10 h-10 rounded-xl border border-border bg-white/50 dark:bg-white/5 text-foreground hover:bg-black/5 transition-colors cursor-pointer shrink-0"
+                >
+                  <span className="text-lg font-bold leading-none">−</span>
+                </button>
+                <span className="flex-1 text-center text-2xl font-bold tabular-nums">{hours}</span>
+                <button
+                  type="button"
+                  onClick={() => setHours(h => h + 1)}
+                  className="flex items-center justify-center w-10 h-10 rounded-xl border border-border bg-white/50 dark:bg-white/5 text-foreground hover:bg-black/5 transition-colors cursor-pointer shrink-0"
+                >
+                  <span className="text-lg font-bold leading-none">+</span>
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-black/5 dark:bg-white/5">
+              <span className="text-sm text-muted-foreground">Total</span>
+              <span className="text-base font-bold tabular-nums">{cur}{((selectedRate?.price ?? 0) * hours).toLocaleString()}</span>
+            </div>
+          </div>
         )}
 
         <div className="flex gap-2 pt-1">
-          <button type="button" onClick={onClose} className="flex-1 h-11 rounded-2xl text-sm font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 active:scale-95 transition-all cursor-pointer">Cancel</button>
-          <button type="submit" disabled={activeRates.length === 0} className="flex-1 h-11 rounded-2xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 transition-all cursor-pointer disabled:opacity-40">Add to Tab</button>
+          <button
+            type="button"
+            onClick={() => step === 'hours' ? setStep('rate') : onClose()}
+            className="flex-1 h-11 rounded-2xl text-sm font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 active:scale-95 transition-all cursor-pointer"
+          >
+            {step === 'hours' ? 'Back' : 'Cancel'}
+          </button>
+          <button type="submit" disabled={activeRates.length === 0} className="flex-1 h-11 rounded-2xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 transition-all cursor-pointer disabled:opacity-40">
+            {step === 'hours' ? 'Add to Tab' : selectedRate?.period === 'hourly' ? 'Next' : 'Add to Tab'}
+          </button>
         </div>
       </form>
     </div>
@@ -987,11 +1034,14 @@ export default function POSPage() {
           space={deskRateSpace}
           cur={cur}
           onClose={() => setDeskRateSpace(null)}
-          onConfirm={(rate, bookingEndsAt, bookingType) => {
+          onConfirm={(rate, bookingEndsAt, bookingType, hours) => {
             const deskProduct: Product = {
               id: deskRateSpace.id,
-              name: `${deskRateSpace.name} — ${PERIOD_LABEL[rate.period]}`,
-              price: rate.price,
+              name: hours && hours > 1
+                ? `${deskRateSpace.name} — Per Hour (${hours}hr)`
+                : `${deskRateSpace.name} — ${PERIOD_LABEL[rate.period]}`,
+              price: rate.price * (hours ?? 1),
+              cost: rate.cost != null ? rate.cost * (hours ?? 1) : null,
               category: 'desks',
               description: '',
               stock: null,
