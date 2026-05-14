@@ -293,13 +293,22 @@ export default function CalendarPage() {
   // ─── Grid cell helpers ────────────────────────────────────────────────────
 
   function coworkCellItems(spaceId: string, spaceName: string, day: Date) {
-    // Match by tab label OR by a desk line item whose product name starts with the space name
-    const tabs = deskTabs.filter(t =>
+    // Match by tab label OR by a desk line item whose product name starts with the space name.
+    // Expand by qty so multi-seat bookings (e.g. qty:2 on No Desk) show as multiple pills.
+    const matchingTabs = deskTabs.filter(t =>
       tabCoversDay(t, day, openingHours) && (
         t.label === spaceName ||
         t.items.some(i => i.product.category === 'desks' && i.product.name.startsWith(spaceName))
       ),
     );
+    const tabs: typeof matchingTabs = [];
+    for (const t of matchingTabs) {
+      const deskQty = t.items
+        .filter(i => i.product.category === 'desks' && i.product.name.startsWith(spaceName))
+        .reduce((sum, i) => sum + Math.max(0, i.qty - (i.refundedQty ?? 0)), 0);
+      const seats = deskQty > 0 ? deskQty : 1;
+      for (let n = 0; n < seats; n++) tabs.push(t);
+    }
     // Web orders for this space (pending shown amber; accepted shown green — only if no tab yet)
     const orders = webOrders.filter(o =>
       o.type === 'coworking' &&
@@ -309,9 +318,9 @@ export default function CalendarPage() {
     // Deduplicate: suppress accepted web orders if a tab already covers this day for this space
     const filteredOrders = orders.filter(o => {
       if (o.status === 'accepted') {
-        return tabs.length === 0; // tab already represents this booking
+        return matchingTabs.length === 0;
       }
-      return true; // always show pending
+      return true;
     });
     return { tabs, orders: filteredOrders };
   }
@@ -429,7 +438,7 @@ export default function CalendarPage() {
                               <span className="text-[10px] text-muted-foreground/50 px-1">Closed</span>
                             ) : (
                               <div className="flex flex-col gap-0.5">
-                                {tabs.map(t => <TabPill key={t.id} name={t.customerName} paid={t.status === 'paid'} onClick={() => router.push(t.status === 'paid' ? `/history?tabId=${t.id}` : `/?tabId=${t.id}`)} />)}
+                                {tabs.map((t, idx) => <TabPill key={`${t.id}-${idx}`} name={t.customerName} paid={t.status === 'paid'} onClick={() => router.push(t.status === 'paid' ? `/history?tabId=${t.id}` : `/?tabId=${t.id}`)} />)}
                                 {orders.map(o => o.status === 'accepted'
                                   ? <AcceptedPill key={o.id} name={o.customerName} />
                                   : <PendingPill  key={o.id} name={o.customerName} onClick={() => router.push(`/online-orders?id=${o.id}`)} />)}

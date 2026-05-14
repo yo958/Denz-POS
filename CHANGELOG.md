@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.18] - 2026-05-15
+### Fixed
+- **Calendar** — Multi-seat desk bookings (qty > 1 on a single line item) now show one pill per occupied seat in the grid view, so a customer booking 2 "No Desk" spots appears twice in that space's row.
+
 ## [1.5.17] - 2026-05-15
 ### Fixed
 - **Dashboard / Reports** — Crash ("e.rates is not iterable") when spaces in localStorage predate the rates field. Added defensive `?? []` guards on space rate iteration.
