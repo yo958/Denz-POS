@@ -56,7 +56,7 @@ export default function ReportsPage() {
   const costByProductId = useMemo(() => {
     const map = new Map<string, number | null>(products.map(p => [p.id, p.cost ?? null]));
     for (const s of spaces) {
-      for (const r of s.rates) {
+      for (const r of s.rates ?? []) {
         if (r.cost != null) map.set(`${s.id}-${r.period}`, r.cost);
       }
       for (const r of s.dedicatedRates ?? []) {

@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.17] - 2026-05-15
+### Fixed
+- **Dashboard / Reports** — Crash ("e.rates is not iterable") when spaces in localStorage predate the rates field. Added defensive `?? []` guards on space rate iteration.
+
 ## [1.5.16] - 2026-05-14
 ### Added
 - **Equipment** — "Cost per hour" field in the equipment editor (manager-only). The total cost (costPerHour × hours booked) is baked into the line item snapshot at booking time, so gross profit calculations in Reports and Dashboard automatically include equipment rental costs.
