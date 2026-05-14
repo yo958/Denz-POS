@@ -260,13 +260,15 @@ export default function DashboardPage() {
     const availEquip    = allEquip.filter(e => !activeEquipIds.has(e.id));
 
     /* ── COGS today ────────────────────── */
+    const costByProductId = new Map(products.map(p => [p.id, p.cost ?? null]));
     let cogsToday = 0;
     let hasCostDataToday = false;
     for (const t of paidToday) {
       for (const li of t.items) {
         const qty = Math.max(0, li.qty - (li.refundedQty ?? 0));
-        if (li.product.cost != null && qty > 0) {
-          cogsToday += li.product.cost * qty;
+        const cost = li.product.cost ?? costByProductId.get(li.productId) ?? null;
+        if (cost != null && qty > 0) {
+          cogsToday += cost * qty;
           hasCostDataToday = true;
         }
       }

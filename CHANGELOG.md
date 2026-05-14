@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.14] - 2026-05-14
+### Fixed
+- **Dashboard / Reports** — Gross profit, COGS, and margin now correctly appear for historical sales. Line item snapshots don't carry cost data when cost was set after the sale; both pages now fall back to the current product cost so all existing data is included.
+
 ## [1.5.13] - 2026-05-14
 ### Added
 - **Dashboard** — "Gross Profit today" stat card (manager-only) showing revenue minus COGS and margin %, appears when any sold item has a cost price set.

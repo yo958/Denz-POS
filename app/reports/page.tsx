@@ -5,7 +5,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 import { TrendingUp, TrendingDown, ShoppingBag, Clock, DollarSign, Coffee, Monitor, BedDouble, RotateCcw, CreditCard, QrCode, Banknote, Layers, Receipt, Percent } from 'lucide-react';
-import { useTabs, useShift, useSettings, useCurrentStaff, useBills, useBillTags } from '@/lib/hooks/useStore';
+import { useTabs, useShift, useSettings, useCurrentStaff, useBills, useBillTags, useProducts } from '@/lib/hooks/useStore';
 import { fmtCur } from '@/lib/format';
 import { lineUnitPrice, lineEffectiveUnitPrice, tabGrandTotal, tabRefundedAmount, tabCardFee, tabPartialPaidAmount } from '@/lib/domain/tabs';
 import { buildZReport } from '@/lib/domain/shift';
@@ -45,11 +45,14 @@ const METHOD_META: Record<PaymentMethod, { label: string; icon: typeof CreditCar
 
 export default function ReportsPage() {
   const me = useCurrentStaff();
-  const tabs  = useTabs();
-  const bills = useBills();
-  const shift = useShift();
+  const tabs     = useTabs();
+  const bills    = useBills();
+  const shift    = useShift();
+  const products = useProducts();
   const cur = useSettings().currency;
   const [range, setRange] = useState<Range>('30d');
+  // Cost lookup: fall back to current product cost when line item snapshot predates cost being set
+  const costByProductId = useMemo(() => new Map(products.map(p => [p.id, p.cost ?? null])), [products]);
 
   if (me?.role !== 'manager') {
     return (
@@ -93,7 +96,8 @@ export default function ReportsPage() {
           li.product.category === 'rooms' ? 'room' :
           'cafe'; // food + drinks
         byType[bucket] += lineRevenue;
-        if (li.product.cost != null) byTypeCogs[bucket] += li.product.cost * qty;
+        const liCost = li.product.cost ?? costByProductId.get(li.productId) ?? null;
+        if (liCost != null) byTypeCogs[bucket] += liCost * qty;
       }
       if (t.paymentMethod) {
         const base = tabGrandTotal(t.items, t.discount);
@@ -106,11 +110,12 @@ export default function ReportsPage() {
     for (const t of inRange) {
       for (const li of t.items) {
         const qty = Math.max(0, li.qty - (li.refundedQty ?? 0));
-        if (!itemCounts[li.productId]) itemCounts[li.productId] = { name: li.product.name, qty: 0, revenue: 0, cogs: 0, hasCost: li.product.cost != null };
+        const cost = li.product.cost ?? costByProductId.get(li.productId) ?? null;
+        if (!itemCounts[li.productId]) itemCounts[li.productId] = { name: li.product.name, qty: 0, revenue: 0, cogs: 0, hasCost: cost != null };
         itemCounts[li.productId].qty += li.qty;
         itemCounts[li.productId].revenue += lineEffectiveUnitPrice(li) * li.qty;
-        if (li.product.cost != null && qty > 0) {
-          itemCounts[li.productId].cogs += li.product.cost * qty;
+        if (cost != null && qty > 0) {
+          itemCounts[li.productId].cogs += cost * qty;
           itemCounts[li.productId].hasCost = true;
         }
       }
@@ -125,7 +130,7 @@ export default function ReportsPage() {
       .slice(0, 5);
 
     return { revenue, refunds, net: revenue - refunds, pipeline, netPipeline, partialCollected, openTabs: open.length, paidTabs: paid.length, totalItems, byType, byTypeCogs, byMethod, topItems, grossProfit, hasCostData, topByProfit };
-  }, [tabs, range]);
+  }, [tabs, range, costByProductId]);
 
   const expenseStats = useMemo(() => {
     const since = startOf(range);
