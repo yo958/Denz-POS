@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.5] - 2026-05-14
+### Fixed
+- **POS** — Added missing "Desserts" category chip to the POS product grid filter bar. Dessert products were stored correctly but had no dedicated tab to filter by, making them hard to find. They now appear under both "All" and the new "Desserts" chip.
+
 ## [1.5.4] - 2026-05-14
 ### Fixed
 - **POS** — Incrementing/decrementing an equipment rental or hourly desk line item in the cart now follows tiered hourly pricing. The + button adds 1 hour (recalculating from tiers), the − button removes 1 hour, and the name updates (e.g. "Mac Mini (2hr)", "Private Office (3hr)"). Applies to both Equipment-tab items and desk items where the space has a matching equipment entry with tiers.

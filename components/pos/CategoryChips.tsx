@@ -3,10 +3,11 @@
 import type { ProductCategory } from '@/lib/types';
 
 const CATEGORIES: Array<{ value: ProductCategory | 'all'; label: string }> = [
-  { value: 'all',    label: 'All'    },
-  { value: 'food',   label: 'Food'   },
-  { value: 'drinks', label: 'Drinks' },
-  { value: 'desks',  label: 'Desks'  },
+  { value: 'all',     label: 'All'      },
+  { value: 'food',    label: 'Food'     },
+  { value: 'drinks',  label: 'Drinks'   },
+  { value: 'dessert', label: 'Desserts' },
+  { value: 'desks',   label: 'Desks'    },
   { value: 'rooms',            label: 'Rooms'     },
   { value: 'equipment-rental', label: 'Equipment' },
 ];
