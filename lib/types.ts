@@ -245,6 +245,8 @@ export interface Equipment {
   name: string;
   description?: string;
   tiers: EquipmentTier[]; // tiers[0] = hr 1, tiers[1] = hr 2, … last tier repeats
+  /** Cost per hour (e.g. depreciation). Multiplied by rental hours at booking time. */
+  costPerHour?: number | null;
   archived?: boolean;
 }
 

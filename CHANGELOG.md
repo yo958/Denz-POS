@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.16] - 2026-05-14
+### Added
+- **Equipment** — "Cost per hour" field in the equipment editor (manager-only). The total cost (costPerHour × hours booked) is baked into the line item snapshot at booking time, so gross profit calculations in Reports and Dashboard automatically include equipment rental costs.
+
 ## [1.5.15] - 2026-05-14
 ### Added
 - **CoWorking** — Cost price field per rate period (manager-only) in the space editor, for both hot desk and dedicated desk rates. Cost shows inline next to the price input in teal.

@@ -1027,6 +1027,7 @@ export default function POSPage() {
               id: `equip:${equipRentEquip.id}`,
               name: `${equipRentEquip.name} (${hours}hr)`,
               price: total,
+              cost: equipRentEquip.costPerHour != null ? equipRentEquip.costPerHour * hours : null,
               category: 'equipment-rental',
               description: '',
               stock: null,

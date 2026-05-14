@@ -660,6 +660,7 @@ export default function CoWorkingPage() {
               id: `equip:${rentingEquip.id}`,
               name: `${rentingEquip.name} (${hours}hr)`,
               price: equipTotal,
+              cost: rentingEquip.costPerHour != null ? rentingEquip.costPerHour * hours : null,
               category: 'equipment-rental',
               description: '',
               stock: null,
@@ -714,6 +715,7 @@ export default function CoWorkingPage() {
         <EquipmentDialog
           equip={editingEquip}
           cur={cur}
+          isManager={isManager}
           onClose={() => { setAddingEquip(false); setEditingEquip(null); }}
           onSave={saveEquipment}
         />
@@ -1563,15 +1565,16 @@ function RentDialog({ equip: e, cur, availableSpaces, onClose, onConfirm }: {
 }
 
 /* ── Equipment add/edit dialog ──────────────────────────────────── */
-function EquipmentDialog({ equip, cur, onClose, onSave }: {
-  equip: Equipment | null; cur: string;
+function EquipmentDialog({ equip, cur, isManager, onClose, onSave }: {
+  equip: Equipment | null; cur: string; isManager: boolean;
   onClose: () => void;
   onSave: (e: Equipment) => void;
 }) {
   const isNew = !equip;
-  const [name, setName]   = useState(equip?.name ?? '');
-  const [desc, setDesc]   = useState(equip?.description ?? '');
-  const [tiers, setTiers] = useState<EquipmentTier[]>(equip?.tiers ?? [{ price: 10 }]);
+  const [name, setName]         = useState(equip?.name ?? '');
+  const [desc, setDesc]         = useState(equip?.description ?? '');
+  const [tiers, setTiers]       = useState<EquipmentTier[]>(equip?.tiers ?? [{ price: 10 }]);
+  const [costPerHour, setCostPerHour] = useState<number | null>(equip?.costPerHour ?? null);
 
   function addTier() {
     setTiers(prev => [...prev, { price: prev[prev.length - 1]?.price ?? 0 }]);
@@ -1588,7 +1591,7 @@ function EquipmentDialog({ equip, cur, onClose, onSave }: {
     ev.preventDefault();
     if (!name.trim()) { toast.error('Name required'); return; }
     if (tiers.some(t => t.price < 0)) { toast.error('Prices must be 0 or more'); return; }
-    onSave({ id: equip?.id ?? newId('eq'), name: name.trim(), description: desc.trim() || undefined, tiers, archived: equip?.archived });
+    onSave({ id: equip?.id ?? newId('eq'), name: name.trim(), description: desc.trim() || undefined, tiers, costPerHour: costPerHour ?? undefined, archived: equip?.archived });
   }
 
   const inputCls = 'w-full h-10 px-3 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring';
@@ -1611,6 +1614,21 @@ function EquipmentDialog({ equip, cur, onClose, onSave }: {
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Description (optional)</span>
             <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="e.g. 16-inch, M3 Pro" className={inputCls} />
           </label>
+
+          {isManager && (
+            <label className="block space-y-1.5">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Cost per hour (optional)</span>
+              <div className="flex items-center gap-1">
+                <span className="text-sm text-muted-foreground shrink-0">{cur}</span>
+                <input
+                  type="number" min={0} step={0.5} value={costPerHour ?? ''}
+                  onChange={e => setCostPerHour(e.target.value === '' ? null : parseFloat(e.target.value) || 0)}
+                  placeholder="—"
+                  className={inputCls + ' tabular-nums'}
+                />
+              </div>
+            </label>
+          )}
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
