@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Monitor, BedDouble, CalendarDays } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Monitor, BedDouble, CalendarDays, X, ExternalLink } from 'lucide-react';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useCurrentStaff, useSpaces, useStays, useProducts, useTabs, useSettings } from '@/lib/hooks/useStore';
 import { PERIOD_DURATION_MS, PERIOD_LABEL } from '@/components/coworking/CheckInDialog';
+import { tabGrandTotal, lineEffectiveUnitPrice, modifiersSummary } from '@/lib/domain/tabs';
+import { fmtCur } from '@/lib/format';
 import type { PendingWebOrder } from '@/app/page';
 import type { Stay, Tab } from '@/lib/types';
 import type { CoworkRatePeriod } from '@/lib/types';
@@ -233,6 +235,8 @@ export default function CalendarPage() {
   const [weekStart, setWeekStart] = useState(() => getMondayOfWeek(new Date()));
   const [view, setView]           = useState<'grid' | 'list'>('grid');
   const [webOrders, setWebOrders] = useState<PendingWebOrder[]>([]);
+  const [selectedTabId, setSelectedTabId] = useState<string | null>(null);
+  const selectedTab = selectedTabId ? allTabs.find(t => t.id === selectedTabId) ?? null : null;
 
   // Firestore: PENDING coworking/room-enquiry orders with a bookingDate
   // (accepted ones are already represented as tabs in the local store)
@@ -438,7 +442,7 @@ export default function CalendarPage() {
                               <span className="text-[10px] text-muted-foreground/50 px-1">Closed</span>
                             ) : (
                               <div className="flex flex-col gap-0.5">
-                                {tabs.map((t, idx) => <TabPill key={`${t.id}-${idx}`} name={t.customerName} paid={t.status === 'paid'} onClick={() => router.push(t.status === 'paid' ? `/history?tabId=${t.id}` : `/?tabId=${t.id}`)} />)}
+                                {tabs.map((t, idx) => <TabPill key={`${t.id}-${idx}`} name={t.customerName} paid={t.status === 'paid'} onClick={() => setSelectedTabId(t.id)} />)}
                                 {orders.map(o => o.status === 'accepted'
                                   ? <AcceptedPill key={o.id} name={o.customerName} />
                                   : <PendingPill  key={o.id} name={o.customerName} onClick={() => router.push(`/online-orders?id=${o.id}`)} />)}
@@ -527,11 +531,10 @@ export default function CalendarPage() {
                       const deskItem = t.items.find(i => i.product.category === 'desks');
                       const itemName = deskItem?.product.name ?? t.label;
                       const isPaid = t.status === 'paid';
-                      const dest = isPaid ? `/history?tabId=${t.id}` : `/?tabId=${t.id}`;
                       return (
                         <div
                           key={t.id}
-                          onClick={() => router.push(dest)}
+                          onClick={() => setSelectedTabId(t.id)}
                           className={`flex items-start gap-3 rounded-xl border bg-card p-3 cursor-pointer transition-colors ${
                             isPaid
                               ? 'border-border hover:border-blue-400 hover:bg-blue-50/40 dark:hover:bg-blue-900/10'
@@ -648,6 +651,86 @@ export default function CalendarPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Tab detail panel ── */}
+      {selectedTab && (
+        <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true">
+          <div className="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm" onClick={() => setSelectedTabId(null)} />
+          <div className="relative flex flex-col w-full max-w-sm bg-background border-l border-border shadow-2xl overflow-hidden">
+
+            {/* Header */}
+            <div className="flex items-start justify-between px-5 py-4 border-b border-border">
+              <div>
+                <h2 className="text-base font-semibold">{selectedTab.customerName}</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">{selectedTab.label}</p>
+              </div>
+              <div className="flex items-center gap-2 ml-3 shrink-0">
+                <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-full ${
+                  selectedTab.status === 'paid'
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400'
+                    : 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400'
+                }`}>
+                  {selectedTab.status === 'paid' ? 'Paid' : 'Open'}
+                </span>
+                <button
+                  onClick={() => setSelectedTabId(null)}
+                  className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Items */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-1">
+              {selectedTab.items.map((li, idx) => {
+                const effectiveQty = Math.max(0, li.qty - (li.refundedQty ?? 0));
+                if (effectiveQty === 0) return null;
+                const unitPrice = lineEffectiveUnitPrice(li);
+                const mods = modifiersSummary(li.modifiers ?? []);
+                return (
+                  <div key={idx} className="flex items-start justify-between gap-3 py-1.5 border-b border-border/50 last:border-0">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{li.product.name}</p>
+                      {mods && <p className="text-xs text-muted-foreground truncate">{mods}</p>}
+                    </div>
+                    <div className="text-right shrink-0 tabular-nums text-sm">
+                      {effectiveQty > 1 && <span className="text-xs text-muted-foreground mr-1">×{effectiveQty}</span>}
+                      <span>{settings.currency}{fmtCur(unitPrice * effectiveQty)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-4 border-t border-border space-y-3">
+              {selectedTab.discount && (
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Discount</span>
+                  <span className="tabular-nums text-rose-600 dark:text-rose-400">
+                    {selectedTab.discount.type === 'pct' ? `−${selectedTab.discount.value}%` : `−${settings.currency}${fmtCur(selectedTab.discount.value)}`}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between font-semibold">
+                <span>Total</span>
+                <span className="tabular-nums">{settings.currency}{fmtCur(tabGrandTotal(selectedTab.items, selectedTab.discount))}</span>
+              </div>
+              {selectedTab.paymentMethod && (
+                <p className="text-xs text-muted-foreground capitalize">{selectedTab.paymentMethod} · {selectedTab.paidAt ? new Date(selectedTab.paidAt as unknown as string).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</p>
+              )}
+              <button
+                onClick={() => { setSelectedTabId(null); router.push(selectedTab.status === 'paid' ? `/history?tabId=${selectedTab.id}` : `/?tabId=${selectedTab.id}`); }}
+                className="w-full flex items-center justify-center gap-2 h-10 rounded-2xl border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+              >
+                <ExternalLink size={14} />
+                {selectedTab.status === 'paid' ? 'View in History' : 'Open in POS'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

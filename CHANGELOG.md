@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.19] - 2026-05-15
+### Changed
+- **Calendar** — Clicking a tab pill (grid or list view) now opens an inline side panel with item breakdown, total, discount, and payment info instead of redirecting to another page. A "View in History" / "Open in POS" link is available in the panel footer for full access.
+
 ## [1.5.18] - 2026-05-15
 ### Fixed
 - **Calendar** — Multi-seat desk bookings (qty > 1 on a single line item) now show one pill per occupied seat in the grid view, so a customer booking 2 "No Desk" spots appears twice in that space's row.
