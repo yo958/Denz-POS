@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.29] - 2026-05-15
+### Fixed
+- **Auth** — First-time login bootstrap: when a Firebase account exists but no staff record is linked yet, the login flow now shows a "Set up your account" step (name + 4-digit PIN) and creates the first manager record automatically instead of showing an error.
+
 ## [1.5.28] - 2026-05-15
 ### Added
 - **Auth** — Per-staff Firebase Auth (email + password). Each staff member now has a Firebase account; `LoginForm` replaces the old anonymous session on first load.
