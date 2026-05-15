@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { LayoutGrid, BookOpen, BedDouble, BarChart2, Settings, Laptop, ChefHat, History, LogOut, Users, LayoutDashboard, Receipt, Globe, CalendarDays } from 'lucide-react';
 import { useCurrentStaff, setCurrentStaffId } from '@/lib/hooks/useStore';
+import { signOut } from '@/lib/firebase';
 
 const NAV = [
   { href: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard', managerOnly: true  },
@@ -81,9 +82,9 @@ export function Sidebar() {
           <span className="text-xs text-muted-foreground capitalize">{me?.role ?? 'on shift'}</span>
         </div>
         <button
-          onClick={() => setCurrentStaffId(null)}
-          aria-label="Lock"
-          title="Lock"
+          onClick={() => { setCurrentStaffId(null); void signOut(); }}
+          aria-label="Sign out"
+          title="Sign out"
           className="flex items-center justify-center w-8 h-8 rounded-xl text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
           <LogOut size={14} strokeWidth={2} />

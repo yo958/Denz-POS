@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.28] - 2026-05-15
+### Added
+- **Auth** — Per-staff Firebase Auth (email + password). Each staff member now has a Firebase account; `LoginForm` replaces the old anonymous session on first load.
+- **Auth** — PIN kept as idle-lock only. After Firebase sign-in, the device auto-locks after the configured idle timeout and shows a staff-specific `PinPad` (no staff picker — identity is already known from Firebase).
+- **Settings → Staff** — "Add staff" now opens a dialog collecting name, role, email, initial password, and 4-digit PIN. Creates a Firebase Auth account via a secondary app instance (avoids signing out the current manager).
+- **Settings → Staff** — "Reset Password" button (RefreshCw icon) sends a Firebase password-reset email to the staff member's email address.
+- **Firestore rules** — `firestore.rules` file added. POS collections require `auth != null`; `website-orders` allows public `create` (customer bookings) but only authenticated reads/updates.
+
 ## [1.5.27] - 2026-05-15
 ### Fixed
 - **Calendar** — Multi-hour bookings (e.g. "Private Office — Per Hour (2hr)") now correctly detect as hourly period. The `(2hr)` suffix was preventing the period lookup from matching, causing the paid-hourly anchor rule to silently skip and the booking to bleed into the next calendar day.

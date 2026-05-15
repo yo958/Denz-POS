@@ -1,5 +1,7 @@
 // ─────────────────────────────────────────────────────────────────
-// PIN-based lock screen. Soft auth — protects a shared device.
+// PIN idle-lock screen. Shown when the device has been idle and the
+// Firebase session is still valid — the user just needs to re-enter
+// their PIN to confirm it's still them.
 // ─────────────────────────────────────────────────────────────────
 
 'use client';
@@ -7,26 +9,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { Lock, Delete } from 'lucide-react';
 import Image from 'next/image';
-import { useStaff, setCurrentStaffId } from '@/lib/hooks/useStore';
+import { setCurrentStaffId } from '@/lib/hooks/useStore';
 import { verifyPin } from '@/lib/domain/auth';
 import type { Staff } from '@/lib/types';
 
 const PIN_LEN = 4;
 
-export function PinPad({ onUnlock }: { onUnlock: () => void }) {
-  const staff = useStaff().filter(s => !s.archived);
-  const [selected, setSelected] = useState<Staff | null>(staff[0] ?? null);
-  const [pin, setPin] = useState('');
+export function PinPad({ staff, onUnlock }: { staff: Staff; onUnlock: () => void }) {
+  const [pin, setPin]     = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  // Keep selected in sync if staff list changes.
-  useEffect(() => {
-    if (!selected || !staff.find(s => s.id === selected.id)) {
-      setSelected(staff[0] ?? null);
-    }
-  }, [staff, selected]);
+  const [busy, setBusy]   = useState(false);
+  const inputRef          = useRef<HTMLInputElement>(null);
 
   // Capture physical keyboard
   useEffect(() => {
@@ -36,30 +29,27 @@ export function PinPad({ onUnlock }: { onUnlock: () => void }) {
       } else if (e.key === 'Backspace') {
         setPin(p => p.slice(0, -1));
       } else if (e.key === 'Enter') {
-        attempt();
+        void attempt();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, pin]);
+  }, [pin]);
 
   // Auto-attempt when full
   useEffect(() => {
-    if (pin.length === PIN_LEN) {
-      void attempt();
-    }
+    if (pin.length === PIN_LEN) void attempt();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin]);
 
   async function attempt() {
-    if (!selected) return;
     if (pin.length < PIN_LEN) return;
     setBusy(true);
-    const ok = await verifyPin(pin, selected.pinSalt, selected.pinHash);
+    const ok = await verifyPin(pin, staff.pinSalt, staff.pinHash);
     setBusy(false);
     if (ok) {
-      setCurrentStaffId(selected.id);
+      setCurrentStaffId(staff.id);
       onUnlock();
     } else {
       setError('Wrong PIN');
@@ -69,7 +59,7 @@ export function PinPad({ onUnlock }: { onUnlock: () => void }) {
   }
 
   function tap(d: string) { setPin(p => (p + d).slice(0, PIN_LEN)); setError(null); }
-  function backspace() { setPin(p => p.slice(0, -1)); setError(null); }
+  function backspace()    { setPin(p => p.slice(0, -1)); setError(null); }
 
   return (
     <div
@@ -91,27 +81,15 @@ export function PinPad({ onUnlock }: { onUnlock: () => void }) {
           </p>
         </div>
 
-        {/* Staff selector */}
-        <div className="w-full flex flex-wrap gap-2 justify-center">
-          {staff.map(s => {
-            const active = selected?.id === s.id;
-            return (
-              <button
-                key={s.id}
-                onClick={() => { setSelected(s); setPin(''); setError(null); }}
-                className={`flex items-center gap-2 h-11 px-3 rounded-2xl text-sm font-medium border transition-all cursor-pointer touch-manipulation select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
-                  active
-                    ? 'border-primary/40 bg-primary/10 text-primary'
-                    : 'border-border bg-white/50 dark:bg-white/5 text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${
-                  active ? 'bg-primary/20 text-primary' : 'bg-muted'
-                }`}>{s.initials}</span>
-                {s.name}
-              </button>
-            );
-          })}
+        {/* Current user */}
+        <div className="flex items-center gap-2.5 px-4 py-2 rounded-2xl border border-border bg-black/3 dark:bg-white/3">
+          <span className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center text-xs font-bold text-primary">
+            {staff.initials}
+          </span>
+          <div className="leading-tight">
+            <p className="text-sm font-medium">{staff.name}</p>
+            <p className="text-xs text-muted-foreground capitalize">{staff.role}</p>
+          </div>
         </div>
 
         {/* PIN dots */}
@@ -158,13 +136,13 @@ export function PinPad({ onUnlock }: { onUnlock: () => void }) {
           </button>
         </div>
 
-        {/* Hidden input keeps mobile keyboards happy if user prefers typing */}
+        {/* Hidden input for mobile keyboard */}
         <input
           ref={inputRef}
           type="password"
           inputMode="numeric"
           value={pin}
-          onChange={() => { /* keyboard handler updates state */ }}
+          onChange={() => {}}
           className="sr-only"
           aria-hidden="true"
           tabIndex={-1}

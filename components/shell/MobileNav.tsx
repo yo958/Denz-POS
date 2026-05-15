@@ -11,6 +11,7 @@ import {
   Laptop, ChefHat, History, LogOut, Users, Globe, CalendarDays,
 } from 'lucide-react';
 import { setCurrentStaffId, useCurrentStaff } from '@/lib/hooks/useStore';
+import { signOut } from '@/lib/firebase';
 
 const NAV = [
   { href: '/',          icon: LayoutGrid, label: 'POS',     managerOnly: false },
@@ -61,12 +62,12 @@ export function MobileNav() {
         );
       })}
       <button
-        onClick={() => setCurrentStaffId(null)}
-        aria-label="Lock"
+        onClick={() => { setCurrentStaffId(null); void signOut(); }}
+        aria-label="Sign out"
         className="flex flex-col items-center justify-center gap-0.5 min-w-[64px] flex-1 py-2 px-2 text-[10px] font-medium text-muted-foreground touch-manipulation select-none"
       >
         <LogOut size={20} strokeWidth={1.8} />
-        <span>Lock</span>
+        <span>Sign out</span>
       </button>
     </nav>
   );

@@ -1,11 +1,12 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Save, Upload, Download, Trash2, KeyRound, UserPlus, AlertTriangle, Plus, Pencil, X, Phone, Mail, Image as ImageIcon } from 'lucide-react';
+import { Save, Upload, Download, Trash2, KeyRound, UserPlus, AlertTriangle, Plus, Pencil, X, Phone, Mail, Image as ImageIcon, RefreshCw, Eye, EyeOff } from 'lucide-react';
 import { useSettings, useStaff, useCurrentStaff, useModifierGroups } from '@/lib/hooks/useStore';
 import { getStore } from '@/lib/store/store';
 import { downloadBackup, importBackupFromString } from '@/lib/store/backup';
 import { hashPin, newSalt } from '@/lib/domain/auth';
+import { createStaffAccount, sendPasswordReset } from '@/lib/firebase';
 import { confirm } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/toast';
 import { newId } from '@/lib/domain/id';
@@ -82,22 +83,21 @@ export default function SettingsPage() {
     toast.success('PIN updated');
   }
 
-  async function addStaff() {
-    const name = window.prompt('Name?');
-    if (!name) return;
-    const role = window.prompt('Role? (manager / staff)', 'staff') as StaffRole;
-    if (role !== 'manager' && role !== 'staff') { toast.error('Invalid role'); return; }
-    const pin = window.prompt('4-digit PIN?');
-    if (!pin || !/^\d{4}$/.test(pin)) { toast.error('PIN must be 4 digits'); return; }
-    const ok = await confirm({ title: 'Create staff?', requireManagerPin: true, confirmLabel: 'Create' });
+  const [addingStaff, setAddingStaff] = useState(false);
+
+  async function addStaff() { setAddingStaff(true); }
+
+  async function resetPassword(s: Staff) {
+    const email = s.contact?.email;
+    if (!email) { toast.error('No email on file for this staff member.'); return; }
+    const ok = await confirm({ title: `Send password reset to ${s.name}?`, message: email, confirmLabel: 'Send' });
     if (!ok) return;
-    const salt = newSalt();
-    const hash = await hashPin(pin, salt);
-    const initials = name.split(/\s+/).map(p => p[0]).join('').slice(0, 2).toUpperCase();
-    const newStaff: Staff = { id: newId('staff'), name, role, initials, pinHash: hash, pinSalt: salt };
-    getStore().staff.set(prev => [...prev, newStaff]);
-    getStore().log('staff.create', `${name} (${role})`, me?.id);
-    toast.success(`${name} added`);
+    try {
+      await sendPasswordReset(email);
+      toast.success('Password reset email sent');
+    } catch {
+      toast.error('Failed to send reset email');
+    }
   }
 
   async function archiveStaff(s: Staff) {
@@ -307,9 +307,14 @@ export default function SettingsPage() {
                 <button onClick={() => setEditingStaff(s)} aria-label={`Edit ${s.name}`} className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer">
                   <Pencil size={13} />
                 </button>
-                <button onClick={() => resetPin(s)} className="flex items-center gap-1 h-8 px-2.5 rounded-lg text-xs font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8 cursor-pointer">
+                <button onClick={() => resetPin(s)} title="Reset PIN" className="flex items-center gap-1 h-8 px-2.5 rounded-lg text-xs font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8 cursor-pointer">
                   <KeyRound size={11} /> PIN
                 </button>
+                {s.contact?.email && (
+                  <button onClick={() => resetPassword(s)} title="Send password reset email" className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer">
+                    <RefreshCw size={13} />
+                  </button>
+                )}
                 {s.id !== me?.id && (
                   <button onClick={() => archiveStaff(s)} aria-label={`Archive ${s.name}`} className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors cursor-pointer">
                     <Trash2 size={13} />
@@ -323,6 +328,38 @@ export default function SettingsPage() {
               staff={editingStaff}
               onClose={() => setEditingStaff(null)}
               onSave={saveStaff}
+            />
+          )}
+          {addingStaff && (
+            <AddStaffDialog
+              onClose={() => setAddingStaff(false)}
+              onCreated={async (name, role, email, password, pin) => {
+                const ok = await confirm({ title: 'Create staff member?', requireManagerPin: true, confirmLabel: 'Create' });
+                if (!ok) return;
+                let firebaseUid: string | undefined;
+                try {
+                  firebaseUid = await createStaffAccount(email, password);
+                } catch (err: unknown) {
+                  const msg = err instanceof Error ? err.message : String(err);
+                  if (msg.includes('email-already-in-use')) {
+                    toast.error('A Firebase account with this email already exists.');
+                  } else {
+                    toast.error('Could not create Firebase account: ' + msg.replace('Firebase: ', '').split(' (auth/')[0]);
+                  }
+                  return;
+                }
+                const salt = newSalt();
+                const hash = await hashPin(pin, salt);
+                const initials = name.split(/\s+/).map(p => p[0]).join('').slice(0, 2).toUpperCase();
+                const newStaff: Staff = {
+                  id: newId('staff'), name, role, initials, pinHash: hash, pinSalt: salt,
+                  contact: { email }, firebaseUid,
+                };
+                getStore().staff.set(prev => [...prev, newStaff]);
+                getStore().log('staff.create', `${name} (${role})`, me?.id);
+                toast.success(`${name} added`);
+                setAddingStaff(false);
+              }}
             />
           )}
         </Section>
@@ -472,6 +509,117 @@ function StaffEditDialog({ staff, onClose, onSave }: StaffEditDialogProps) {
         <div className="flex gap-2 pt-1">
           <button type="button" onClick={onClose} className="flex-1 h-11 rounded-2xl text-sm font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8 active:scale-95 transition-all cursor-pointer">Cancel</button>
           <button type="submit" className="flex-1 h-11 rounded-2xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 transition-all cursor-pointer">Save</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+/* ── Add Staff Dialog ──────────────────────────────────────── */
+
+interface AddStaffDialogProps {
+  onClose: () => void;
+  onCreated: (name: string, role: StaffRole, email: string, password: string, pin: string) => Promise<void>;
+}
+
+function AddStaffDialog({ onClose, onCreated }: AddStaffDialogProps) {
+  const [name, setName]         = useState('');
+  const [role, setRole]         = useState<StaffRole>('staff');
+  const [email, setEmail]       = useState('');
+  const [password, setPassword] = useState('');
+  const [pin, setPin]           = useState('');
+  const [showPw, setShowPw]     = useState(false);
+  const [busy, setBusy]         = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim())            { toast.error('Name required'); return; }
+    if (!email.trim())           { toast.error('Email required'); return; }
+    if (password.length < 6)     { toast.error('Password must be at least 6 characters'); return; }
+    if (!/^\d{4}$/.test(pin))    { toast.error('PIN must be exactly 4 digits'); return; }
+    setBusy(true);
+    try {
+      await onCreated(name.trim(), role, email.trim().toLowerCase(), password, pin);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <form onSubmit={submit} className="relative w-full max-w-sm glass-strong rounded-3xl p-6 shadow-2xl space-y-4">
+        <h2 className="text-lg font-semibold">Add staff member</h2>
+
+        <Field label="Name">
+          <input
+            value={name}
+            onChange={e => setName(e.target.value)}
+            autoFocus
+            placeholder="Full name"
+            className={inputCls}
+          />
+        </Field>
+
+        <Field label="Role">
+          <select value={role} onChange={e => setRole(e.target.value as StaffRole)} className={inputCls}>
+            <option value="staff">Staff</option>
+            <option value="manager">Manager</option>
+          </select>
+        </Field>
+
+        <Field label="Email (Firebase login)">
+          <div className="relative">
+            <Mail size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="name@example.com"
+              className={inputCls + ' pl-8'}
+            />
+          </div>
+        </Field>
+
+        <Field label="Initial password (min 6 chars)">
+          <div className="relative">
+            <input
+              type={showPw ? 'text' : 'password'}
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="••••••••"
+              autoComplete="new-password"
+              className={inputCls + ' pr-10'}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPw(v => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              tabIndex={-1}
+            >
+              {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
+          </div>
+        </Field>
+
+        <Field label="4-digit PIN (idle lock)">
+          <input
+            type="password"
+            inputMode="numeric"
+            maxLength={4}
+            value={pin}
+            onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+            placeholder="••••"
+            autoComplete="new-password"
+            className={inputCls + ' tracking-widest'}
+          />
+        </Field>
+
+        <div className="flex gap-2 pt-1">
+          <button type="button" onClick={onClose} disabled={busy} className="flex-1 h-11 rounded-2xl text-sm font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8 active:scale-95 transition-all cursor-pointer disabled:opacity-50">Cancel</button>
+          <button type="submit" disabled={busy} className="flex-1 h-11 rounded-2xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 transition-all cursor-pointer disabled:opacity-60">
+            {busy ? 'Creating…' : 'Create'}
+          </button>
         </div>
       </form>
     </div>

@@ -283,6 +283,8 @@ export interface Staff {
   /** Profile photo — data URL or hosted path. */
   image?: string;
   contact?: { phone?: string; email?: string };
+  /** Firebase Auth UID — set when a Firebase account has been created for this staff member. */
+  firebaseUid?: string;
   archived?: boolean;
 }
 
