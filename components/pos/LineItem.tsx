@@ -23,6 +23,9 @@ export function LineItem({ item, onQtyChange, onVoid, onLineDiscount, readonly }
   const unsent = Math.max(0, item.qty - sent);
   const modSummary = modifiersSummary(item.modifiers);
   const key = lineKey(item);
+  const addedTime = item.addedAt
+    ? new Date(item.addedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+    : null;
 
   const discountLabel = hasItemDiscount
     ? item.discount!.type === 'pct'
@@ -61,6 +64,9 @@ export function LineItem({ item, onQtyChange, onVoid, onLineDiscount, readonly }
           )}
           {refunded > 0 && (
             <span className="text-rose-600 dark:text-rose-400">· {refunded} refunded</span>
+          )}
+          {addedTime && (
+            <span className="text-muted-foreground/60">· {addedTime}</span>
           )}
         </p>
       </div>

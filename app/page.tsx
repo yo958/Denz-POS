@@ -517,6 +517,7 @@ export default function POSPage() {
           qty: 1,
           modifiers: mods.length ? mods : undefined,
           note,
+          addedAt: new Date(),
         };
         return { ...t, items: [...t.items, newLine] };
       }

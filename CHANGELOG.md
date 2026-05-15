@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.30] - 2026-05-15
+### Added
+- **POS** — Each item in the cart now shows the time it was added (e.g. `· 14:32`) next to the price row. New items get an `addedAt` timestamp when first added to a tab; existing items without a timestamp show nothing.
+
 ## [1.5.29] - 2026-05-15
 ### Fixed
 - **Auth** — First-time login bootstrap: when a Firebase account exists but no staff record is linked yet, the login flow now shows a "Set up your account" step (name + 4-digit PIN) and creates the first manager record automatically instead of showing an error.

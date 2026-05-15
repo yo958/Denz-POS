@@ -110,6 +110,8 @@ export interface LineItem {
   sentToKitchenQty?: number;
   /** Quantity refunded against this line. */
   refundedQty?: number;
+  /** When this line was first added to the tab. */
+  addedAt?: Date;
 }
 
 /* ── Voids ────────────────────────────────────────────────────── */
