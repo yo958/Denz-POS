@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.27] - 2026-05-15
+### Fixed
+- **Calendar** — Multi-hour bookings (e.g. "Private Office — Per Hour (2hr)") now correctly detect as hourly period. The `(2hr)` suffix was preventing the period lookup from matching, causing the paid-hourly anchor rule to silently skip and the booking to bleed into the next calendar day.
+
 ## [1.5.26] - 2026-05-15
 ### Fixed
 - **Calendar** — Paid/refunded hourly bookings now anchor to the `openedAt` day only. Previously, `bookingEndsAt = payment_time + hours` caused the booking to bleed into the next calendar day; it is a billing sentinel, not a date range.

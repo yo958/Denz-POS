@@ -66,7 +66,8 @@ function inferPeriodFromItems(tab: Tab): CoworkRatePeriod | null {
     if (item.product?.category !== 'desks') continue;
     const parts = item.product.name.split('—');
     if (parts.length >= 2) {
-      const label = parts[parts.length - 1].trim().toLowerCase();
+      // Strip any trailing "(Xhr)" suffix added for multi-hour bookings before matching
+      const label = parts[parts.length - 1].trim().replace(/\s*\(\d+hr\)\s*$/, '').toLowerCase();
       if (LABEL_TO_PERIOD[label]) return LABEL_TO_PERIOD[label];
     }
   }
