@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.31] - 2026-05-15
+### Changed
+- **Cart header** — Country flag is now hidden by default and fades in only when hovering over the customer name row. Tooltip showing the country name still appears on hover of the flag itself.
+
 ## [1.5.30] - 2026-05-15
 ### Added
 - **POS** — Each item in the cart now shows the time it was added (e.g. `· 14:32`) next to the price row. New items get an `addedAt` timestamp when first added to a tab; existing items without a timestamp show nothing.

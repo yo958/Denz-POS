@@ -193,11 +193,11 @@ function CartHeader({ tab, readonly }: CartHeaderProps) {
     <div className="px-4 pt-4 pb-3 border-b border-border">
       <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap group/name">
             <h2 className="text-base font-semibold leading-tight truncate">{tab.customerName}</h2>
             {linkedCustomer?.vip && <Star size={13} className="text-amber-400 fill-amber-400 shrink-0" />}
             {linkedCustomer?.country && (
-              <span className="relative group shrink-0 cursor-default">
+              <span className="relative group shrink-0 cursor-default opacity-0 group-hover/name:opacity-100 transition-opacity duration-150">
                 <span className="text-base leading-none">{countryFlag(linkedCustomer.country)}</span>
                 <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap rounded-lg bg-foreground text-background text-[11px] font-medium px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-50">
                   {countryLabel(linkedCustomer.country).replace(/^\S+\s/, '')}
