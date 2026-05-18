@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.40] - 2026-05-18
+### Changed
+- **Rooms — Full page description** now uses a TipTap WYSIWYG editor. Text renders visually (bold looks bold, headings look like headings), Enter creates real line breaks, and the toolbar buttons show an active/highlighted state. Stores HTML output for direct rendering on the website.
+
 ## [1.5.39] - 2026-05-18
 ### Changed
 - **Rooms — Full page description** now uses a markdown editor with a formatting toolbar. Buttons for H2, H3, Bold, Italic, and Bullet list wrap or prefix selected text with markdown syntax.

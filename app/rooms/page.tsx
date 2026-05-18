@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
 import { useSearchParams } from 'next/navigation';
 import { BedDouble, User, CalendarDays, Receipt, LogOut, Plus, Pencil, Archive, ArchiveRestore, Trash2, X } from 'lucide-react';
 import { useProducts, useStays, useTabs, useCurrentStaff, useSettings } from '@/lib/hooks/useStore';
@@ -353,7 +355,7 @@ function RoomDialog({ room, isManager, onClose, onSave }: RoomDialogProps) {
 
         <div className="space-y-1.5">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Full page description</span>
-          <MarkdownEditor
+          <RichTextEditor
             value={form.longDescription ?? ''}
             onChange={v => setForm(f => ({ ...f, longDescription: v }))}
           />
@@ -504,70 +506,57 @@ function RoomDialog({ room, isManager, onClose, onSave }: RoomDialogProps) {
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-// ── Markdown editor ───────────────────────────────────────────────
-interface MarkdownEditorProps {
-  value: string;
-  onChange: (v: string) => void;
-}
+// ── Rich text editor (TipTap WYSIWYG) ────────────────────────────
+function RichTextEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const editor = useEditor({
+    extensions: [StarterKit],
+    content: value,
+    onUpdate: ({ editor }) => {
+      onChange(editor.getHTML());
+    },
+  });
 
-function MarkdownEditor({ value, onChange }: MarkdownEditorProps) {
-  const ref = useRef<HTMLTextAreaElement>(null);
+  if (!editor) return null;
 
-  function wrap(before: string, after: string, placeholder: string) {
-    const el = ref.current;
-    if (!el) return;
-    const start = el.selectionStart;
-    const end   = el.selectionEnd;
-    const selected = value.slice(start, end) || placeholder;
-    const next = value.slice(0, start) + before + selected + after + value.slice(end);
-    onChange(next);
-    // Restore selection after React re-render
-    requestAnimationFrame(() => {
-      el.focus();
-      el.setSelectionRange(start + before.length, start + before.length + selected.length);
-    });
-  }
-
-  function prefix(token: string, placeholder: string) {
-    const el = ref.current;
-    if (!el) return;
-    const start = el.selectionStart;
-    // Find the start of the current line
-    const lineStart = value.lastIndexOf('\n', start - 1) + 1;
-    const line = value.slice(lineStart, start);
-    // Toggle: remove if already prefixed, else add
-    if (line.startsWith(token)) {
-      const next = value.slice(0, lineStart) + value.slice(lineStart + token.length);
-      onChange(next);
-    } else {
-      const next = value.slice(0, lineStart) + token + value.slice(lineStart);
-      onChange(next);
-      requestAnimationFrame(() => { el.focus(); el.setSelectionRange(start + token.length, start + token.length); });
-    }
-  }
-
-  const btnCls = 'px-2 h-7 rounded-lg text-xs font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer transition-colors';
+  const btn = (active: boolean) =>
+    `px-2 h-7 rounded-lg text-xs font-medium border cursor-pointer transition-colors ${
+      active
+        ? 'border-primary bg-primary text-primary-foreground'
+        : 'border-border bg-white/50 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10'
+    }`;
 
   return (
-    <div className="rounded-xl border border-border overflow-hidden bg-black/5 dark:bg-white/5">
+    <div className="rounded-xl border border-border overflow-hidden">
       {/* Toolbar */}
       <div className="flex items-center gap-1 px-2 py-1.5 border-b border-border bg-white/30 dark:bg-black/20 flex-wrap">
-        <button type="button" className={btnCls} onClick={() => prefix('## ', 'Heading')} title="Heading 2">H2</button>
-        <button type="button" className={btnCls} onClick={() => prefix('### ', 'Heading')} title="Heading 3">H3</button>
+        <button type="button" className={btn(editor.isActive('heading', { level: 2 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>H2</button>
+        <button type="button" className={btn(editor.isActive('heading', { level: 3 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>H3</button>
         <span className="w-px h-4 bg-border mx-0.5" />
-        <button type="button" className={`${btnCls} font-bold`} onClick={() => wrap('**', '**', 'bold text')} title="Bold"><span className="font-bold">B</span></button>
-        <button type="button" className={`${btnCls} italic`} onClick={() => wrap('*', '*', 'italic text')} title="Italic"><span className="italic">I</span></button>
+        <button type="button" className={`${btn(editor.isActive('bold'))} font-bold`} onClick={() => editor.chain().focus().toggleBold().run()}>B</button>
+        <button type="button" className={`${btn(editor.isActive('italic'))} italic`} onClick={() => editor.chain().focus().toggleItalic().run()}>I</button>
         <span className="w-px h-4 bg-border mx-0.5" />
-        <button type="button" className={btnCls} onClick={() => prefix('- ', 'item')} title="Bullet list">• List</button>
+        <button type="button" className={btn(editor.isActive('bulletList'))} onClick={() => editor.chain().focus().toggleBulletList().run()}>• List</button>
+        <button type="button" className={btn(editor.isActive('orderedList'))} onClick={() => editor.chain().focus().toggleOrderedList().run()}>1. List</button>
       </div>
-      {/* Textarea */}
-      <textarea
-        ref={ref}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder="Shown on the room's individual page on the website. Supports markdown formatting."
-        rows={7}
-        className="w-full px-3 py-2.5 text-sm bg-transparent focus:outline-none resize-y font-mono"
+      {/* Editor canvas */}
+      <EditorContent
+        editor={editor}
+        className={[
+          'min-h-[160px] px-3 py-2.5 text-sm bg-black/3 dark:bg-white/3',
+          '[&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-[140px]',
+          '[&_.ProseMirror_h2]:text-lg [&_.ProseMirror_h2]:font-bold [&_.ProseMirror_h2]:mt-3 [&_.ProseMirror_h2]:mb-1',
+          '[&_.ProseMirror_h3]:text-base [&_.ProseMirror_h3]:font-bold [&_.ProseMirror_h3]:mt-2 [&_.ProseMirror_h3]:mb-0.5',
+          '[&_.ProseMirror_p]:my-1',
+          '[&_.ProseMirror_strong]:font-bold',
+          '[&_.ProseMirror_em]:italic',
+          '[&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-5',
+          '[&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-5',
+          '[&_.ProseMirror_li]:my-0.5',
+          '[&_.ProseMirror_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]',
+          '[&_.ProseMirror_p.is-editor-empty:first-child::before]:text-muted-foreground/50',
+          '[&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left',
+          '[&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none',
+        ].join(' ')}
       />
     </div>
   );

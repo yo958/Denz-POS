@@ -1,6 +1,6 @@
 {
   "name": "denz-pos",
-  "version": "1.5.39",
+  "version": "1.5.40",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -9,6 +9,8 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
+    "@tiptap/react": "^3.23.4",
+    "@tiptap/starter-kit": "^3.23.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "firebase": "^12.13.0",
