@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.38] - 2026-05-18
+### Added
+- **Rooms** — "Full page description" textarea in the room edit dialog. Supports multi-paragraph text. Displayed on the room's individual page on the website.
+
 ## [1.5.37] - 2026-05-18
 ### Added
 - **Rooms — Seasonal Pricing**: Room edit dialog now includes a Seasonal Pricing section. Add up to 4 named seasons (e.g. High Season, Low Season), each with a nightly price and a start/end date (month + day). Year-crossing seasons (e.g. Nov–Apr) are supported. The base `price` field remains as a year-round fallback when no season matches.

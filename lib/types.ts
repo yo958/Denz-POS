@@ -59,6 +59,8 @@ export interface Product {
    * Prices are set at the product level; the shared group options carry no default price.
    */
   modifierOptionPriceOverrides?: Record<string, Record<string, number>>;
+  /** Extended description shown on the room's individual page on the website. */
+  longDescription?: string;
   /** Seasonal pricing — only used when category === 'rooms'. */
   seasons?: RoomSeason[];
   /** If true, room is blocked from website bookings (e.g. under renovation). */

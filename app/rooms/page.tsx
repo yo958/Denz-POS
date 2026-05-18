@@ -347,8 +347,18 @@ function RoomDialog({ room, isManager, onClose, onSave }: RoomDialogProps) {
           </Field>
         )}
 
-        <Field label="Description">
+        <Field label="Short description">
           <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className={inputCls} />
+        </Field>
+
+        <Field label="Full page description">
+          <textarea
+            value={form.longDescription ?? ''}
+            onChange={e => setForm({ ...form, longDescription: e.target.value })}
+            placeholder="Shown on the room's individual page on the website…"
+            rows={5}
+            className="w-full px-3 py-2.5 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+          />
         </Field>
 
         <div className="space-y-1.5">
