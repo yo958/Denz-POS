@@ -61,6 +61,8 @@ export interface Product {
   modifierOptionPriceOverrides?: Record<string, Record<string, number>>;
   /** Extended description shown on the room's individual page on the website. */
   longDescription?: string;
+  /** Gallery images (data URLs) shown on the room's detail page. Max 6 images. */
+  gallery?: string[];
   /** Seasonal pricing — only used when category === 'rooms'. */
   seasons?: RoomSeason[];
   /** If true, room is blocked from website bookings (e.g. under renovation). */

@@ -391,6 +391,59 @@ function RoomDialog({ room, isManager, onClose, onSave }: RoomDialogProps) {
           </div>
         </div>
 
+        {/* Gallery */}
+        <div className="space-y-2 pt-1">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Gallery <span className="normal-case font-normal">({(form.gallery?.length ?? 0)}/6)</span>
+            </span>
+            {(form.gallery?.length ?? 0) < 6 && (
+              <label className="flex items-center gap-1 h-6 px-2 rounded-lg text-xs font-medium bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer">
+                <Plus size={11} strokeWidth={2.5} /> Add photos
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={async (e) => {
+                    const files = Array.from(e.target.files ?? []);
+                    e.target.value = '';
+                    const current = form.gallery ?? [];
+                    const slots = 6 - current.length;
+                    const toAdd = files.slice(0, slots);
+                    const results: string[] = [];
+                    for (const f of toAdd) {
+                      try {
+                        results.push(await downscaleImage(f, 600, 0.75));
+                      } catch { /* skip bad files */ }
+                    }
+                    if (results.length) setForm(prev => ({ ...prev, gallery: [...(prev.gallery ?? []), ...results] }));
+                  }}
+                />
+              </label>
+            )}
+          </div>
+          {(form.gallery?.length ?? 0) === 0 ? (
+            <p className="text-xs text-muted-foreground">No gallery images — add up to 6 photos.</p>
+          ) : (
+            <div className="grid grid-cols-3 gap-2">
+              {(form.gallery ?? []).map((src, i) => (
+                <div key={i} className="relative aspect-[4/3] rounded-xl overflow-hidden border border-border group">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={src} alt="" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setForm(prev => ({ ...prev, gallery: (prev.gallery ?? []).filter((_, j) => j !== i) }))}
+                    className="absolute top-1 right-1 flex items-center justify-center w-6 h-6 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                  >
+                    <X size={11} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Seasonal Pricing */}
         <div className="space-y-2 pt-1">
           <div className="flex items-center justify-between">
