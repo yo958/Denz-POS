@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.34] - 2026-05-18
+### Fixed
+- **Firestore rules** — Allow public reads on `spaces`, `equipment`, and `tabs` slices so the Denz Website coworking page can load live pricing and availability. Previously all `/stores/` reads required auth, causing the page to silently fall back to only the two hardcoded fallback spaces (Hot Desk + Private Office).
+
 ## [1.5.33] - 2026-05-18
 ### Fixed
 - **Firestore rules** — `website-orders` now allows public reads (`allow create, read: if true`) so the order status tracker on the website receives real-time updates when staff accept/decline a booking. Previously, unauthenticated readers got `permission-denied` on the `onSnapshot` listener, leaving the tracker stuck at "Order received · updating…".

@@ -7,6 +7,11 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
 
+    // Public website reads — spaces (pricing), equipment, and tabs (availability counts)
+    match /stores/{storeId}/slices/{sliceName} {
+      allow read: if sliceName in ['spaces', 'equipment', 'tabs'];
+    }
+
     // Website bookings — anyone can submit or read (for order status tracking); only staff can update
     match /website-orders/{orderId} {
       allow create, read: if true;
