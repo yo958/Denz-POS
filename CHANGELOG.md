@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.39] - 2026-05-18
+### Changed
+- **Rooms — Full page description** now uses a markdown editor with a formatting toolbar. Buttons for H2, H3, Bold, Italic, and Bullet list wrap or prefix selected text with markdown syntax.
+
 ## [1.5.38] - 2026-05-18
 ### Added
 - **Rooms** — "Full page description" textarea in the room edit dialog. Supports multi-paragraph text. Displayed on the room's individual page on the website.

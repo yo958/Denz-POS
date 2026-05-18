@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { BedDouble, User, CalendarDays, Receipt, LogOut, Plus, Pencil, Archive, ArchiveRestore, Trash2, X } from 'lucide-react';
 import { useProducts, useStays, useTabs, useCurrentStaff, useSettings } from '@/lib/hooks/useStore';
@@ -351,15 +351,13 @@ function RoomDialog({ room, isManager, onClose, onSave }: RoomDialogProps) {
           <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className={inputCls} />
         </Field>
 
-        <Field label="Full page description">
-          <textarea
+        <div className="space-y-1.5">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Full page description</span>
+          <MarkdownEditor
             value={form.longDescription ?? ''}
-            onChange={e => setForm({ ...form, longDescription: e.target.value })}
-            placeholder="Shown on the room's individual page on the website…"
-            rows={5}
-            className="w-full px-3 py-2.5 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+            onChange={v => setForm(f => ({ ...f, longDescription: v }))}
           />
-        </Field>
+        </div>
 
         <div className="space-y-1.5">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Photo</span>
@@ -505,6 +503,75 @@ function RoomDialog({ room, isManager, onClose, onSave }: RoomDialogProps) {
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// ── Markdown editor ───────────────────────────────────────────────
+interface MarkdownEditorProps {
+  value: string;
+  onChange: (v: string) => void;
+}
+
+function MarkdownEditor({ value, onChange }: MarkdownEditorProps) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  function wrap(before: string, after: string, placeholder: string) {
+    const el = ref.current;
+    if (!el) return;
+    const start = el.selectionStart;
+    const end   = el.selectionEnd;
+    const selected = value.slice(start, end) || placeholder;
+    const next = value.slice(0, start) + before + selected + after + value.slice(end);
+    onChange(next);
+    // Restore selection after React re-render
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(start + before.length, start + before.length + selected.length);
+    });
+  }
+
+  function prefix(token: string, placeholder: string) {
+    const el = ref.current;
+    if (!el) return;
+    const start = el.selectionStart;
+    // Find the start of the current line
+    const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+    const line = value.slice(lineStart, start);
+    // Toggle: remove if already prefixed, else add
+    if (line.startsWith(token)) {
+      const next = value.slice(0, lineStart) + value.slice(lineStart + token.length);
+      onChange(next);
+    } else {
+      const next = value.slice(0, lineStart) + token + value.slice(lineStart);
+      onChange(next);
+      requestAnimationFrame(() => { el.focus(); el.setSelectionRange(start + token.length, start + token.length); });
+    }
+  }
+
+  const btnCls = 'px-2 h-7 rounded-lg text-xs font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer transition-colors';
+
+  return (
+    <div className="rounded-xl border border-border overflow-hidden bg-black/5 dark:bg-white/5">
+      {/* Toolbar */}
+      <div className="flex items-center gap-1 px-2 py-1.5 border-b border-border bg-white/30 dark:bg-black/20 flex-wrap">
+        <button type="button" className={btnCls} onClick={() => prefix('## ', 'Heading')} title="Heading 2">H2</button>
+        <button type="button" className={btnCls} onClick={() => prefix('### ', 'Heading')} title="Heading 3">H3</button>
+        <span className="w-px h-4 bg-border mx-0.5" />
+        <button type="button" className={`${btnCls} font-bold`} onClick={() => wrap('**', '**', 'bold text')} title="Bold"><span className="font-bold">B</span></button>
+        <button type="button" className={`${btnCls} italic`} onClick={() => wrap('*', '*', 'italic text')} title="Italic"><span className="italic">I</span></button>
+        <span className="w-px h-4 bg-border mx-0.5" />
+        <button type="button" className={btnCls} onClick={() => prefix('- ', 'item')} title="Bullet list">• List</button>
+      </div>
+      {/* Textarea */}
+      <textarea
+        ref={ref}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder="Shown on the room's individual page on the website. Supports markdown formatting."
+        rows={7}
+        className="w-full px-3 py-2.5 text-sm bg-transparent focus:outline-none resize-y font-mono"
+      />
+    </div>
+  );
+}
 
 function FolioPanel({ stay, onClose }: { stay: Stay | null; onClose: () => void }) {
   const tabs = useTabs();
