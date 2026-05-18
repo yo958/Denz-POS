@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.32] - 2026-05-18
+### Fixed
+- **Firebase** — Added `firebase.json` so Firestore security rules can be deployed via CLI. Fixes website booking form returning "Something went wrong" because the `allow create: if true` rule for `website-orders` was never deployed after the v1.5.28 auth migration.
+
 ## [1.5.31] - 2026-05-15
 ### Changed
 - **Cart header** — Country flag is now hidden by default and fades in only when hovering over the customer name row. Tooltip showing the country name still appears on hover of the flag itself.
