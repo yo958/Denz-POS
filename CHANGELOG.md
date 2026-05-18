@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.33] - 2026-05-18
+### Fixed
+- **Firestore rules** — `website-orders` now allows public reads (`allow create, read: if true`) so the order status tracker on the website receives real-time updates when staff accept/decline a booking. Previously, unauthenticated readers got `permission-denied` on the `onSnapshot` listener, leaving the tracker stuck at "Order received · updating…".
+
 ## [1.5.32] - 2026-05-18
 ### Fixed
 - **Firebase** — Added `firebase.json` so Firestore security rules can be deployed via CLI. Fixes website booking form returning "Something went wrong" because the `allow create: if true` rule for `website-orders` was never deployed after the v1.5.28 auth migration.

@@ -7,10 +7,10 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
 
-    // Website bookings — anyone can submit, only authenticated staff can read/update
+    // Website bookings — anyone can submit or read (for order status tracking); only staff can update
     match /website-orders/{orderId} {
-      allow create: if true;
-      allow read, update: if request.auth != null;
+      allow create, read: if true;
+      allow update: if request.auth != null;
     }
   }
 }
