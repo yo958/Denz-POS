@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.36] - 2026-05-18
+### Changed
+- **Firestore rules** — Added `stays` to the public-readable slices so the website Rooms page can read live occupancy from the POS (a room shows as Occupied whenever there is an active check-in).
+
 ## [1.5.35] - 2026-05-18
 ### Fixed
 - **Firestore rules** — Added `products` to the public-readable slices, fixing missing menu items on the website Menu and Rooms pages (both read from the `products` slice which previously required auth).
