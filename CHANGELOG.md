@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.35] - 2026-05-18
+### Fixed
+- **Firestore rules** — Added `products` to the public-readable slices, fixing missing menu items on the website Menu and Rooms pages (both read from the `products` slice which previously required auth).
+
 ## [1.5.34] - 2026-05-18
 ### Fixed
 - **Firestore rules** — Allow public reads on `spaces`, `equipment`, and `tabs` slices so the Denz Website coworking page can load live pricing and availability. Previously all `/stores/` reads required auth, causing the page to silently fall back to only the two hardcoded fallback spaces (Hot Desk + Private Office).
