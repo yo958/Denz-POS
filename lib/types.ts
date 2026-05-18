@@ -59,6 +59,20 @@ export interface Product {
    * Prices are set at the product level; the shared group options carry no default price.
    */
   modifierOptionPriceOverrides?: Record<string, Record<string, number>>;
+  /** Seasonal pricing — only used when category === 'rooms'. */
+  seasons?: RoomSeason[];
+  /** If true, room is blocked from website bookings (e.g. under renovation). */
+  blocked?: boolean;
+}
+
+/* ── Room seasonal pricing ────────────────────────────────────── */
+export interface RoomSeason {
+  name: string;        // e.g. "High Season"
+  price: number;
+  startMonth: number;  // 1–12
+  startDay: number;    // 1–31
+  endMonth: number;    // 1–12
+  endDay: number;      // 1–31
 }
 
 /* ── Modifier groups (shared, reused across products) ─────────── */

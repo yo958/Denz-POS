@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { BedDouble, User, CalendarDays, Receipt, LogOut, Plus, Pencil, Archive, ArchiveRestore, Trash2 } from 'lucide-react';
+import { BedDouble, User, CalendarDays, Receipt, LogOut, Plus, Pencil, Archive, ArchiveRestore, Trash2, X } from 'lucide-react';
 import { useProducts, useStays, useTabs, useCurrentStaff, useSettings } from '@/lib/hooks/useStore';
 import { fmtCur } from '@/lib/format';
 import { getStore } from '@/lib/store/store';
@@ -14,7 +14,7 @@ import { toast } from '@/components/ui/toast';
 import {
   formatDate, formatElapsed, lineKey, lineUnitPrice, lineEffectiveUnitPrice, modifiersSummary, tabGrandTotal,
 } from '@/lib/domain/tabs';
-import type { Product, Stay } from '@/lib/types';
+import type { Product, Stay, RoomSeason } from '@/lib/types';
 
 export default function RoomsPage() {
   const products     = useProducts();
@@ -330,7 +330,7 @@ function RoomDialog({ room, isManager, onClose, onSave }: RoomDialogProps) {
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <form onSubmit={submit} className="relative w-full max-w-md glass-strong rounded-3xl p-6 shadow-2xl space-y-4">
+      <form onSubmit={submit} className="relative w-full max-w-md glass-strong rounded-3xl p-6 shadow-2xl space-y-4 overflow-y-auto max-h-[90vh]">
         <h2 className="text-lg font-semibold">{room ? 'Edit room' : 'Add room'}</h2>
 
         <Field label="Name">
@@ -381,6 +381,110 @@ function RoomDialog({ room, isManager, onClose, onSave }: RoomDialogProps) {
           </div>
         </div>
 
+        {/* Seasonal Pricing */}
+        <div className="space-y-2 pt-1">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Seasonal Pricing</span>
+            {(form.seasons?.length ?? 0) < 4 && (
+              <button
+                type="button"
+                onClick={() => setForm(f => ({
+                  ...f,
+                  seasons: [...(f.seasons ?? []), { name: '', price: 0, startMonth: 1, startDay: 1, endMonth: 6, endDay: 30 }],
+                }))}
+                className="flex items-center gap-1 h-6 px-2 rounded-lg text-xs font-medium bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
+              >
+                <Plus size={11} strokeWidth={2.5} /> Add season
+              </button>
+            )}
+          </div>
+          {(form.seasons?.length ?? 0) === 0 && (
+            <p className="text-xs text-muted-foreground">No seasons set — base rate applies year-round.</p>
+          )}
+          {(form.seasons ?? []).map((season, i) => (
+            <div key={i} className="rounded-xl border border-border bg-black/3 dark:bg-white/3 p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <input
+                  value={season.name}
+                  onChange={e => setForm(f => ({ ...f, seasons: (f.seasons ?? []).map((s, j) => j === i ? { ...s, name: e.target.value } : s) }))}
+                  placeholder="Season name (e.g. High Season)"
+                  className={inputCls + ' flex-1'}
+                />
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, seasons: (f.seasons ?? []).filter((_, j) => j !== i) }))}
+                  className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer shrink-0"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 space-y-0.5">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Price / night</span>
+                  <input
+                    type="number" min={0} step={0.01}
+                    value={season.price || ''}
+                    onChange={e => setForm(f => ({ ...f, seasons: (f.seasons ?? []).map((s, j) => j === i ? { ...s, price: parseFloat(e.target.value) || 0 } : s) }))}
+                    className={inputCls + ' tabular-nums'}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Start (month / day)</span>
+                  <div className="flex gap-1">
+                    <select
+                      value={season.startMonth}
+                      onChange={e => setForm(f => ({ ...f, seasons: (f.seasons ?? []).map((s, j) => j === i ? { ...s, startMonth: parseInt(e.target.value) } : s) }))}
+                      className={inputCls + ' flex-1'}
+                    >
+                      {MONTHS.map((m, idx) => <option key={idx} value={idx + 1}>{m}</option>)}
+                    </select>
+                    <input
+                      type="number" min={1} max={31}
+                      value={season.startDay}
+                      onChange={e => setForm(f => ({ ...f, seasons: (f.seasons ?? []).map((s, j) => j === i ? { ...s, startDay: parseInt(e.target.value) || 1 } : s) }))}
+                      className={inputCls + ' w-14 tabular-nums'}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-0.5">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">End (month / day)</span>
+                  <div className="flex gap-1">
+                    <select
+                      value={season.endMonth}
+                      onChange={e => setForm(f => ({ ...f, seasons: (f.seasons ?? []).map((s, j) => j === i ? { ...s, endMonth: parseInt(e.target.value) } : s) }))}
+                      className={inputCls + ' flex-1'}
+                    >
+                      {MONTHS.map((m, idx) => <option key={idx} value={idx + 1}>{m}</option>)}
+                    </select>
+                    <input
+                      type="number" min={1} max={31}
+                      value={season.endDay}
+                      onChange={e => setForm(f => ({ ...f, seasons: (f.seasons ?? []).map((s, j) => j === i ? { ...s, endDay: parseInt(e.target.value) || 1 } : s) }))}
+                      className={inputCls + ' w-14 tabular-nums'}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Block website bookings */}
+        <label className="flex items-start gap-3 cursor-pointer pt-1">
+          <input
+            type="checkbox"
+            checked={form.blocked ?? false}
+            onChange={e => setForm({ ...form, blocked: e.target.checked })}
+            className="mt-0.5 w-4 h-4 rounded border-border accent-primary cursor-pointer"
+          />
+          <div>
+            <p className="text-sm font-medium">Block website bookings</p>
+            <p className="text-xs text-muted-foreground">Prevents new enquiries from the website (e.g. room under renovation).</p>
+          </div>
+        </label>
+
         <div className="flex gap-2 pt-2">
           <button type="button" onClick={onClose} className="flex-1 h-11 rounded-2xl text-sm font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8 active:scale-95 transition-all cursor-pointer">Cancel</button>
           <button type="submit" className="flex-1 h-11 rounded-2xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 transition-all cursor-pointer">{room ? 'Save' : 'Add'}</button>
@@ -389,6 +493,8 @@ function RoomDialog({ room, isManager, onClose, onSave }: RoomDialogProps) {
     </div>
   );
 }
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function FolioPanel({ stay, onClose }: { stay: Stay | null; onClose: () => void }) {
   const tabs = useTabs();

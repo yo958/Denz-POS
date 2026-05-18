@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.5.37] - 2026-05-18
+### Added
+- **Rooms — Seasonal Pricing**: Room edit dialog now includes a Seasonal Pricing section. Add up to 4 named seasons (e.g. High Season, Low Season), each with a nightly price and a start/end date (month + day). Year-crossing seasons (e.g. Nov–Apr) are supported. The base `price` field remains as a year-round fallback when no season matches.
+- **Rooms — Block website bookings**: New checkbox in the room edit dialog. When enabled, the room shows as "Unavailable" on the website with no Enquire button (e.g. during renovation). Independent of the occupied/stay status.
+
 ## [1.5.36] - 2026-05-18
 ### Changed
 - **Firestore rules** — Added `stays` to the public-readable slices so the website Rooms page can read live occupancy from the POS (a room shows as Occupied whenever there is an active check-in).
