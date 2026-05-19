@@ -6,6 +6,7 @@ import { useSettings } from '@/lib/hooks/useStore';
 import { getStore } from '@/lib/store/store';
 import { fmtCur } from '@/lib/format';
 import { CustomerPicker } from '@/components/customers/CustomerPicker';
+import { getRoomPriceSegments } from '@/lib/domain/stays';
 import type { Product } from '@/lib/types';
 
 interface CheckInDialogProps {
@@ -84,7 +85,10 @@ export function CheckInDialog({ open, room, onClose, onCheckIn }: CheckInDialogP
   const checkInDate  = checkInVal  ? new Date(checkInVal  + 'T00:00:00') : null;
   const checkOutDate = checkOutVal ? new Date(checkOutVal + 'T00:00:00') : null;
   const nights = checkInDate && checkOutDate ? nightsBetween(checkInDate, checkOutDate) : 0;
-  const total  = room ? room.price * nights : 0;
+
+  // Per-night seasonal breakdown
+  const segments = room && nights > 0 ? getRoomPriceSegments(room, checkInVal, nights) : [];
+  const total = segments.reduce((s, seg) => s + seg.price * seg.nights, 0);
 
   const canSubmit = name.trim().length > 0 && nights >= 1 && !!checkInDate && !!checkOutDate;
 
@@ -116,7 +120,9 @@ export function CheckInDialog({ open, room, onClose, onCheckIn }: CheckInDialogP
             </div>
             <div>
               <h2 className="text-lg font-semibold">Check In</h2>
-              <p className="text-xs text-muted-foreground">{room.name} · {cur}{room.price}/night</p>
+              <p className="text-xs text-muted-foreground">
+                {room.name} · from {cur}{fmtCur(room.price)}/night
+              </p>
             </div>
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="flex items-center justify-center w-8 h-8 rounded-xl text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer">
@@ -170,11 +176,16 @@ export function CheckInDialog({ open, room, onClose, onCheckIn }: CheckInDialogP
           </div>
         </div>
 
-        {/* Nights summary */}
+        {/* Nights summary with seasonal breakdown */}
         {nights > 0 && (
-          <p className="text-xs text-muted-foreground -mt-1 px-0.5">
-            {nights} night{nights !== 1 ? 's' : ''}
-          </p>
+          <div className="-mt-1 px-0.5 space-y-0.5">
+            {segments.map((seg, i) => (
+              <p key={i} className="text-xs text-muted-foreground">
+                {cur}{fmtCur(seg.price)} × {seg.nights} night{seg.nights !== 1 ? 's' : ''}
+                {seg.seasonName ? <span className="ml-1 opacity-60">({seg.seasonName})</span> : null}
+              </p>
+            ))}
+          </div>
         )}
 
         {/* Notes */}
@@ -190,9 +201,17 @@ export function CheckInDialog({ open, room, onClose, onCheckIn }: CheckInDialogP
         </div>
 
         {/* Total */}
-        <div className="flex justify-between text-sm pt-2 border-t border-border">
-          <span className="text-muted-foreground">Pre-charged ({nights}n)</span>
-          <span className="font-bold tabular-nums">{cur}{fmtCur(total)}</span>
+        <div className="pt-2 border-t border-border space-y-1">
+          {segments.length > 1 && segments.map((seg, i) => (
+            <div key={i} className="flex justify-between text-xs text-muted-foreground">
+              <span>{seg.seasonName ?? 'Base rate'} · {seg.nights}n</span>
+              <span className="tabular-nums">{cur}{fmtCur(seg.price * seg.nights)}</span>
+            </div>
+          ))}
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Pre-charged ({nights}n)</span>
+            <span className="font-bold tabular-nums">{cur}{fmtCur(total)}</span>
+          </div>
         </div>
 
         <div className="flex gap-2">

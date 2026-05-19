@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.43] - 2026-05-19
+### Added
+- **Rooms — seasonal pricing in check-in dialog**: The check-in dialog now shows a live per-night seasonal price breakdown as dates are selected. Stays crossing a season boundary (e.g. Oct 31 → Nov 9) show each rate segment with its season name and sub-total. The folio pre-charge is split into separate line items per segment (e.g. "Room 3 · Low Season × 1 night" + "Room 3 · High Season × 8 nights") so the folio accurately reflects the seasonal charges.
+
 ## [1.5.42] - 2026-05-19
 ### Fixed
 - **Calendar — coworking grid**: A customer with a paid weekly desk pass no longer appears twice on the same day when they also have an open tab for food/other purchases. Added deduplication in `coworkCellItems` — if a paid desk tab covers a space+day for a given customer name, any additional open tabs for the same customer are suppressed from that cell.
