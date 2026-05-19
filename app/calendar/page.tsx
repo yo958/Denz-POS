@@ -313,8 +313,19 @@ export default function CalendarPage() {
         t.items.some(i => i.product.category === 'desks' && i.product.name.startsWith(spaceName))
       ),
     );
+    // Dedup: if a paid tab already covers this space+day for a customer, suppress any
+    // additional open tabs for that same customer (e.g. a food order opened on top of a
+    // weekly desk pass should not show as a second desk booking on the calendar grid).
+    const paidCustomers = new Set(
+      matchingTabs
+        .filter(t => t.status === 'paid')
+        .map(t => t.customerName.trim().toLowerCase()),
+    );
+    const dedupedTabs = matchingTabs.filter(t =>
+      t.status === 'paid' || !paidCustomers.has(t.customerName.trim().toLowerCase()),
+    );
     const tabs: typeof matchingTabs = [];
-    for (const t of matchingTabs) {
+    for (const t of dedupedTabs) {
       const deskQty = t.items
         .filter(i => i.product.category === 'desks' && i.product.name.startsWith(spaceName))
         .reduce((sum, i) => sum + Math.max(0, i.qty - (i.refundedQty ?? 0)), 0);

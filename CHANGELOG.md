@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.42] - 2026-05-19
+### Fixed
+- **Calendar — coworking grid**: A customer with a paid weekly desk pass no longer appears twice on the same day when they also have an open tab for food/other purchases. Added deduplication in `coworkCellItems` — if a paid desk tab covers a space+day for a given customer name, any additional open tabs for the same customer are suppressed from that cell.
+
 ## [1.5.41] - 2026-05-19
 ### Added
 - **Rooms — Gallery**: Room products now support up to 6 gallery images. Upload multiple photos at once via the new "Add photos" section in the room edit dialog. Thumbnails are shown in a 3-column grid with a remove button on hover. Images are downscaled to 600px / 0.75 quality and stored with the product in Firestore.
