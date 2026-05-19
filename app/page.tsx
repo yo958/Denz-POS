@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { X } from 'lucide-react';
+import { X, BedDouble, Minus, Plus } from 'lucide-react';
 import { Topbar } from '@/components/shell/Topbar';
 import { TabList } from '@/components/pos/TabList';
 import { ProductGrid } from '@/components/pos/ProductGrid';
@@ -25,6 +25,7 @@ import {
   newId, tabGrandTotal, tabSubtotal, tabCardFee, CARD_FEE_RATE, lineEffectiveUnitPrice,
 } from '@/lib/domain/tabs';
 import { decrementForTab, restock } from '@/lib/domain/inventory';
+import { getRoomPriceSegments } from '@/lib/domain/stays';
 import { fmtCur } from '@/lib/format';
 import { confirm } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/toast';
@@ -118,6 +119,113 @@ function EquipmentHoursDialog({ equip, cur, onClose, onConfirm }: {
             onClick={() => onConfirm(hours, total)}
             className="flex-1 h-11 rounded-2xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 transition-all cursor-pointer disabled:opacity-40"
           >
+            Add to Tab
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RoomNightPickerDialog({ product, cur, onClose, onConfirm }: {
+  product: Product;
+  cur: string;
+  onClose: () => void;
+  onConfirm: (checkInStr: string, nights: number) => void;
+}) {
+  function toDS(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+  function addN(s: string, n: number): string {
+    const d = new Date(s + 'T12:00:00'); d.setDate(d.getDate() + n);
+    return toDS(d);
+  }
+  function fmtDate(s: string): string {
+    return new Date(s + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+
+  const today = toDS(new Date());
+  const [checkIn, setCheckIn] = useState(today);
+  const [nights,  setNights]  = useState(1);
+
+  const checkOut = addN(checkIn, nights);
+  const segments = getRoomPriceSegments(product, checkIn, nights);
+  const total    = segments.reduce((s, seg) => s + seg.price * seg.nights, 0);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-sm glass-strong rounded-3xl p-6 shadow-2xl space-y-4">
+
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400">
+              <BedDouble size={16} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold">Add Room Nights</h2>
+              <p className="text-xs text-muted-foreground">{product.name}</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground cursor-pointer"><X size={18} /></button>
+        </div>
+
+        {/* Check-in date */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Check-in date</label>
+          <input
+            type="date"
+            value={checkIn}
+            onChange={e => setCheckIn(e.target.value || today)}
+            className="w-full h-10 px-3 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+
+        {/* Night counter */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Nights</label>
+          <div className="flex items-center gap-3 flex-wrap">
+            <button type="button" onClick={() => setNights(n => Math.max(1, n - 1))} disabled={nights <= 1}
+              className="w-9 h-9 rounded-xl border border-border flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer">
+              <Minus size={14} />
+            </button>
+            <span className="text-2xl font-bold tabular-nums min-w-[2ch] text-center">{nights}</span>
+            <button type="button" onClick={() => setNights(n => Math.min(90, n + 1))}
+              className="w-9 h-9 rounded-xl border border-border flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer">
+              <Plus size={14} />
+            </button>
+            <span className="text-sm text-muted-foreground">
+              → <strong className="text-foreground">{fmtDate(checkOut)}</strong>
+            </span>
+          </div>
+        </div>
+
+        {/* Seasonal breakdown */}
+        <div className="bg-black/5 dark:bg-white/5 rounded-xl px-4 py-3 space-y-1.5">
+          {segments.map((seg, i) => (
+            <div key={i} className="flex justify-between text-sm">
+              <span className="text-muted-foreground">
+                {cur}{fmtCur(seg.price)} × {seg.nights} night{seg.nights !== 1 ? 's' : ''}
+                {seg.seasonName ? <span className="ml-1 opacity-60 text-xs">({seg.seasonName})</span> : null}
+              </span>
+              <span className="tabular-nums font-medium">{cur}{fmtCur(seg.price * seg.nights)}</span>
+            </div>
+          ))}
+          <div className="flex justify-between text-sm font-bold border-t border-border/50 pt-1.5 mt-0.5">
+            <span>Total</span>
+            <span className="tabular-nums">{cur}{fmtCur(total)}</span>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-2">
+          <button type="button" onClick={onClose}
+            className="flex-1 h-10 rounded-2xl text-sm font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8 transition-all cursor-pointer">
+            Cancel
+          </button>
+          <button type="button" onClick={() => onConfirm(checkIn, nights)} disabled={!checkIn || nights < 1}
+            className="flex-1 h-10 rounded-2xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer">
             Add to Tab
           </button>
         </div>
@@ -324,6 +432,8 @@ export default function POSPage() {
   // Product modifiers picker
   const [optionsProduct, setOptionsProduct] = useState<Product | null>(null);
 
+  // Room night picker — set when tapping a room card with an active tab
+  const [roomPickerProduct, setRoomPickerProduct] = useState<Product | null>(null);
   // Coworking check-in triggered from the POS Desks chip
   const [checkingInSpace, setCheckingInSpace] = useState<CoworkSpace | null>(null);
   // Rate-only picker when a tab is already active (no new tab needed)
@@ -469,6 +579,11 @@ export default function POSPage() {
   }
 
   function handleAddProduct(product: Product) {
+    if (product.category === 'rooms') {
+      if (!activeTab) return;
+      setRoomPickerProduct(product);
+      return;
+    }
     if (product.category === 'equipment-rental') {
       if (!activeTab) return;
       const equip = equipment.find(e => e.id === product.id);
@@ -1031,6 +1146,37 @@ export default function POSPage() {
           setOptionsProduct(null);
         }}
       />
+
+      {/* Room night picker — add seasonal room nights to an existing tab */}
+      {roomPickerProduct && activeTab && (
+        <RoomNightPickerDialog
+          product={roomPickerProduct}
+          cur={cur}
+          onClose={() => setRoomPickerProduct(null)}
+          onConfirm={(checkInStr, nights) => {
+            const segments = getRoomPriceSegments(roomPickerProduct, checkInStr, nights);
+            const multiSeason = segments.length > 1;
+            store.tabs.set(prev => prev.map(t => {
+              if (t.id !== activeTab.id) return t;
+              const newLines = segments.map(seg => ({
+                id: newId('li'),
+                productId: roomPickerProduct.id,
+                product: {
+                  ...roomPickerProduct,
+                  price: seg.price,
+                  ...(multiSeason && seg.seasonName ? { name: `${roomPickerProduct.name} · ${seg.seasonName}` } : {}),
+                },
+                qty: seg.nights,
+                addedAt: new Date(),
+              }));
+              return { ...t, items: [...t.items, ...newLines] };
+            }));
+            store.log('stay.charge', `${activeTab.customerName} · ${roomPickerProduct.name} · ${nights}n`, me?.id);
+            toast.success(`${nights} night${nights !== 1 ? 's' : ''} added to tab`);
+            setRoomPickerProduct(null);
+          }}
+        />
+      )}
 
       {/* Desk rate picker — used when a tab is already active (no new tab created) */}
       {deskRateSpace && activeTab && (

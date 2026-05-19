@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.44] - 2026-05-20
+### Added
+- **POS — room night picker**: Tapping a room product card in the POS grid (with an active tab) now opens a night picker modal instead of adding qty:1 directly. Staff can set a check-in date and number of nights; the modal shows a live seasonal price breakdown. On confirm, per-season line items are added to the active tab (e.g. "Room 3 · Low Season × 1 night" + "Room 3 · High Season × 8 nights").
+
 ## [1.5.43] - 2026-05-19
 ### Added
 - **Rooms — seasonal pricing in check-in dialog**: The check-in dialog now shows a live per-night seasonal price breakdown as dates are selected. Stays crossing a season boundary (e.g. Oct 31 → Nov 9) show each rate segment with its season name and sub-total. The folio pre-charge is split into separate line items per segment (e.g. "Room 3 · Low Season × 1 night" + "Room 3 · High Season × 8 nights") so the folio accurately reflects the seasonal charges.
