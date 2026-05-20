@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.5.52] - 2026-05-20
+### Fixed
+- **Dashboard — Away · May Return count inflated**: Expired desk bookings (those with a past `bookingEndsAt`) were still showing as "Away" because the legacy `paidAt + duration` fallback could override an already-expired `bookingEndsAt`. Fixed: if `bookingEndsAt` is present, it is now the authoritative source — the legacy fallback is only used for old tabs that never stored a `bookingEndsAt`.
+- **Dashboard — Room 2 showing OCCUPIED with a July check-in**: Future room bookings (check-in date in the future) were counted as currently occupied. Added a distinction between `currentStays` (guest physically present, checkIn ≤ today) and `upcomingStays` (future bookings). Rooms with future bookings now show an **UPCOMING** badge (blue) with the check-in date, rather than OCCUPIED. The rooms stat card sub-text now reads "1 occupied · 1 upcoming" where applicable.
+
 ## [1.5.51] - 2026-05-20
 ### Changed
 - **Calendar — room stay detail panel**: Clicking a room stay pill on the calendar no longer navigates to the Rooms page. Instead a slide-in detail panel opens (matching the coworking tab panel) showing guest name, room, check-in/check-out dates, nights, and folio line items. An "Open in Rooms" button is available at the bottom for cases where full room management is needed.

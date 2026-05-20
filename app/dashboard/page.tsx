@@ -14,7 +14,6 @@ import {
 } from '@/lib/hooks/useStore';
 import { tabGrandTotal, tabCardFee, tabPartialPaidAmount } from '@/lib/domain/tabs';
 import { fmtCur } from '@/lib/format';
-import { findActiveStayByRoom } from '@/lib/domain/stays';
 import type { BillCategory, PaymentMethod, TabType } from '@/lib/types';
 
 const BILL_CAT_LABELS: Record<BillCategory, string> = {
@@ -161,11 +160,16 @@ export default function DashboardPage() {
     const kitDoneToday = tickets.filter(t => t.status === 'done' && isToday(t.createdAt));
 
     /* ── Rooms ─────────────────────────── */
-    const roomProducts    = products.filter(p => p.category === 'rooms' && !p.archived);
-    const activeStays     = stays.filter(s => s.status === 'active');
-    const occupiedRoomIds = new Set(activeStays.map(s => s.roomId));
-    const availableRooms  = roomProducts.filter(p => !occupiedRoomIds.has(p.id));
-    const checkOutsToday  = activeStays.filter(s => s.checkOutAt && isToday(new Date(s.checkOutAt)));
+    const roomProducts = products.filter(p => p.category === 'rooms' && !p.archived);
+    // currentStays: guest has already checked in (checkInAt ≤ today) — room is physically occupied
+    // upcomingStays: future booking (checkInAt is in the future) — room reserved but not yet occupied
+    const todayMidnight = startOfToday();
+    const currentStays  = stays.filter(s => s.status === 'active' && new Date(s.checkInAt as unknown as string) <= new Date(todayMidnight.getTime() + 86399999));
+    const upcomingStays = stays.filter(s => s.status === 'active' && new Date(s.checkInAt as unknown as string) > new Date(todayMidnight.getTime() + 86399999));
+    // Only rooms with a current guest count as occupied for availability purposes
+    const occupiedRoomIds = new Set(currentStays.map(s => s.roomId));
+    const availableRooms  = roomProducts.filter(p => !occupiedRoomIds.has(p.id) && !upcomingStays.some(s => s.roomId === p.id));
+    const checkOutsToday  = currentStays.filter(s => s.checkOutAt && isToday(new Date(s.checkOutAt)));
 
     /* ── Coworking desks ───────────────── */
     const now = new Date();
@@ -177,8 +181,10 @@ export default function DashboardPage() {
 
       const isPaidBookingStillActive =
         t.status === 'paid' && (
-          (!!t.bookingEndsAt && new Date(t.bookingEndsAt as unknown as string) > now) ||
-          (!!t.paidAt && t.items.some(item => {
+          (!!t.bookingEndsAt && new Date(t.bookingEndsAt as unknown as string).getTime() > 1000 && new Date(t.bookingEndsAt as unknown as string) > now) ||
+          // Only use the legacy period-duration fallback when no bookingEndsAt was stored
+          // (prevents expired bookingEndsAt from being overridden by paidAt + 24h)
+          (!t.bookingEndsAt && !!t.paidAt && t.items.some(item => {
             if (item.product.category !== 'desks') return false;
             const paidMs = new Date(t.paidAt as unknown as string).getTime();
             const PERIOD_DURATION_MS: Record<string, number> = {
@@ -308,7 +314,7 @@ export default function DashboardPage() {
       expensesToday, expensesByCategory, billsToday,
       methodTotals, typeTotals,
       kitNew, kitPreparing, kitReady, kitDoneToday,
-      roomProducts, activeStays, availableRooms, checkOutsToday, occupiedRoomIds,
+      roomProducts, currentStays, upcomingStays, availableRooms, checkOutsToday, occupiedRoomIds,
       allSpaces, occupiedSpaces, availSpaces, activeByLabel, awayTabs,
       allEquip, activeEquip, availEquip, equipTabMap,
       newCustomersToday, newCustomersWeek, vipCount, discountCount, newThisWeek,
@@ -400,7 +406,7 @@ export default function DashboardPage() {
           <StatCard
             label="Rooms"
             value={`${d.availableRooms.length} / ${d.roomProducts.length}`}
-            sub={`${d.activeStays.length} occupied${d.checkOutsToday.length ? ` · ${d.checkOutsToday.length} checking out` : ''}`}
+            sub={`${d.currentStays.length} occupied${d.upcomingStays.length > 0 ? ` · ${d.upcomingStays.length} upcoming` : ''}${d.checkOutsToday.length ? ` · ${d.checkOutsToday.length} checking out` : ''}`}
             icon={BedDouble}
             accent="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
           />
@@ -665,9 +671,12 @@ export default function DashboardPage() {
           {d.roomProducts.length === 0 ? <EmptyRow label="No rooms configured" /> : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
               {d.roomProducts.map(room => {
-                const stay = findActiveStayByRoom(stays, room.id);
-                const occupied = !!stay;
-                const checkingOut = stay?.checkOutAt ? isToday(new Date(stay.checkOutAt)) : false;
+                const currentStay  = d.currentStays.find(s => s.roomId === room.id);
+                const upcomingStay = d.upcomingStays.find(s => s.roomId === room.id);
+                const occupied    = !!currentStay;
+                const upcoming    = !occupied && !!upcomingStay;
+                const checkingOut = currentStay?.checkOutAt ? isToday(new Date(currentStay.checkOutAt)) : false;
+                const displayStay = currentStay ?? upcomingStay;
                 return (
                   <div
                     key={room.id}
@@ -676,27 +685,41 @@ export default function DashboardPage() {
                         ? checkingOut
                           ? 'border-amber-300 bg-amber-50 dark:border-amber-700/50 dark:bg-amber-900/10'
                           : 'border-rose-200 bg-rose-50 dark:border-rose-700/50 dark:bg-rose-900/10'
-                        : 'border-emerald-200 bg-emerald-50 dark:border-emerald-700/50 dark:bg-emerald-900/10'
+                        : upcoming
+                          ? 'border-sky-200 bg-sky-50 dark:border-sky-700/50 dark:bg-sky-900/10'
+                          : 'border-emerald-200 bg-emerald-50 dark:border-emerald-700/50 dark:bg-emerald-900/10'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <BedDouble size={13} strokeWidth={2} className={occupied ? checkingOut ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'} />
+                      <BedDouble size={13} strokeWidth={2} className={
+                        occupied
+                          ? checkingOut ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'
+                          : upcoming ? 'text-sky-600 dark:text-sky-400'
+                          : 'text-emerald-600 dark:text-emerald-400'
+                      } />
                       <span className="text-sm font-semibold truncate flex-1">{room.name}</span>
                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
                         occupied
                           ? checkingOut ? 'bg-amber-200 text-amber-800 dark:bg-amber-800/40 dark:text-amber-200' : 'bg-rose-200 text-rose-800 dark:bg-rose-800/40 dark:text-rose-200'
+                          : upcoming ? 'bg-sky-200 text-sky-800 dark:bg-sky-800/40 dark:text-sky-200'
                           : 'bg-emerald-200 text-emerald-800 dark:bg-emerald-800/40 dark:text-emerald-200'
                       }`}>
-                        {occupied ? checkingOut ? 'CHECK OUT' : 'OCCUPIED' : 'FREE'}
+                        {occupied ? checkingOut ? 'CHECK OUT' : 'OCCUPIED' : upcoming ? 'UPCOMING' : 'FREE'}
                       </span>
                     </div>
-                    {stay && (
-                      <p className="text-xs text-muted-foreground truncate pl-5">{stay.guestName} · {stay.nights}n</p>
+                    {displayStay && (
+                      <p className="text-xs text-muted-foreground truncate pl-5">{displayStay.guestName} · {displayStay.nights}n</p>
                     )}
-                    {stay?.checkOutAt && (
+                    {upcoming && upcomingStay && (
                       <p className="text-xs text-muted-foreground truncate pl-5 flex items-center gap-1">
                         <CalendarClock size={10} />
-                        {new Date(stay.checkOutAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                        Check-in {new Date(upcomingStay.checkInAt as unknown as string).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                      </p>
+                    )}
+                    {currentStay?.checkOutAt && (
+                      <p className="text-xs text-muted-foreground truncate pl-5 flex items-center gap-1">
+                        <CalendarClock size={10} />
+                        {new Date(currentStay.checkOutAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                       </p>
                     )}
                   </div>
