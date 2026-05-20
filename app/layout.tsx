@@ -16,6 +16,10 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'Denz POS',
   description: 'Point of sale for Denz Coworking Cafe',
+  icons: {
+    icon: '/denz-icon.png',
+    apple: '/denz-icon.png',
+  },
 };
 
 export const viewport: Viewport = {

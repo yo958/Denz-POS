@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.57] - 2026-05-20
+### Changed
+- **App icon**: POS now uses the Denz brand icon matching the website favicon.
+
 ## [1.5.56] - 2026-05-20
 ### Added
 - **Auto-create POS customers from web bookings**: When a new desk or room enquiry arrives from the website, the customer is automatically upserted into the POS customer database (deduped by email). This happens regardless of whether the booking is accepted or declined, so the customer's name, email, and phone are always available for marketing. Uses Firestore `docChanges()` to only act on genuinely new orders, not on every listener re-fire.
