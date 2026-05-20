@@ -249,6 +249,9 @@ export default function CalendarPage() {
   const [webOrders, setWebOrders] = useState<PendingWebOrder[]>([]);
   const [selectedTabId, setSelectedTabId] = useState<string | null>(null);
   const selectedTab = selectedTabId ? allTabs.find(t => t.id === selectedTabId) ?? null : null;
+  const [selectedStayId, setSelectedStayId] = useState<string | null>(null);
+  const selectedStay = selectedStayId ? allStays.find(s => s.id === selectedStayId) ?? null : null;
+  const selectedStayFolio = selectedStay ? allTabs.find(t => t.id === selectedStay.folioTabId) ?? null : null;
 
   // Firestore: PENDING coworking/room-enquiry orders with a bookingDate
   // (accepted ones are already represented as tabs in the local store)
@@ -506,7 +509,7 @@ export default function CalendarPage() {
                         return (
                           <td key={i} className={`border-r border-border px-1 py-1 align-top min-w-[80px] ${isToday(day) ? 'bg-primary/5' : ''}`}>
                             <div className="flex flex-col gap-0.5">
-                              {fromStays.map(s => <StayPill key={s.id} name={s.guestName} onClick={() => router.push(`/rooms?stayId=${s.id}`)} />)}
+                              {fromStays.map(s => <StayPill key={s.id} name={s.guestName} onClick={() => setSelectedStayId(s.id)} />)}
                               {fromOrders.map(o => o.status === 'accepted'
                                 ? <AcceptedPill key={o.id} name={o.customerName} />
                                 : <PendingPill  key={o.id} name={o.customerName} onClick={() => router.push(`/online-orders?id=${o.id}`)} />)}
@@ -661,7 +664,7 @@ export default function CalendarPage() {
                       return (
                         <div
                           key={s.id}
-                          onClick={() => router.push(`/rooms?stayId=${s.id}`)}
+                          onClick={() => setSelectedStayId(s.id)}
                           className="flex items-start gap-3 rounded-xl border border-border bg-card p-3 cursor-pointer hover:border-violet-400 hover:bg-violet-50/40 dark:hover:bg-violet-900/10 transition-colors"
                         >
                           <div className="w-8 h-8 rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 flex items-center justify-center shrink-0">
@@ -685,6 +688,99 @@ export default function CalendarPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Stay detail panel ── */}
+      {selectedStay && (
+        <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true">
+          <div className="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm" onClick={() => setSelectedStayId(null)} />
+          <div className="relative flex flex-col w-full max-w-sm bg-background border-l border-border shadow-2xl overflow-hidden">
+
+            {/* Header */}
+            <div className="flex items-start justify-between px-5 py-4 border-b border-border">
+              <div>
+                <h2 className="text-base font-semibold">{selectedStay.guestName}</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">{selectedStay.roomName}</p>
+              </div>
+              <div className="flex items-center gap-2 ml-3 shrink-0">
+                <span className="text-[10px] font-bold uppercase px-2 py-1 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">
+                  Room Stay
+                </span>
+                <button
+                  onClick={() => setSelectedStayId(null)}
+                  className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Stay details */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+              {/* Dates */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Check-in</span>
+                  <span className="font-medium">{new Date(selectedStay.checkInAt as unknown as string).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Check-out</span>
+                  <span className="font-medium">{(() => { const d = new Date(selectedStay.checkInAt as unknown as string); d.setDate(d.getDate() + selectedStay.nights); return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }); })()}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Duration</span>
+                  <span className="font-medium">{selectedStay.nights} night{selectedStay.nights !== 1 ? 's' : ''}</span>
+                </div>
+                {selectedStay.notes && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Notes</span>
+                    <span className="font-medium text-right max-w-[60%]">{selectedStay.notes}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Folio line items */}
+              {selectedStayFolio && selectedStayFolio.items.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Folio</p>
+                  <div className="space-y-1">
+                    {selectedStayFolio.items.map((li, idx) => {
+                      const effectiveQty = Math.max(0, li.qty - (li.refundedQty ?? 0));
+                      if (effectiveQty === 0) return null;
+                      const unitPrice = lineEffectiveUnitPrice(li);
+                      return (
+                        <div key={idx} className="flex items-start justify-between gap-3 py-1.5 border-b border-border/50 last:border-0">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{li.product.name}</p>
+                          </div>
+                          <div className="text-right shrink-0 tabular-nums text-sm">
+                            {effectiveQty > 1 && <span className="text-xs text-muted-foreground mr-1">×{effectiveQty}</span>}
+                            <span>{settings.currency}{fmtCur(unitPrice * effectiveQty)}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="flex justify-between font-semibold text-sm pt-2 mt-1 border-t border-border">
+                    <span>Total</span>
+                    <span className="tabular-nums">{settings.currency}{fmtCur(tabGrandTotal(selectedStayFolio.items, selectedStayFolio.discount))}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-4 border-t border-border space-y-2">
+              <button
+                onClick={() => { setSelectedStayId(null); router.push(`/rooms?stayId=${selectedStay.id}`); }}
+                className="w-full flex items-center justify-center gap-2 h-10 rounded-2xl border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+              >
+                <ExternalLink size={14} />
+                Open in Rooms
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

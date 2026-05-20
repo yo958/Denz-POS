@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.51] - 2026-05-20
+### Changed
+- **Calendar — room stay detail panel**: Clicking a room stay pill on the calendar no longer navigates to the Rooms page. Instead a slide-in detail panel opens (matching the coworking tab panel) showing guest name, room, check-in/check-out dates, nights, and folio line items. An "Open in Rooms" button is available at the bottom for cases where full room management is needed.
+
 ## [1.5.50] - 2026-05-20
 ### Fixed
 - **POS — room booking missing from calendar**: Adding a room via the POS night picker (tap room card → set check-in date + nights) now creates a Stay record in addition to adding line items to the tab. Previously only the tab line items were saved, so the booking never appeared on the Calendar or Rooms page. The Stay links back to the same POS tab as its folio.
