@@ -7,10 +7,14 @@ RUN npm ci
 
 # ── Stage 2: build ────────────────────────────────────────────────
 FROM node:20-alpine AS builder
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+# Install the correct lightningcss pre-built binary for Alpine Linux ARM64 (musl).
+# The lockfile is generated on macOS so it may omit this platform variant.
+RUN npm install --cpu=arm64 --os=linux --libc=musl --no-save lightningcss 2>/dev/null || true
 RUN npm run build
 
 # ── Stage 3: production runner ────────────────────────────────────
