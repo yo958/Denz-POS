@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.6.1] - 2026-05-20
+### Fixed
+- **Coworking board — multi-desk tabs**: Tabs with two or more desk line items (e.g. two people on one tab, each at a different space) now correctly mark all booked spaces as occupied. Previously only the first desk item was used, so the second space remained showing as available.
+
 ## [1.6.0] - 2026-05-20
 ### Added
 - **Coworking space long description**: `SpaceDialog` in the Coworking tab now includes a rich-text (TipTap) "Full page description" field, stored as `longDescription` on `CoworkSpace`. This content is rendered on individual desk detail pages on the website.

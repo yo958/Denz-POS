@@ -152,20 +152,22 @@ export default function CoWorkingPage() {
 
     if (!isOpenAndActive && !isPaidBookingStillActive) continue;
     if (t.type === 'desk') {
-      // Use the label if it still matches a space name; otherwise fall back to
-      // productId matching (handles tabs created before a space was renamed).
-      let key = t.label;
-      if (!spaces.find(s => s.name === key)) {
-        const deskItem = t.items.find(li => li.product.category === 'desks');
-        if (deskItem) {
-          const s = spaces.find(x => deskItem.productId.startsWith(x.id + '-') || x.id === deskItem.productId);
-          if (s) key = s.name;
-        }
+      // Collect ALL space names this tab should be attributed to.
+      // Primary: tab.label if it matches a known space.
+      // Plus: every desk line item's space — handles multi-desk tabs (e.g. two people
+      // on one tab, each at a different desk).
+      const mappedKeys = new Set<string>();
+      if (spaces.find(s => s.name === t.label)) mappedKeys.add(t.label!);
+      for (const item of t.items) {
+        if (item.product.category !== 'desks') continue;
+        const s = spaces.find(x => item.productId.startsWith(x.id + '-') || x.id === item.productId);
+        if (s) mappedKeys.add(s.name);
       }
-      // If we still can't match to a real space, skip — don't inflate the active count.
-      if (!spaces.find(s => s.name === key)) continue;
-      const list = activeTabsByLabel.get(key) ?? [];
-      if (!list.find(x => x.id === t.id)) activeTabsByLabel.set(key, [...list, t]);
+      if (mappedKeys.size === 0) continue;
+      for (const mk of mappedKeys) {
+        const list = activeTabsByLabel.get(mk) ?? [];
+        if (!list.find(x => x.id === t.id)) activeTabsByLabel.set(mk, [...list, t]);
+      }
     } else {
       // Scan line items for desk-category products (added from POS rate picker)
       for (const item of t.items) {
