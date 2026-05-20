@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.49] - 2026-05-20
+### Fixed
+- **Online Orders — delete blocked by Firestore rules**: The `website-orders` security rule only permitted `create`, `read`, and `update`. `delete` was missing, so the "Delete order" button was silently rejected by Firestore. Added `delete` to the authenticated staff permission so managers can permanently remove test or junk orders.
+
 ## [1.5.48] - 2026-05-20
 ### Fixed
 - **Calendar — hourly bookings on wrong day**: A tab opened on Day 1 but paid on Day 2 (e.g. a long session that ran past midnight, or a running tab that accumulated items over multiple days) now shows its hourly desk booking on the payment day (`paidAt`) rather than the tab open day (`openedAt`). This matches when the session was actually used and charged.

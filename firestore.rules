@@ -12,10 +12,10 @@ service cloud.firestore {
       allow read: if sliceName in ['products', 'spaces', 'equipment', 'tabs', 'stays'];
     }
 
-    // Website bookings — anyone can submit or read (for order status tracking); only staff can update
+    // Website bookings — anyone can submit or read (for order status tracking); only staff can update or delete
     match /website-orders/{orderId} {
       allow create, read: if true;
-      allow update: if request.auth != null;
+      allow update, delete: if request.auth != null;
     }
   }
 }
