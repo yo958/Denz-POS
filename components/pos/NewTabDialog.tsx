@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Coffee, Monitor, BedDouble } from 'lucide-react';
+import { X, Coffee, Monitor, BedDouble, Wand2 } from 'lucide-react';
 import type { CoworkSpace, TabType } from '@/lib/types';
 import { CustomerPicker } from '@/components/customers/CustomerPicker';
 import { Switch } from '@/components/ui/switch';
 import { getStore } from '@/lib/store/store';
 import { newId } from '@/lib/domain/id';
-import { useCurrentStaff, useSpaces } from '@/lib/hooks/useStore';
+import { useCurrentStaff, useSpaces, useCustomers } from '@/lib/hooks/useStore';
 
 interface NewTabDialogProps {
   open: boolean;
@@ -25,6 +25,17 @@ export function NewTabDialog({ open, onClose, onCreate }: NewTabDialogProps) {
   const me = useCurrentStaff();
   const allSpaces = useSpaces();
   const availableSpaces = allSpaces.filter(s => !s.archived);
+  const customers = useCustomers();
+
+  // Persistent offset: how many auto-names have been used since last customer was saved.
+  // Stored in localStorage so it survives page refreshes.
+  const [autoOffset, setAutoOffset] = useState(() => {
+    if (typeof window === 'undefined') return 0;
+    return parseInt(localStorage.getItem('denz.autoTabCount') ?? '0', 10);
+  });
+  const [isAutoName, setIsAutoName] = useState(false);
+
+  const suggestedName = `Customer ${customers.length + autoOffset + 1}`;
 
   const [name,            setName]            = useState('');
   const [customerId,      setCustomerId]       = useState<string | undefined>();
@@ -33,14 +44,21 @@ export function NewTabDialog({ open, onClose, onCreate }: NewTabDialogProps) {
   const [selectedSpace,   setSelectedSpace]    = useState<CoworkSpace | null>(null);
   const [saveAsCustomer,  setSaveAsCustomer]   = useState(false);
 
-  // Show the "save as customer" toggle only when a free-text name is entered
-  // (i.e. no existing customer was picked from the dropdown)
-  const showSaveToggle = name.trim().length > 0 && !customerId;
+  // Show the "save as customer" toggle only for manually typed names (not auto-generated ones)
+  const showSaveToggle = name.trim().length > 0 && !customerId && !isAutoName;
+
+  function applyAutoName() {
+    setName(suggestedName);
+    setCustomerId(undefined);
+    setIsAutoName(true);
+    setSaveAsCustomer(false);
+  }
 
   useEffect(() => {
     if (open) {
       setName('');
       setCustomerId(undefined);
+      setIsAutoName(false);
       setType('cafe');
       setLabel('');
       setSelectedSpace(null);
@@ -57,8 +75,9 @@ export function NewTabDialog({ open, onClose, onCreate }: NewTabDialogProps) {
     e.preventDefault();
     if (!canCreate) return;
     let resolvedCustomerId = customerId;
-    // If "Save as new customer" is on and no existing customer was picked, create one now
-    if (saveAsCustomer && !customerId) {
+    // If "Save as new customer" is on and no existing customer was picked, create one now.
+    // Never save auto-generated names as customers.
+    if (saveAsCustomer && !customerId && !isAutoName) {
       const newCustomer = {
         id: newId('cust'),
         name: name.trim(),
@@ -67,6 +86,12 @@ export function NewTabDialog({ open, onClose, onCreate }: NewTabDialogProps) {
       getStore().customers.set(prev => [...prev, newCustomer]);
       getStore().log('customer.create', newCustomer.name, me?.id);
       resolvedCustomerId = newCustomer.id;
+    }
+    // Increment the auto-name offset so the next suggestion is unique
+    if (isAutoName) {
+      const next = autoOffset + 1;
+      localStorage.setItem('denz.autoTabCount', String(next));
+      setAutoOffset(next);
     }
     // For desk tabs, label must be the space name so Coworking can match the tab to the space.
     const resolvedLabel = type === 'desk' ? (selectedSpace?.name ?? '') : (label.trim() || placeholder);
@@ -110,13 +135,24 @@ export function NewTabDialog({ open, onClose, onCreate }: NewTabDialogProps) {
 
         {/* Customer picker */}
         <div className="space-y-2">
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Customer Name
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Customer Name
+            </label>
+            <button
+              type="button"
+              onClick={applyAutoName}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2 py-0.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+              title="Fill with auto-generated name"
+            >
+              <Wand2 size={10} />
+              {suggestedName}
+            </button>
+          </div>
           <CustomerPicker
             value={name}
             customerId={customerId}
-            onChange={(n, id) => { setName(n); setCustomerId(id); setSaveAsCustomer(false); }}
+            onChange={(n, id) => { setName(n); setCustomerId(id); setIsAutoName(false); setSaveAsCustomer(false); }}
             placeholder="Search or type a name…"
             autoFocus
           />

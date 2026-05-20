@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.55] - 2026-05-20
+### Added
+- **New Tab dialog — auto-generated customer name**: A wand button next to the "Customer Name" label shows the next suggested name (e.g. "Customer 47"). Clicking it fills the name field without creating a customer record. Each use increments the counter (stored in localStorage) so subsequent tabs get unique names ("Customer 48", "Customer 49", etc.). The counter is based on total customers in the database plus a session offset, and "Save as new customer" is suppressed for auto-generated names.
+
 ## [1.5.54] - 2026-05-20
 ### Fixed
 - **Dashboard — Away · May Return count inflated by yesterday's day passes**: Daily desk passes opened yesterday were still appearing in the "Away · May Return" list because the dashboard compared `bookingEndsAt > now` — under the old 24h logic, yesterday's pass still had a future expiry timestamp. The dashboard now mirrors the coworking page's logic exactly: a daily pass is active only if it was opened **today** (same calendar day). Passes from previous days are excluded regardless of their stored `bookingEndsAt`. Weekly/monthly/longer passes continue to use `bookingEndsAt` for expiry.
