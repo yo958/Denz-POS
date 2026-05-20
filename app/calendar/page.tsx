@@ -313,17 +313,24 @@ export default function CalendarPage() {
         t.items.some(i => i.product.category === 'desks' && i.product.name.startsWith(spaceName))
       ),
     );
-    // Dedup: if a paid tab already covers this space+day for a customer, suppress any
-    // additional open tabs for that same customer (e.g. a food order opened on top of a
-    // weekly desk pass should not show as a second desk booking on the calendar grid).
-    const paidCustomers = new Set(
-      matchingTabs
-        .filter(t => t.status === 'paid')
-        .map(t => t.customerName.trim().toLowerCase()),
-    );
-    const dedupedTabs = matchingTabs.filter(t =>
-      t.status === 'paid' || !paidCustomers.has(t.customerName.trim().toLowerCase()),
-    );
+    // Dedup by customer name — keep the single most "desk-primary" tab per customer.
+    // Handles cases where a customer has both a weekly desk pass AND a separate paid
+    // food/café tab that also contains desk content (both would otherwise show as pills).
+    // Score: type==='desk' wins first (it IS the desk booking), then paid > open.
+    const customerBestTab = new Map<string, typeof matchingTabs[0]>();
+    for (const t of matchingTabs) {
+      const key = t.customerName.trim().toLowerCase();
+      const existing = customerBestTab.get(key);
+      if (!existing) {
+        customerBestTab.set(key, t);
+      } else {
+        const score = (tab: typeof t) =>
+          (tab.type === 'desk' ? 4 : 0) +
+          (tab.status === 'paid' ? 2 : 1);
+        if (score(t) > score(existing)) customerBestTab.set(key, t);
+      }
+    }
+    const dedupedTabs = Array.from(customerBestTab.values());
     const tabs: typeof matchingTabs = [];
     for (const t of dedupedTabs) {
       const deskQty = t.items

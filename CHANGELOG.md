@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.46] - 2026-05-20
+### Fixed
+- **Calendar — coworking grid dedup**: Improved deduplication to handle the case where a customer has two *paid* tabs covering the same space+day (e.g. a weekly desk pass and a separately-paid food/café tab). The previous fix only removed *open* tabs. Now the best tab per customer is kept by score: `type==='desk'` wins first (it is the actual desk booking), then paid beats open.
+
 ## [1.5.45] - 2026-05-20
 ### Changed
 - **POS — room night picker**: Replaced native date input with a full month-grid calendar (matching the website's picker style). Check-in date label updates live as days are selected. Dialog widened to `max-w-md` to comfortably fit the calendar.
