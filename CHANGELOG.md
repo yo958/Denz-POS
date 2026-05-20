@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.56] - 2026-05-20
+### Added
+- **Auto-create POS customers from web bookings**: When a new desk or room enquiry arrives from the website, the customer is automatically upserted into the POS customer database (deduped by email). This happens regardless of whether the booking is accepted or declined, so the customer's name, email, and phone are always available for marketing. Uses Firestore `docChanges()` to only act on genuinely new orders, not on every listener re-fire.
+
 ## [1.5.55] - 2026-05-20
 ### Added
 - **New Tab dialog — auto-generated customer name**: A wand button next to the "Customer Name" label shows the next suggested name (e.g. "Customer 47"). Clicking it fills the name field without creating a customer record. Each use increments the counter (stored in localStorage) so subsequent tabs get unique names ("Customer 48", "Customer 49", etc.). The counter is based on total customers in the database plus a session offset, and "Save as new customer" is suppressed for auto-generated names.

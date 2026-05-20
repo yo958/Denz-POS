@@ -32,7 +32,7 @@ import { confirm } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/toast';
 import { collection, query, where, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { CoworkSpace, CoworkSpaceRate, Discount, Equipment, EquipmentTier, KitchenTicket, PartialPayment, PaymentMethod, Product, SelectedModifier, SplitPaymentLine, Stay, Tab, TabType } from '@/lib/types';
+import type { CoworkSpace, CoworkSpaceRate, Customer, Discount, Equipment, EquipmentTier, KitchenTicket, PartialPayment, PaymentMethod, Product, SelectedModifier, SplitPaymentLine, Stay, Tab, TabType } from '@/lib/types';
 
 export interface PendingWebOrder {
   id: string;
@@ -424,6 +424,30 @@ export default function POSPage() {
         .map(d => d.data() as PendingWebOrder)
         .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
       setWebOrders(orders);
+
+      // Auto-upsert customers from newly-arrived desk / room bookings.
+      // Uses docChanges() so we only act on genuinely new documents, not every re-fire.
+      for (const change of snap.docChanges()) {
+        if (change.type !== 'added') continue;
+        const order = change.doc.data() as PendingWebOrder;
+        if (order.type !== 'coworking' && order.type !== 'room-enquiry') continue;
+        if (!order.customerEmail) continue;
+        const emailNorm = order.customerEmail.toLowerCase().trim();
+        const existing = getStore().customers.get().find(
+          (c: Customer) => c.email?.toLowerCase() === emailNorm,
+        );
+        if (!existing) {
+          const newCustomer: Customer = {
+            id: newId('cust'),
+            name: order.customerName,
+            email: order.customerEmail.trim(),
+            phone: order.customerPhone?.trim() || undefined,
+            createdAt: new Date(),
+          };
+          getStore().customers.set((prev: Customer[]) => [...prev, newCustomer]);
+          getStore().log('customer.create', newCustomer.name);
+        }
+      }
     }, () => setWebOrders([]));
   }, []);
 
