@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.50] - 2026-05-20
+### Fixed
+- **POS — room booking missing from calendar**: Adding a room via the POS night picker (tap room card → set check-in date + nights) now creates a Stay record in addition to adding line items to the tab. Previously only the tab line items were saved, so the booking never appeared on the Calendar or Rooms page. The Stay links back to the same POS tab as its folio.
+
 ## [1.5.49] - 2026-05-20
 ### Fixed
 - **Online Orders — delete blocked by Firestore rules**: The `website-orders` security rule only permitted `create`, `read`, and `update`. `delete` was missing, so the "Delete order" button was silently rejected by Firestore. Added `delete` to the authenticated staff permission so managers can permanently remove test or junk orders.

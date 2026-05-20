@@ -1163,6 +1163,8 @@ export default function POSPage() {
           onConfirm={(checkInStr, nights) => {
             const segments = getRoomPriceSegments(roomPickerProduct, checkInStr, nights);
             const multiSeason = segments.length > 1;
+            const stayId = newId('stay');
+            // Add seasonal line items to the active tab
             store.tabs.set(prev => prev.map(t => {
               if (t.id !== activeTab.id) return t;
               const newLines = segments.map(seg => ({
@@ -1178,7 +1180,20 @@ export default function POSPage() {
               }));
               return { ...t, items: [...t.items, ...newLines] };
             }));
-            store.log('stay.charge', `${activeTab.customerName} · ${roomPickerProduct.name} · ${nights}n`, me?.id);
+            // Create a Stay record so the booking appears on the calendar
+            const stay: Stay = {
+              id: stayId,
+              guestName: activeTab.customerName,
+              roomId: roomPickerProduct.id,
+              roomName: roomPickerProduct.name,
+              nightlyRate: segments[0].price,
+              nights,
+              checkInAt: new Date(checkInStr + 'T14:00:00'),
+              folioTabId: activeTab.id,
+              status: 'active',
+            };
+            store.stays.set(prev => [stay, ...prev]);
+            store.log('stay.checkin', `${activeTab.customerName} · ${roomPickerProduct.name} · ${nights}n from ${checkInStr}`, me?.id);
             toast.success(`${nights} night${nights !== 1 ? 's' : ''} added to tab`);
             setRoomPickerProduct(null);
           }}
