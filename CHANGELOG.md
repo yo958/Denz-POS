@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.48] - 2026-05-20
+### Fixed
+- **Calendar — hourly bookings on wrong day**: A tab opened on Day 1 but paid on Day 2 (e.g. a long session that ran past midnight, or a running tab that accumulated items over multiple days) now shows its hourly desk booking on the payment day (`paidAt`) rather than the tab open day (`openedAt`). This matches when the session was actually used and charged.
+
 ## [1.5.47] - 2026-05-20
 ### Fixed
 - **Calendar — coworking grid**: Creating a tab with type "Desk" (used to identify where a customer is sitting) no longer registers a desk booking on the calendar grid. A desk booking only appears on the calendar when a desk *product* is explicitly added as a line item — the tab type alone is not sufficient.
