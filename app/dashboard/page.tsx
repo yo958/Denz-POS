@@ -173,34 +173,41 @@ export default function DashboardPage() {
 
     /* ── Coworking desks ───────────────── */
     const now = new Date();
-    // Mirror the coworking page's active-tab logic: open tabs + paid tabs with valid booking.
+    // Helpers that mirror the coworking page's active-tab logic exactly.
+    const hasDailyDeskItem = (t: (typeof tabs)[0]) =>
+      t.items.some(i => i.product.category === 'desks' && i.product.name.includes(' — Daily'));
+    const sameCalDay = (a: Date, b: Date) =>
+      a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
     const activeTabsByLabel = new Map<string, (typeof tabs)[0][]>();
     for (const t of tabs) {
       // Skip explicitly early-checked-out tabs (bookingEndsAt set to epoch)
       if (t.bookingEndsAt && new Date(t.bookingEndsAt as unknown as string).getTime() < 1000) continue;
 
-      const isPaidBookingStillActive =
-        t.status === 'paid' && (
-          (!!t.bookingEndsAt && new Date(t.bookingEndsAt as unknown as string).getTime() > 1000 && new Date(t.bookingEndsAt as unknown as string) > now) ||
-          // Only use the legacy period-duration fallback when no bookingEndsAt was stored
-          // (prevents expired bookingEndsAt from being overridden by paidAt + 24h)
-          (!t.bookingEndsAt && !!t.paidAt && t.items.some(item => {
-            if (item.product.category !== 'desks') return false;
-            const paidMs = new Date(t.paidAt as unknown as string).getTime();
-            const PERIOD_DURATION_MS: Record<string, number> = {
-              daily: 86400000, weekly: 604800000, '2-weeks': 1209600000,
-              monthly: 2592000000, '3-months': 7776000000, '6-months': 15552000000, yearly: 31536000000,
-            };
-            const PERIOD_LABEL: Record<string, string> = {
-              daily: 'Daily', weekly: 'Weekly', '2-weeks': '2 Weeks',
-              monthly: 'Monthly', '3-months': '3 Months', '6-months': '6 Months', yearly: '1 Year',
-            };
-            return Object.entries(PERIOD_LABEL).some(([period, label]) =>
-              item.product.name.endsWith(` — ${label}`) &&
-              new Date(paidMs + PERIOD_DURATION_MS[period]).getTime() > now.getTime(),
-            );
-          }))
-        );
+      const isPaidBookingStillActive = t.status === 'paid' && (() => {
+        // Daily passes expire at end of the calendar day they were opened — same logic as coworking page.
+        // This prevents yesterday's day passes (still within their 24h window) from showing as active.
+        if (hasDailyDeskItem(t)) return sameCalDay(new Date(t.openedAt as unknown as string), now);
+        // Non-daily: use explicit bookingEndsAt
+        if (!!t.bookingEndsAt && new Date(t.bookingEndsAt as unknown as string).getTime() > 1000 && new Date(t.bookingEndsAt as unknown as string) > now) return true;
+        // Legacy inference for weekly/monthly etc. (old tabs without bookingEndsAt stored)
+        return !t.bookingEndsAt && !!t.paidAt && t.items.some(item => {
+          if (item.product.category !== 'desks') return false;
+          const paidMs = new Date(t.paidAt as unknown as string).getTime();
+          const PERIOD_DURATION_MS: Record<string, number> = {
+            weekly: 604800000, '2-weeks': 1209600000,
+            monthly: 2592000000, '3-months': 7776000000, '6-months': 15552000000, yearly: 31536000000,
+          };
+          const PERIOD_LABEL: Record<string, string> = {
+            weekly: 'Weekly', '2-weeks': '2 Weeks',
+            monthly: 'Monthly', '3-months': '3 Months', '6-months': '6 Months', yearly: '1 Year',
+          };
+          return Object.entries(PERIOD_LABEL).some(([period, label]) =>
+            item.product.name.endsWith(` — ${label}`) &&
+            new Date(paidMs + PERIOD_DURATION_MS[period]).getTime() > now.getTime(),
+          );
+        });
+      })();
       if (t.status !== 'open' && !isPaidBookingStillActive) continue;
 
       // Resolve the space key (same logic as coworking page)
