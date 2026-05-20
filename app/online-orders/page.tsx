@@ -9,7 +9,7 @@ import { confirm } from '@/components/ui/confirm-dialog';
 import { useCurrentStaff, useSettings, useSpaces } from '@/lib/hooks/useStore';
 import { getStore } from '@/lib/store/store';
 import { newId } from '@/lib/domain/id';
-import { calcBookingEndsAt, PERIOD_LABEL } from '@/components/coworking/CheckInDialog';
+import { calcBookingEndsAt, getCloseTime, PERIOD_LABEL } from '@/components/coworking/CheckInDialog';
 import { WebOrderPreview } from '@/components/pos/WebOrderPreview';
 import { toast } from '@/components/ui/toast';
 import type { PendingWebOrder } from '@/app/page';
@@ -63,6 +63,7 @@ type TypeFilter   = 'all' | 'cafe' | 'coworking' | 'room-enquiry';
 
 export default function OnlineOrdersPage() {
   const me           = useCurrentStaff();
+  const settings     = useSettings();
   const spaces       = useSpaces();
   const store        = getStore();
   const searchParams = useSearchParams();
@@ -156,7 +157,8 @@ export default function OnlineOrdersPage() {
         : space?.rates?.[0];
       const spaceName = space?.name ?? order.tableOrSpace ?? 'Desk';
       const startDateStr = order.bookingDate ?? new Date().toISOString().slice(0, 10);
-      const bookingEndsAt = rate ? calcBookingEndsAt(startDateStr, rate.period) : undefined;
+      const ordCloseTime = getCloseTime(settings.venue?.openingHours, startDateStr);
+      const bookingEndsAt = rate ? calcBookingEndsAt(startDateStr, rate.period, ordCloseTime) : undefined;
       const productId = rate ? `${spaceName}-${rate.period}` : `web-desk-${order.id}`;
       const product: Product = {
         id: productId,

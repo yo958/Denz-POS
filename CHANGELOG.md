@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.53] - 2026-05-20
+### Fixed
+- **Coworking — day pass expiry**: Daily desk passes now expire at the venue's configured closing time (e.g. 23:30) on the day of purchase, rather than 24 hours after purchase. A pass bought at 22:00 now expires at 23:30 the same day. The venue close time is read from Settings → Opening Hours for the relevant day of the week. Weekly, 2-week, monthly, and longer passes also snap to close-of-business on their final day. All booking paths are fixed: POS "Add Desk to Tab" dialog, Check-In dialog (already correct), web-order accept in POS, and Online Orders page.
+
 ## [1.5.52] - 2026-05-20
 ### Fixed
 - **Dashboard — Away · May Return count inflated**: Expired desk bookings (those with a past `bookingEndsAt`) were still showing as "Away" because the legacy `paidAt + duration` fallback could override an already-expired `bookingEndsAt`. Fixed: if `bookingEndsAt` is present, it is now the authoritative source — the legacy fallback is only used for old tabs that never stored a `bookingEndsAt`.

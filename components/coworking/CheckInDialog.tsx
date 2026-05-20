@@ -62,7 +62,7 @@ export function calcBookingEndsAt(
   return new Date(lastDay.getFullYear(), lastDay.getMonth(), lastDay.getDate(), ch, cm);
 }
 
-function getCloseTime(openingHours: Partial<Record<DayOfWeek, { close: string; closed: boolean }>> | undefined, dateStr: string): string {
+export function getCloseTime(openingHours: Partial<Record<DayOfWeek, { close: string; closed: boolean }>> | undefined, dateStr: string): string {
   if (!openingHours) return '23:30';
   const dayName = new Date(dateStr + 'T12:00:00')
     .toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase() as DayOfWeek;

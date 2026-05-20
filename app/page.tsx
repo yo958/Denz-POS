@@ -18,7 +18,7 @@ import { RefundDialog } from '@/components/pos/RefundDialog';
 import { VoidDialog } from '@/components/pos/VoidDialog';
 import { ProductOptionsDialog } from '@/components/pos/ProductOptionsDialog';
 import { useTabs, useStays, useCurrentStaff, useSettings, useCustomers, useSpaces, useEquipment } from '@/lib/hooks/useStore';
-import { CheckInDialog, PERIOD_LABEL, PERIOD_DURATION_MS, BOOKING_TYPE_LABEL, calcBookingEndsAt } from '@/components/coworking/CheckInDialog';
+import { CheckInDialog, PERIOD_LABEL, PERIOD_DURATION_MS, BOOKING_TYPE_LABEL, calcBookingEndsAt, getCloseTime } from '@/components/coworking/CheckInDialog';
 import { getStore } from '@/lib/store/store';
 import {
   effectiveQty, lineKey, lineUnitPrice, modifiersStableKey,
@@ -246,6 +246,7 @@ function DeskRatePickerDialog({ space, cur, onClose, onConfirm }: {
   onClose: () => void;
   onConfirm: (rate: CoworkSpaceRate, bookingEndsAt: Date | undefined, bookingType: 'hot' | 'dedicated', hours?: number, total?: number) => void;
 }) {
+  const settings              = useSettings();
   const enabledHotRates       = space.rates?.filter(r => r.enabled) ?? [];
   const enabledDedicatedRates = (space.dedicatedRates ?? []).filter(r => r.enabled);
   const hasBothTypes          = enabledHotRates.length > 0 && enabledDedicatedRates.length > 0;
@@ -274,10 +275,13 @@ function DeskRatePickerDialog({ space, cur, onClose, onConfirm }: {
     }
     const effectiveBookingType: 'hot' | 'dedicated' = isDedicated ? 'dedicated' : 'hot';
     const needsExpiry = isDedicated || rate.period !== 'hourly';
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const closeTime = getCloseTime(settings.venue?.openingHours, todayStr);
     const bookingEndsAt = rate.period === 'hourly'
       ? new Date(Date.now() + hours * 3600 * 1000)
       : needsExpiry
-        ? new Date(Date.now() + PERIOD_DURATION_MS[rate.period])
+        ? calcBookingEndsAt(todayStr, rate.period, closeTime)
         : undefined;
     const hourlyTotal = rate.period === 'hourly'
       ? calcRentalTotal(rate.tiers ?? [], hours)
@@ -392,7 +396,8 @@ export default function POSPage() {
   const tabs = useTabs();
   const stays = useStays();
   const me = useCurrentStaff();
-  const cur = useSettings().currency;
+  const settings = useSettings();
+  const cur = settings.currency;
   const customers = useCustomers();
   const spaces = useSpaces();
   const equipment = useEquipment();
@@ -542,7 +547,8 @@ export default function POSPage() {
 
       const spaceName = space?.name ?? order.tableOrSpace ?? 'Desk';
       const startDateStr = order.bookingDate ?? new Date().toISOString().slice(0, 10);
-      const bookingEndsAt = rate ? calcBookingEndsAt(startDateStr, rate.period) : undefined;
+      const acceptCloseTime = getCloseTime(settings.venue?.openingHours, startDateStr);
+      const bookingEndsAt = rate ? calcBookingEndsAt(startDateStr, rate.period, acceptCloseTime) : undefined;
 
       const productId = rate ? `${spaceName}-${rate.period}` : `web-desk-${order.id}`;
       const productName = rate ? `${spaceName} — ${PERIOD_LABEL[rate.period]}` : spaceName;
