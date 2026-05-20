@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.45] - 2026-05-20
+### Changed
+- **POS — room night picker**: Replaced native date input with a full month-grid calendar (matching the website's picker style). Check-in date label updates live as days are selected. Dialog widened to `max-w-md` to comfortably fit the calendar.
+
 ## [1.5.44] - 2026-05-20
 ### Added
 - **POS — room night picker**: Tapping a room product card in the POS grid (with an active tab) now opens a night picker modal instead of adding qty:1 directly. Staff can set a check-in date and number of nights; the modal shows a live seasonal price breakdown. On confirm, per-season line items are added to the active tab (e.g. "Room 3 · Low Season × 1 night" + "Room 3 · High Season × 8 nights").

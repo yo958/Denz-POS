@@ -26,6 +26,7 @@ import {
 } from '@/lib/domain/tabs';
 import { decrementForTab, restock } from '@/lib/domain/inventory';
 import { getRoomPriceSegments } from '@/lib/domain/stays';
+import { Calendar, formatCalendarDate } from '@/components/ui/Calendar';
 import { fmtCur } from '@/lib/format';
 import { confirm } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/toast';
@@ -155,7 +156,7 @@ function RoomNightPickerDialog({ product, cur, onClose, onConfirm }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-sm glass-strong rounded-3xl p-6 shadow-2xl space-y-4">
+      <div className="relative w-full max-w-md glass-strong rounded-3xl p-6 shadow-2xl space-y-4 overflow-y-auto max-h-[95vh]">
 
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -171,14 +172,20 @@ function RoomNightPickerDialog({ product, cur, onClose, onConfirm }: {
           <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground cursor-pointer"><X size={18} /></button>
         </div>
 
-        {/* Check-in date */}
+        {/* Check-in calendar */}
         <div className="space-y-1.5">
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Check-in date</label>
-          <input
-            type="date"
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Check-in
+            {checkIn && (
+              <span className="normal-case font-normal ml-1.5 text-foreground">
+                — {formatCalendarDate(checkIn)}
+              </span>
+            )}
+          </p>
+          <Calendar
             value={checkIn}
-            onChange={e => setCheckIn(e.target.value || today)}
-            className="w-full h-10 px-3 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring"
+            minDate={today}
+            onChange={setCheckIn}
           />
         </div>
 
@@ -196,7 +203,7 @@ function RoomNightPickerDialog({ product, cur, onClose, onConfirm }: {
               <Plus size={14} />
             </button>
             <span className="text-sm text-muted-foreground">
-              → <strong className="text-foreground">{fmtDate(checkOut)}</strong>
+              Check-out: <strong className="text-foreground">{fmtDate(checkOut)}</strong>
             </span>
           </div>
         </div>
