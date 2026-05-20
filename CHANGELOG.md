@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.58] - 2026-05-20
+### Fixed
+- **App icon**: Replace default Next.js favicon.ico with Denz brand icon using app/icon.png convention.
+
 ## [1.5.57] - 2026-05-20
 ### Changed
 - **App icon**: POS now uses the Denz brand icon matching the website favicon.
