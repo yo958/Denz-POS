@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.6.0] - 2026-05-20
+### Added
+- **Coworking space long description**: `SpaceDialog` in the Coworking tab now includes a rich-text (TipTap) "Full page description" field, stored as `longDescription` on `CoworkSpace`. This content is rendered on individual desk detail pages on the website.
+- **`CoworkSpace.longDescription`**: Added optional `longDescription` field to the `CoworkSpace` type in `lib/types.ts`.
+
 ## [1.5.58] - 2026-05-20
 ### Fixed
 - **App icon**: Replace default Next.js favicon.ico with Denz brand icon using app/icon.png convention.

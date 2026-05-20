@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
 import { collection, query, where, orderBy, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Monitor, Lock, Clock, DollarSign, Plus, Pencil, Trash2, Star, UserPlus, X, Building2, Package, ChevronUp, ChevronDown, Copy } from 'lucide-react';
@@ -958,6 +960,7 @@ function SpaceDialog({ space, cur, isManager, onClose, onSave }: {
   const [name,             setName]             = useState(space?.name ?? '');
   const [type,             setType]             = useState<CoworkSpaceType>(space ? normalizeType(space.type) : 'desk');
   const [desc,             setDesc]             = useState(space?.description ?? '');
+  const [longDesc,         setLongDesc]         = useState(space?.longDescription ?? '');
   const [rates,            setRates]            = useState<CoworkSpaceRate[]>(space?.rates ?? defaultRates('desk'));
   const [dedicatedEnabled, setDedicatedEnabled] = useState<boolean>((space?.dedicatedRates?.filter(r => r.enabled).length ?? 0) > 0);
   const [dedicatedRates,   setDedicatedRates]   = useState<CoworkSpaceRate[]>(space?.dedicatedRates ?? defaultDedicatedRates());
@@ -1010,6 +1013,7 @@ function SpaceDialog({ space, cur, isManager, onClose, onSave }: {
       name: name.trim(),
       type,
       description: desc.trim() || undefined,
+      longDescription: longDesc.trim() || undefined,
       rates,
       dedicatedRates: (type === 'desk' && dedicatedEnabled) ? dedicatedRates : undefined,
       capacity: multiOccupancy ? Math.max(2, capacity) : undefined,
@@ -1054,6 +1058,11 @@ function SpaceDialog({ space, cur, isManager, onClose, onSave }: {
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Description (optional)</span>
             <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="e.g. Window seat, standing desk" className={inputCls} />
           </label>
+
+          <div className="space-y-1.5">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Full page description (optional)</span>
+            <RichTextEditor value={longDesc} onChange={setLongDesc} />
+          </div>
 
           {/* Multiple occupancy */}
           <div className="rounded-xl border border-border bg-white/50 dark:bg-white/3 overflow-hidden">
@@ -1680,6 +1689,55 @@ function EquipmentDialog({ equip, cur, isManager, onClose, onSave }: {
           <button type="submit" className="flex-1 h-11 rounded-2xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 transition-all cursor-pointer">Save</button>
         </div>
       </form>
+    </div>
+  );
+}
+
+function RichTextEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const editor = useEditor({
+    extensions: [StarterKit],
+    content: value,
+    onUpdate: ({ editor }) => {
+      onChange(editor.getHTML());
+    },
+  });
+
+  if (!editor) return null;
+
+  const btn = (active: boolean) =>
+    `px-2 h-7 rounded-lg text-xs font-medium border cursor-pointer transition-colors ${
+      active
+        ? 'border-primary bg-primary text-primary-foreground'
+        : 'border-border bg-white/50 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10'
+    }`;
+
+  return (
+    <div className="rounded-xl border border-border overflow-hidden">
+      <div className="flex items-center gap-1 px-2 py-1.5 border-b border-border bg-white/30 dark:bg-black/20 flex-wrap">
+        <button type="button" className={btn(editor.isActive('heading', { level: 2 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>H2</button>
+        <button type="button" className={btn(editor.isActive('heading', { level: 3 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>H3</button>
+        <span className="w-px h-4 bg-border mx-0.5" />
+        <button type="button" className={`${btn(editor.isActive('bold'))} font-bold`} onClick={() => editor.chain().focus().toggleBold().run()}>B</button>
+        <button type="button" className={`${btn(editor.isActive('italic'))} italic`} onClick={() => editor.chain().focus().toggleItalic().run()}>I</button>
+        <span className="w-px h-4 bg-border mx-0.5" />
+        <button type="button" className={btn(editor.isActive('bulletList'))} onClick={() => editor.chain().focus().toggleBulletList().run()}>• List</button>
+        <button type="button" className={btn(editor.isActive('orderedList'))} onClick={() => editor.chain().focus().toggleOrderedList().run()}>1. List</button>
+      </div>
+      <EditorContent
+        editor={editor}
+        className={[
+          'min-h-[160px] px-3 py-2.5 text-sm bg-black/3 dark:bg-white/3',
+          '[&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-[140px]',
+          '[&_.ProseMirror_h2]:text-lg [&_.ProseMirror_h2]:font-bold [&_.ProseMirror_h2]:mt-3 [&_.ProseMirror_h2]:mb-1',
+          '[&_.ProseMirror_h3]:text-base [&_.ProseMirror_h3]:font-bold [&_.ProseMirror_h3]:mt-2 [&_.ProseMirror_h3]:mb-0.5',
+          '[&_.ProseMirror_p]:my-1',
+          '[&_.ProseMirror_strong]:font-bold',
+          '[&_.ProseMirror_em]:italic',
+          '[&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-5',
+          '[&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-5',
+          '[&_.ProseMirror_li]:my-0.5',
+        ].join(' ')}
+      />
     </div>
   );
 }

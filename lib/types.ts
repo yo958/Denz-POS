@@ -243,6 +243,8 @@ export interface CoworkSpace {
   name: string;
   type: CoworkSpaceType;
   description?: string;
+  /** Extended description shown on the space's individual page on the website. */
+  longDescription?: string;
   /** Hot desk / walk-in rates. */
   rates: CoworkSpaceRate[];
   /** If present (and has enabled entries), desk also supports dedicated (block) bookings at these rates. */
