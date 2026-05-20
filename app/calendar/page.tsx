@@ -270,9 +270,13 @@ export default function CalendarPage() {
   // All tabs that have a desk booking — open OR paid with a resolvable booking period.
   // We include expired paid tabs too so historical weeks show correctly when navigating back.
   // tabCoversDay() handles the actual date-range check for each cell/day.
+  //
+  // NOTE: a "Desk" type tab with NO desk line items is purely informational (staff use it to
+  // identify a coworking customer's position) and must NOT appear as a booking on the grid.
+  // We require at least one actual desk product in the items.
   const deskTabs = useMemo(() => {
     return allTabs.filter(t => {
-      const hasDeskContent = t.type === 'desk' || t.items.some(i => i.product?.category === 'desks');
+      const hasDeskContent = t.items.some(i => i.product?.category === 'desks');
       if (!hasDeskContent) return false;
       if (t.status === 'open') return true;
       if (t.status === 'paid') {

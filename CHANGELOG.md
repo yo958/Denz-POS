@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.5.47] - 2026-05-20
+### Fixed
+- **Calendar — coworking grid**: Creating a tab with type "Desk" (used to identify where a customer is sitting) no longer registers a desk booking on the calendar grid. A desk booking only appears on the calendar when a desk *product* is explicitly added as a line item — the tab type alone is not sufficient.
+
 ## [1.5.46] - 2026-05-20
 ### Fixed
 - **Calendar — coworking grid dedup**: Improved deduplication to handle the case where a customer has two *paid* tabs covering the same space+day (e.g. a weekly desk pass and a separately-paid food/café tab). The previous fix only removed *open* tabs. Now the best tab per customer is kept by score: `type==='desk'` wins first (it is the actual desk booking), then paid beats open.
