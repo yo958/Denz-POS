@@ -139,6 +139,24 @@ export function createStayAndFolio(input: CheckInInput): { stay: Stay; folio: Ta
   return { stay, folio };
 }
 
+function toDate(d: unknown): Date {
+  if (d instanceof Date) return d;
+  if (d && typeof (d as { toDate?: unknown }).toDate === 'function') return (d as { toDate: () => Date }).toDate();
+  return new Date(d as string);
+}
+
+// Returns a stay only if the guest has already checked in (checkInAt ≤ end of today).
 export function findActiveStayByRoom(stays: Stay[], roomId: string): Stay | undefined {
-  return stays.find(s => s.status === 'active' && s.roomId === roomId);
+  const endOfToday = new Date();
+  endOfToday.setHours(23, 59, 59, 999);
+  return stays.find(s => s.status === 'active' && s.roomId === roomId && toDate(s.checkInAt) <= endOfToday);
+}
+
+// Returns the soonest future reservation for a room (checkInAt is tomorrow or later).
+export function findUpcomingStayByRoom(stays: Stay[], roomId: string): Stay | undefined {
+  const endOfToday = new Date();
+  endOfToday.setHours(23, 59, 59, 999);
+  return stays
+    .filter(s => s.status === 'active' && s.roomId === roomId && toDate(s.checkInAt) > endOfToday)
+    .sort((a, b) => toDate(a.checkInAt).getTime() - toDate(b.checkInAt).getTime())[0];
 }

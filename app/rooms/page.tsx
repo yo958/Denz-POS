@@ -9,7 +9,7 @@ import { useProducts, useStays, useTabs, useCurrentStaff, useSettings } from '@/
 import { fmtCur } from '@/lib/format';
 import { getStore } from '@/lib/store/store';
 import { newId } from '@/lib/domain/id';
-import { createStayAndFolio, findActiveStayByRoom } from '@/lib/domain/stays';
+import { createStayAndFolio, findActiveStayByRoom, findUpcomingStayByRoom } from '@/lib/domain/stays';
 import { CheckInDialog } from '@/components/rooms/CheckInDialog';
 import { confirm } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/toast';
@@ -42,7 +42,10 @@ export default function RoomsPage() {
   }, [searchParams, stays]);
 
   const rooms = products.filter(p => p.category === 'rooms' && (showArchived || !p.archived));
-  const availableCount = products.filter(p => p.category === 'rooms' && !p.archived && !findActiveStayByRoom(stays, p.id)).length;
+  // A room is available only if it has no active stay (current or upcoming) at all.
+  const availableCount = products.filter(p =>
+    p.category === 'rooms' && !p.archived && !stays.some(s => s.status === 'active' && s.roomId === p.id),
+  ).length;
 
   function handleCheckIn(data: { guestName: string; guestPhone?: string; nights: number; checkInAt: Date; checkOutAt: Date; notes?: string; customerId?: string }) {
     if (!checkInRoom) return;
@@ -76,9 +79,9 @@ export default function RoomsPage() {
   }
 
   async function handleDelete(room: Product) {
-    const stay = findActiveStayByRoom(stays, room.id);
-    if (stay) {
-      toast.error('Check out the current guest before deleting.');
+    const hasAnyStay = stays.some(s => s.status === 'active' && s.roomId === room.id);
+    if (hasAnyStay) {
+      toast.error('Cancel all bookings for this room before deleting.');
       return;
     }
     const ok = await confirm({
@@ -110,9 +113,9 @@ export default function RoomsPage() {
   }
 
   async function handleArchive(room: Product) {
-    const stay = findActiveStayByRoom(stays, room.id);
-    if (!room.archived && stay) {
-      toast.error('Check out the current guest first.');
+    const hasAnyStay = stays.some(s => s.status === 'active' && s.roomId === room.id);
+    if (!room.archived && hasAnyStay) {
+      toast.error('Cancel all bookings for this room before archiving.');
       return;
     }
     const ok = await confirm({
@@ -161,9 +164,11 @@ export default function RoomsPage() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {rooms.map(room => {
-              const stay = findActiveStayByRoom(stays, room.id);
-              const folio = stay ? tabs.find(t => t.id === stay.folioTabId) : null;
-              const folioTotal = folio ? tabGrandTotal(folio.items, folio.discount) : 0;
+              const stay        = findActiveStayByRoom(stays, room.id);
+              const reservation = stay ? null : findUpcomingStayByRoom(stays, room.id);
+              const displayStay = stay ?? reservation;
+              const folio       = displayStay ? tabs.find(t => t.id === displayStay.folioTabId) : null;
+              const folioTotal  = folio ? tabGrandTotal(folio.items, folio.discount) : 0;
               return (
                 <div key={room.id} className={`flex flex-col rounded-2xl border border-border bg-white/60 dark:bg-white/5 overflow-hidden ${room.archived ? 'opacity-50' : ''}`}>
                   <div className="h-32 bg-gradient-to-br from-stone-100 to-stone-200 dark:from-stone-900 dark:to-stone-800 flex items-center justify-center overflow-hidden relative group">
@@ -208,24 +213,26 @@ export default function RoomsPage() {
                           ? 'bg-stone-200 text-stone-700 dark:bg-stone-800 dark:text-stone-300'
                           : stay
                             ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
-                            : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
+                            : reservation
+                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                              : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
                       }`}>
-                        {room.archived ? 'Archived' : stay ? 'Occupied' : 'Available'}
+                        {room.archived ? 'Archived' : stay ? 'Occupied' : reservation ? 'Reserved' : 'Available'}
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground">{room.description}</p>
 
-                    {stay && (
+                    {displayStay && (
                       <div className="space-y-1.5 text-xs">
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <User size={12} strokeWidth={2} />
-                          <span>{stay.guestName}</span>
+                          <span>{displayStay.guestName}</span>
                         </div>
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <CalendarDays size={12} strokeWidth={2} />
-                          <span>Check-in: {formatDate(stay.checkInAt)} · {stay.nights}n</span>
+                          <span>Check-in: {formatDate(displayStay.checkInAt)} · {displayStay.nights}n</span>
                         </div>
-                        {stay.checkOutAt && (
+                        {stay?.checkOutAt && (
                           <div className="flex items-center gap-2 font-medium text-amber-700 dark:text-amber-400">
                             <CalendarDays size={12} strokeWidth={2} />
                             <span>Check-out: {new Date(stay.checkOutAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
@@ -241,11 +248,11 @@ export default function RoomsPage() {
                     <div className="flex items-center justify-between gap-2 pt-1 border-t border-border">
                       <span className="text-sm font-bold">{cur}{room.price}<span className="text-xs font-normal text-muted-foreground">/night</span></span>
                       {!room.archived && (
-                        !stay ? (
+                        !displayStay ? (
                           <button onClick={() => setCheckInRoom(room)} className="h-8 px-3 rounded-xl text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 active:scale-95 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
                             Check In
                           </button>
-                        ) : (
+                        ) : stay ? (
                           <div className="flex gap-1.5">
                             <button onClick={() => setFolioStay(stay)} className="h-8 px-3 rounded-xl text-xs font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8 transition-colors cursor-pointer">
                               View Folio
@@ -258,6 +265,10 @@ export default function RoomsPage() {
                               <LogOut size={13} />
                             </button>
                           </div>
+                        ) : (
+                          <button onClick={() => setFolioStay(reservation!)} className="h-8 px-3 rounded-xl text-xs font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8 transition-colors cursor-pointer">
+                            View Folio
+                          </button>
                         )
                       )}
                     </div>

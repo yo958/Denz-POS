@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.6.2] - 2026-05-21
+### Fixed
+- **Rooms page — future reservations showing as "Occupied"**: A room with a check-in date in the future was incorrectly shown as "Occupied" (amber badge). The page now shows three states: **Occupied** (guest has checked in today or earlier), **Reserved** (blue badge, future check-in), and **Available**. Reserved rooms display the guest name and check-in date with a "View Folio" button but no checkout button.
+
 ## [1.6.1] - 2026-05-20
 ### Fixed
 - **Coworking board — multi-desk tabs**: Tabs with two or more desk line items (e.g. two people on one tab, each at a different space) now correctly mark all booked spaces as occupied. Previously only the first desk item was used, so the second space remained showing as available.
