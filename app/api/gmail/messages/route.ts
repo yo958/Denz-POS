@@ -14,6 +14,10 @@ export interface GmailListItem {
 }
 
 export async function GET(request: NextRequest) {
+  if (!process.env.FIREBASE_SERVICE_ACCOUNT_JSON || !process.env.GMAIL_CLIENT_ID) {
+    return NextResponse.json({ error: 'not_connected' }, { status: 401 });
+  }
+
   const pageToken = request.nextUrl.searchParams.get('pageToken') ?? undefined;
   const q = request.nextUrl.searchParams.get('q') ?? undefined;
 
