@@ -15,6 +15,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Install the correct lightningcss pre-built binary for Alpine Linux ARM64 (musl).
 # The lockfile is generated on macOS so it may omit this platform variant.
 RUN npm install --cpu=arm64 --os=linux --libc=musl --no-save lightningcss 2>/dev/null || true
+ENV NODE_OPTIONS=--max-old-space-size=4096
 RUN npm run build
 
 # ── Stage 3: production runner ────────────────────────────────────

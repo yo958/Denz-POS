@@ -1,6 +1,6 @@
 {
   "name": "denz-pos",
-  "version": "1.6.2",
+  "version": "1.7.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -13,7 +13,11 @@
     "@tiptap/starter-kit": "^3.23.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dompurify": "^3.4.5",
     "firebase": "^12.13.0",
+    "firebase-admin": "^13.10.0",
+    "googleapis": "^172.0.0",
+    "jsdom": "^29.1.1",
     "lucide-react": "^1.14.0",
     "next": "16.2.4",
     "next-themes": "^0.4.6",
@@ -26,6 +30,8 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/dompurify": "^3.0.5",
+    "@types/jsdom": "^28.0.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

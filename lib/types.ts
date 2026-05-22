@@ -352,7 +352,8 @@ export type AuditAction =
   | 'staff.create' | 'staff.update' | 'staff.delete'
   | 'customer.create' | 'customer.update' | 'customer.delete'
   | 'equipment.create' | 'equipment.update' | 'equipment.delete' | 'rental.create'
-  | 'settings.update' | 'data.export' | 'data.import' | 'data.wipe';
+  | 'settings.update' | 'data.export' | 'data.import' | 'data.wipe'
+  | 'gmail.connect' | 'gmail.disconnect' | 'gmail.reply';
 export interface AuditEntry {
   id: string;
   at: Date;
