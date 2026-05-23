@@ -144,7 +144,7 @@ function SparkBarsGSC({ data }: { data: GscStats['dailyTrend'] }) {
       {data.map((d, i) => (
         <div
           key={i}
-          className="flex-1 flex items-end gap-[1px]"
+          className="flex-1 h-full flex items-end gap-[1px]"
           title={`${fmtDate(d.date)}: ${d.clicks} clicks, ${d.impressions.toLocaleString()} impressions`}
         >
           {/* Impressions bar (muted) */}
