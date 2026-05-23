@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { LayoutGrid, BookOpen, BedDouble, BarChart2, Settings, Laptop, ChefHat, History, LogOut, Users, LayoutDashboard, Receipt, Globe, CalendarDays, Inbox, TrendingUp, LineChart, Search } from 'lucide-react';
+import { LayoutGrid, BookOpen, BedDouble, BarChart2, Settings, Laptop, ChefHat, History, LogOut, Users, LayoutDashboard, Receipt, Globe, CalendarDays, Inbox, TrendingUp, LineChart, Search, Layers } from 'lucide-react';
 import { useCurrentStaff, setCurrentStaffId } from '@/lib/hooks/useStore';
 import { signOut } from '@/lib/firebase';
 
@@ -17,6 +17,7 @@ const NAV = [
   { href: '/kds',        icon: ChefHat,    label: 'Kitchen',   managerOnly: false },
   { href: '/online-orders', icon: Globe,        label: 'Online Orders', managerOnly: true },
   { href: '/inbox',         icon: Inbox,        label: 'Inbox',         managerOnly: true },
+  { href: '/google',        icon: Layers,       label: 'Google Overview', managerOnly: true },
   { href: '/ads',           icon: TrendingUp,   label: 'Google Ads',    managerOnly: true },
   { href: '/analytics',     icon: LineChart,    label: 'Analytics',     managerOnly: true },
   { href: '/gsc',           icon: Search,       label: 'Search Console', managerOnly: true },

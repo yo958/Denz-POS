@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.11.0] - 2026-05-23
+### Added
+- **Google Overview page** (`/google`): new manager-only dashboard combining Google Ads, Analytics, and Search Console in a single view. Shows three headline numbers (Ad Spend, Sessions, Organic Clicks), three service cards each with key metrics + sparkline trend chart, a Top Campaigns vs Top Queries side-by-side table, and a Traffic Sources breakdown. Each service loads independently — if one isn't connected it shows gracefully without breaking the others. "Refresh All" re-fetches all three in parallel.
+- **Sidebar entry**: "Google Overview" added above Google Ads using the Layers icon.
+
 ## [1.10.9] - 2026-05-23
 ### Changed
 - **Analytics page**: applied compact horizontal stat card layout (was missing from previous update); grid changed to `sm:grid-cols-3` (2 rows of 3).
