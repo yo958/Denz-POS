@@ -130,13 +130,15 @@ function StatCard({ label, value, sub, icon: Icon, accent = false }: {
   icon: React.ElementType; accent?: boolean;
 }) {
   return (
-    <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${accent ? 'border-primary/30 bg-primary/5' : 'border-border bg-white/50 dark:bg-white/3'}`}>
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</span>
-        <Icon size={14} className={accent ? 'text-primary' : 'text-muted-foreground'} strokeWidth={1.8} />
+    <div className={`rounded-2xl border p-4 flex flex-row items-center gap-3 ${accent ? 'border-primary/30 bg-primary/5' : 'border-border bg-white/50 dark:bg-white/3'}`}>
+      <div className={`flex items-center justify-center w-9 h-9 rounded-xl shrink-0 ${accent ? 'bg-primary/10' : 'bg-black/5 dark:bg-white/8'}`}>
+        <Icon size={16} className={accent ? 'text-primary' : 'text-muted-foreground'} strokeWidth={1.8} />
       </div>
-      <p className={`text-2xl font-bold tabular-nums ${accent ? 'text-primary' : 'text-foreground'}`}>{value}</p>
-      {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+      <div className="min-w-0">
+        <p className={`text-sm font-bold tabular-nums truncate ${accent ? 'text-primary' : 'text-foreground'}`}>{value}</p>
+        <p className="text-xs font-medium text-foreground/80">{label}</p>
+        {sub && <p className="text-xs text-muted-foreground truncate">{sub}</p>}
+      </div>
     </div>
   );
 }

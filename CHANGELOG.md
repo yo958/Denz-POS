@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.10.8] - 2026-05-23
+### Changed
+- **Google Ads & Search Console — compact card layout**: stat cards on both pages now use the same horizontal `flex-row` layout as the Reports page (icon in a tinted circle on the left, value + label on the right). Accent card (Total Spend / Total Clicks) retains its primary colour highlight.
+- **Google Ads grid**: changed from `lg:grid-cols-6` to `sm:grid-cols-3` so the 6 horizontal cards display cleanly in two rows of three.
+
 ## [1.10.7] - 2026-05-23
 ### Changed
 - **Reports page — compact card layout**: all stat cards (primary, secondary, payment method) now use a horizontal `flex-row` layout with the icon on the left and value/label/sub on the right. More compact and visually cleaner.
