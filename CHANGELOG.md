@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.10.2] - 2026-05-23
+### Added
+- **Google Ads 30-Day Trend chart**: dual-axis `AreaChart` (Recharts) placed between the summary cards and the Campaigns/Keywords tables. Amber line + gradient for daily spend (฿, left Y-axis); blue line + gradient for daily clicks (right Y-axis) — independently scaled so both metrics are always visible.
+- **New daily GAQL query** in `/api/ads/stats`: fetches `segments.date`, `metrics.impressions`, `metrics.clicks`, `metrics.cost_micros` from `customer` for `LAST_30_DAYS`, ordered by date ascending. Result stored in the `dailyTrend` field of the cached `AdsStats` document.
+- **`AdsDailyPoint` type** added to `lib/google-ads.ts`; `AdsStats` extended with `dailyTrend: AdsDailyPoint[]`.
+
 ## [1.10.1] - 2026-05-23
 ### Changed
 - **Analytics & Search Console**: replaced CSS spark-bar charts with Recharts `AreaChart` (gradient fill, axes, hover tooltip) matching the Reports page style.

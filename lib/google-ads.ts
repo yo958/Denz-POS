@@ -130,11 +130,19 @@ export interface AdsSummary {
   roas:             number;
 }
 
+export interface AdsDailyPoint {
+  date:        string;  // YYYY-MM-DD
+  impressions: number;
+  clicks:      number;
+  cost:        number;
+}
+
 export interface AdsStats {
   summary:        AdsSummary;
   campaigns:      AdsCampaign[];
   topKeywords:    AdsKeyword[];
   lowCtrKeywords: AdsKeyword[];
+  dailyTrend:     AdsDailyPoint[];
   customerId:     string;
   fetchedAt:      string;
 }

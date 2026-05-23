@@ -11,6 +11,7 @@ import {
   type AdsSummary,
   type AdsCampaign,
   type AdsKeyword,
+  type AdsDailyPoint,
 } from '@/lib/google-ads';
 import { getAdminDb } from '@/lib/firebase-admin';
 
@@ -170,11 +171,37 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.cost - a.cost)
       .slice(0, 10);
 
+    // ── Daily trend ────────────────────────────────────────────────────────────
+    const dailyRows = await adsSearch(customerId, accessToken, `
+      SELECT
+        segments.date,
+        metrics.impressions,
+        metrics.clicks,
+        metrics.cost_micros
+      FROM customer
+      WHERE segments.date DURING LAST_30_DAYS
+      ORDER BY segments.date ASC
+    `);
+
+    const dailyTrend: AdsDailyPoint[] = dailyRows.map(row => {
+      const r = row as {
+        segments?: { date?: string };
+        metrics?:  Record<string, unknown>;
+      };
+      return {
+        date:        r.segments?.date ?? '',
+        impressions: int64(r.metrics?.impressions),
+        clicks:      int64(r.metrics?.clicks),
+        cost:        micros(r.metrics?.costMicros),
+      };
+    });
+
     const stats: AdsStats = {
       summary,
       campaigns,
       topKeywords,
       lowCtrKeywords,
+      dailyTrend,
       customerId,
       fetchedAt: new Date().toISOString(),
     };

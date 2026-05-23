@@ -8,6 +8,9 @@ import {
   MousePointerClick, Eye, DollarSign, Target, Zap, Loader2,
   AlertCircle, Sparkles, Clock,
 } from 'lucide-react';
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts';
 import { useCurrentStaff } from '@/lib/hooks/useStore';
 import { toast } from '@/components/ui/toast';
 import type { AdsStats } from '@/lib/google-ads';
@@ -21,6 +24,8 @@ interface CustomerItem  { id: string; formatted: string }
 function fmt(n: number, decimals = 2) { return `฿${n.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`; }
 function pct(n: number) { return `${(n * 100).toFixed(2)}%`; }
 function num(n: number) { return n.toLocaleString(); }
+/** Convert YYYY-MM-DD → DD/MM */
+function fmtDate(d: string) { return `${d.slice(8, 10)}/${d.slice(5, 7)}`; }
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
   const h = Math.floor(diff / 3_600_000);
@@ -58,6 +63,76 @@ function StatusBadge({ status }: { status: string }) {
       <span className={`w-1.5 h-1.5 rounded-full ${enabled ? 'bg-emerald-500' : 'bg-amber-500'}`} />
       {enabled ? 'Active' : 'Paused'}
     </span>
+  );
+}
+
+// ── Daily trend chart ─────────────────────────────────────────────────────────
+function AdsChart({ data }: { data: AdsStats['dailyTrend'] }) {
+  if (!data || data.length === 0) return null;
+  const interval = data.length > 20 ? 6 : data.length > 14 ? 3 : 1;
+  const chartData = data.map(d => ({ label: fmtDate(d.date), spend: d.cost, clicks: d.clicks }));
+  return (
+    <section className="space-y-3">
+      <h2 className="text-sm font-semibold">30-Day Trend</h2>
+      <div className="rounded-2xl border border-border bg-white/50 dark:bg-white/3 p-4">
+        <div className="flex items-center gap-4 mb-3">
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="inline-block w-3 h-0.5 rounded bg-[#f59e0b]" /> Spend (฿)
+          </span>
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="inline-block w-3 h-0.5 rounded bg-[#3b82f6]" /> Clicks
+          </span>
+        </div>
+        <ResponsiveContainer width="100%" height={220}>
+          <AreaChart data={chartData} margin={{ top: 4, right: 48, left: 0, bottom: 0 }}>
+            <defs>
+              <linearGradient id="gradSpend" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor="#f59e0b" stopOpacity={0.35} />
+                <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.02} />
+              </linearGradient>
+              <linearGradient id="gradClicks" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.35} />
+                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="currentColor" strokeOpacity={0.06} vertical={false} />
+            <XAxis
+              dataKey="label"
+              tick={{ fontSize: 10, fill: 'currentColor', opacity: 0.45 }}
+              axisLine={false} tickLine={false}
+              interval={interval}
+            />
+            <YAxis
+              yAxisId="spend"
+              orientation="left"
+              tick={{ fontSize: 10, fill: '#f59e0b', opacity: 0.8 }}
+              axisLine={false} tickLine={false}
+              width={48}
+              tickFormatter={v => v >= 1000 ? `฿${(v / 1000).toFixed(0)}k` : `฿${v}`}
+            />
+            <YAxis
+              yAxisId="clicks"
+              orientation="right"
+              tick={{ fontSize: 10, fill: '#3b82f6', opacity: 0.8 }}
+              axisLine={false} tickLine={false}
+              width={36}
+              tickFormatter={v => String(v)}
+            />
+            <Tooltip
+              contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '12px', fontSize: '12px', padding: '8px 12px' }}
+              formatter={(value, name) => name === 'spend'
+                ? [fmt(Number(value)), 'Spend']
+                : [num(Number(value)), 'Clicks']
+              }
+              labelStyle={{ fontWeight: 600, marginBottom: 4 }}
+              cursor={{ stroke: 'currentColor', strokeOpacity: 0.1, strokeWidth: 20 }}
+            />
+            <Area yAxisId="spend"  type="monotone" dataKey="spend"  stroke="#f59e0b" strokeWidth={2} fill="url(#gradSpend)"  dot={false} activeDot={{ r: 4, strokeWidth: 0, fill: '#f59e0b' }} />
+            <Area yAxisId="clicks" type="monotone" dataKey="clicks" stroke="#3b82f6" strokeWidth={2} fill="url(#gradClicks)" dot={false} activeDot={{ r: 4, strokeWidth: 0, fill: '#3b82f6' }} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </section>
   );
 }
 
@@ -439,6 +514,11 @@ export default function AdsPage() {
           <StatCard label="Avg. CPC"     value={fmt(s.averageCpc)}          icon={DollarSign}       />
           <StatCard label="Conversions"  value={String(s.conversions.toFixed(0))} icon={Zap}       sub={s.roas > 0 ? `${s.roas.toFixed(2)}x ROAS` : undefined} />
         </div>
+
+        {/* 30-day trend chart */}
+        {stats?.dailyTrend && stats.dailyTrend.length > 0 && (
+          <AdsChart data={stats.dailyTrend} />
+        )}
 
         {/* Campaigns + Keywords side by side */}
         <div className="grid lg:grid-cols-2 gap-6">
