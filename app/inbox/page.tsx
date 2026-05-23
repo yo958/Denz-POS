@@ -2,12 +2,19 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Inbox, Mail, RefreshCw, Reply, Send, ChevronLeft, AlertCircle, Loader2 } from 'lucide-react';
+import { Inbox, Mail, RefreshCw, Reply, Send, ChevronLeft, AlertCircle, Loader2, Tag } from 'lucide-react';
 import { useCurrentStaff } from '@/lib/hooks/useStore';
 import { getStore } from '@/lib/store/store';
 import { toast } from '@/components/ui/toast';
 
 /* ── types ──────────────────────────────────────────────────────── */
+
+interface GmailLabel {
+  id: string;
+  name: string;
+  type: 'system' | 'user';
+  color?: { backgroundColor: string; textColor: string };
+}
 
 interface GmailListItem {
   id: string;
@@ -17,6 +24,7 @@ interface GmailListItem {
   date: string;
   snippet: string;
   isUnread: boolean;
+  labelIds: string[];
 }
 
 interface EmailDetail {
@@ -43,29 +51,57 @@ function formatDate(dateStr: string): string {
   try {
     const d = new Date(dateStr);
     const now = new Date();
-    const diffMs = now.getTime() - d.getTime();
-    const diffH = diffMs / 3_600_000;
-    if (diffH < 1)  return `${Math.max(1, Math.round(diffMs / 60_000))}m ago`;
+    const diffH = (now.getTime() - d.getTime()) / 3_600_000;
+    if (diffH < 1)  return `${Math.max(1, Math.round(diffH * 60))}m ago`;
     if (diffH < 24) return `${Math.round(diffH)}h ago`;
     if (diffH < 48) return 'Yesterday';
     return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-  } catch {
-    return dateStr;
-  }
+  } catch { return dateStr; }
 }
 
-/* ── sub-components ─────────────────────────────────────────────── */
+// System label IDs we never show as chips on emails
+const HIDDEN_LABEL_IDS = new Set([
+  'INBOX', 'SENT', 'TRASH', 'SPAM', 'DRAFT', 'DRAFTS',
+  'UNREAD', 'STARRED', 'IMPORTANT',
+  'CATEGORY_PERSONAL', 'CATEGORY_SOCIAL', 'CATEGORY_PROMOTIONS',
+  'CATEGORY_UPDATES', 'CATEGORY_FORUMS',
+]);
+
+/* ── LabelChip ──────────────────────────────────────────────────── */
+
+function LabelChip({ label, small = false }: { label: GmailLabel; small?: boolean }) {
+  const style = label.color
+    ? { backgroundColor: label.color.backgroundColor, color: label.color.textColor }
+    : undefined;
+  return (
+    <span
+      style={style}
+      className={`inline-flex items-center gap-1 rounded-full font-medium leading-none
+        ${small ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-xs'}
+        ${!label.color ? 'bg-primary/10 text-primary' : ''}
+      `}
+    >
+      {label.name}
+    </span>
+  );
+}
+
+/* ── EmailListItem ──────────────────────────────────────────────── */
 
 function EmailListItem({
-  email,
-  selected,
-  onClick,
+  email, labels, selected, onClick,
 }: {
   email: GmailListItem;
+  labels: GmailLabel[];
   selected: boolean;
   onClick: () => void;
 }) {
   const { name, email: addr } = parseFrom(email.from);
+
+  // Only show user-created label chips (skip system labels)
+  const emailLabels = labels.filter(
+    l => l.type === 'user' && email.labelIds.includes(l.id) && !HIDDEN_LABEL_IDS.has(l.id),
+  );
 
   return (
     <button
@@ -77,10 +113,7 @@ function EmailListItem({
       }`}
     >
       <div className="flex items-start gap-2.5">
-        {email.isUnread && (
-          <span className="mt-1.5 shrink-0 w-2 h-2 rounded-full bg-primary" />
-        )}
-        {!email.isUnread && <span className="mt-1.5 shrink-0 w-2 h-2" />}
+        <span className={`mt-1.5 shrink-0 w-2 h-2 rounded-full ${email.isUnread ? 'bg-primary' : ''}`} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2 mb-0.5">
             <span className={`text-sm truncate ${email.isUnread ? 'font-semibold text-foreground' : 'font-medium text-foreground/80'}`}>
@@ -88,10 +121,16 @@ function EmailListItem({
             </span>
             <span className="text-xs text-muted-foreground shrink-0">{formatDate(email.date)}</span>
           </div>
-          <p className={`text-xs truncate mb-0.5 ${email.isUnread ? 'font-medium text-foreground/80' : 'text-muted-foreground'}`}>
+          <p className={`text-xs truncate mb-1 ${email.isUnread ? 'font-medium text-foreground/80' : 'text-muted-foreground'}`}>
             {email.subject}
           </p>
-          <p className="text-xs text-muted-foreground/70 truncate">{email.snippet}</p>
+          {emailLabels.length > 0 ? (
+            <div className="flex flex-wrap gap-1 mb-0.5">
+              {emailLabels.slice(0, 3).map(l => <LabelChip key={l.id} label={l} small />)}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground/70 truncate">{email.snippet}</p>
+          )}
         </div>
       </div>
     </button>
@@ -111,6 +150,8 @@ export default function InboxPage() {
   const [pageState, setPageState]     = useState<PageState>('loading');
   const [gmailAddress, setAddress]    = useState('');
   const [emails, setEmails]           = useState<GmailListItem[]>([]);
+  const [labels, setLabels]           = useState<GmailLabel[]>([]);
+  const [activeLabelId, setActiveLabel] = useState<string | null>(null);
   const [nextPageToken, setNextToken] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing]   = useState(false);
@@ -121,9 +162,9 @@ export default function InboxPage() {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [mobileDetail, setMobileDetail]   = useState(false);
 
-  const [replying, setReplying]     = useState(false);
-  const [replyText, setReplyText]   = useState('');
-  const [sending, setSending]       = useState(false);
+  const [replying, setReplying]   = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [sending, setSending]     = useState(false);
 
   const replyRef = useRef<HTMLTextAreaElement>(null);
 
@@ -138,20 +179,30 @@ export default function InboxPage() {
     );
   }
 
-  /* ── fetch helpers ─────────────────────────────────────────────── */
+  /* ── fetch labels ──────────────────────────────────────────────── */
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const fetchMessages = useCallback(async (pageToken?: string) => {
+  const fetchLabels = useCallback(async () => {
     try {
-      const url = pageToken
-        ? `/api/gmail/messages?pageToken=${encodeURIComponent(pageToken)}`
-        : '/api/gmail/messages';
+      const res = await fetch('/api/gmail/labels');
+      if (!res.ok) return;
+      const data = await res.json() as { labels: GmailLabel[] };
+      // Only keep user labels for the filter bar
+      setLabels(data.labels.filter(l => l.type === 'user'));
+    } catch { /* silently ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* ── fetch messages ────────────────────────────────────────────── */
+
+  const fetchMessages = useCallback(async (pageToken?: string, labelId?: string | null) => {
+    try {
+      const params = new URLSearchParams();
+      if (pageToken) params.set('pageToken', pageToken);
+      if (labelId)   params.set('labelId',   labelId);
+      const url = `/api/gmail/messages${params.size ? `?${params}` : ''}`;
       const res = await fetch(url);
 
-      if (res.status === 401) {
-        setPageState('not-connected');
-        return;
-      }
+      if (res.status === 401) { setPageState('not-connected'); return; }
       if (!res.ok) throw new Error(await res.text());
 
       const data = await res.json() as {
@@ -172,9 +223,10 @@ export default function InboxPage() {
       setPageState('error');
       setErrorMsg('Failed to load inbox. Check your connection and try again.');
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ── handle URL params on mount ────────────────────────────────── */
+  /* ── URL params on mount ───────────────────────────────────────── */
 
   useEffect(() => {
     const connected = searchParams.get('connected');
@@ -182,20 +234,18 @@ export default function InboxPage() {
 
     if (connected === 'true') {
       router.replace('/inbox');
-      fetchMessages().then(() => {
+      Promise.all([fetchMessages(), fetchLabels()]).then(() => {
         if (me) store.log('gmail.connect', me.id, 'Gmail connected');
         toast.success('Gmail connected successfully');
       });
       return;
     }
-
     if (error === 'no_refresh_token') {
       setPageState('not-connected');
-      setErrorMsg('Google didn\'t return a refresh token. Please try connecting again — make sure to click "Allow" on the consent screen.');
+      setErrorMsg('Google didn\'t return a refresh token. Try connecting again and click Allow.');
       router.replace('/inbox');
       return;
     }
-
     if (error) {
       setPageState('not-connected');
       setErrorMsg('Something went wrong during Gmail sign-in. Please try again.');
@@ -203,12 +253,21 @@ export default function InboxPage() {
       return;
     }
 
-    fetchMessages();
-  // only run on mount
+    Promise.all([fetchMessages(), fetchLabels()]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ── load email detail ─────────────────────────────────────────── */
+  /* ── label filter click ────────────────────────────────────────── */
+
+  function selectLabel(labelId: string | null) {
+    setActiveLabel(labelId);
+    setSelectedId(null);
+    setDetail(null);
+    setMobileDetail(false);
+    fetchMessages(undefined, labelId);
+  }
+
+  /* ── open email ────────────────────────────────────────────────── */
 
   async function openEmail(email: GmailListItem) {
     setSelectedId(email.id);
@@ -217,14 +276,11 @@ export default function InboxPage() {
     setReplying(false);
     setReplyText('');
     setLoadingDetail(true);
-
     try {
       const res = await fetch(`/api/gmail/messages/${email.id}`);
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json() as EmailDetail;
       setDetail(data);
-
-      // optimistically mark as read in list
       setEmails(prev => prev.map(e => e.id === email.id ? { ...e, isUnread: false } : e));
     } catch {
       toast.error('Failed to load email');
@@ -240,24 +296,19 @@ export default function InboxPage() {
     setSending(true);
     try {
       const { name: fromName, email: fromEmail } = parseFrom(detail.from);
-      const replyTo = fromEmail || detail.from;
-      const subject = detail.subject.startsWith('Re:') ? detail.subject : `Re: ${detail.subject}`;
-
       const res = await fetch('/api/gmail/reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          threadId: detail.threadId,
-          to: replyTo,
-          subject,
+          threadId:  detail.threadId,
+          to:        fromEmail || detail.from,
+          subject:   detail.subject.startsWith('Re:') ? detail.subject : `Re: ${detail.subject}`,
           inReplyTo: detail.messageId,
           references: detail.references,
-          bodyText: replyText,
+          bodyText:  replyText,
         }),
       });
-
       if (!res.ok) throw new Error(await res.text());
-
       if (me) store.log('gmail.reply', me.id, `Replied to ${fromName || fromEmail}`);
       toast.success('Reply sent');
       setReplying(false);
@@ -276,11 +327,11 @@ export default function InboxPage() {
     setSelectedId(null);
     setDetail(null);
     setMobileDetail(false);
-    await fetchMessages();
+    await Promise.all([fetchMessages(undefined, activeLabelId), fetchLabels()]);
     setRefreshing(false);
   }
 
-  /* ── render: loading ───────────────────────────────────────────── */
+  /* ── non-ready states ──────────────────────────────────────────── */
 
   if (pageState === 'loading') {
     return (
@@ -290,8 +341,6 @@ export default function InboxPage() {
       </div>
     );
   }
-
-  /* ── render: not connected ─────────────────────────────────────── */
 
   if (pageState === 'not-connected') {
     return (
@@ -322,8 +371,6 @@ export default function InboxPage() {
     );
   }
 
-  /* ── render: error ─────────────────────────────────────────────── */
-
   if (pageState === 'error') {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4 p-8 text-center">
@@ -340,7 +387,9 @@ export default function InboxPage() {
     );
   }
 
-  /* ── render: ready ─────────────────────────────────────────────── */
+  /* ── ready ───────────────────────────────────────────────────────── */
+
+  const activeLabel = labels.find(l => l.id === activeLabelId);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -355,6 +404,7 @@ export default function InboxPage() {
               {gmailAddress}
             </span>
           )}
+          {activeLabel && <LabelChip label={activeLabel} />}
         </div>
         <button
           onClick={refresh}
@@ -366,15 +416,46 @@ export default function InboxPage() {
         </button>
       </div>
 
-      {/* Body — two columns */}
+      {/* Label filter bar — only shown when labels exist */}
+      {labels.length > 0 && (
+        <div className="shrink-0 flex items-center gap-1.5 px-4 py-2.5 border-b border-border overflow-x-auto scrollbar-none">
+          <Tag size={12} className="text-muted-foreground shrink-0" />
+          <button
+            onClick={() => selectLabel(null)}
+            className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+              activeLabelId === null
+                ? 'bg-foreground text-background'
+                : 'text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5'
+            }`}
+          >
+            All
+          </button>
+          {labels.map(label => (
+            <button
+              key={label.id}
+              onClick={() => selectLabel(label.id === activeLabelId ? null : label.id)}
+              className="shrink-0 cursor-pointer rounded-full transition-opacity hover:opacity-80"
+              style={
+                label.id === activeLabelId
+                  ? { outline: '2px solid currentColor', outlineOffset: '1px' }
+                  : undefined
+              }
+            >
+              <LabelChip label={label} />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Body */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* Email list — hidden on mobile when detail is open */}
+        {/* Email list */}
         <div className={`${mobileDetail ? 'hidden lg:flex' : 'flex'} flex-col w-full lg:w-[340px] xl:w-[380px] shrink-0 border-r border-border overflow-y-auto`}>
           {emails.length === 0 ? (
             <div className="flex flex-col items-center justify-center flex-1 gap-2 text-muted-foreground p-8 text-center">
               <Inbox size={28} className="text-muted-foreground/30" />
-              <p className="text-sm">Your inbox is empty</p>
+              <p className="text-sm">{activeLabelId ? 'No emails with this label' : 'Your inbox is empty'}</p>
             </div>
           ) : (
             <div className="flex flex-col gap-0.5 p-2">
@@ -382,22 +463,22 @@ export default function InboxPage() {
                 <EmailListItem
                   key={email.id}
                   email={email}
+                  labels={labels}
                   selected={email.id === selectedId}
                   onClick={() => openEmail(email)}
                 />
               ))}
-
               {nextPageToken && (
                 <button
                   onClick={async () => {
                     setLoadingMore(true);
-                    await fetchMessages(nextPageToken);
+                    await fetchMessages(nextPageToken, activeLabelId);
                     setLoadingMore(false);
                   }}
                   disabled={loadingMore}
                   className="w-full py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-black/4 dark:hover:bg-white/4 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 mt-1"
                 >
-                  {loadingMore ? <Loader2 size={12} className="animate-spin" /> : null}
+                  {loadingMore && <Loader2 size={12} className="animate-spin" />}
                   Load more
                 </button>
               )}
@@ -408,7 +489,6 @@ export default function InboxPage() {
         {/* Detail panel */}
         <div className={`${mobileDetail ? 'flex' : 'hidden lg:flex'} flex-col flex-1 overflow-hidden`}>
 
-          {/* Mobile: back button */}
           {mobileDetail && (
             <button
               onClick={() => { setMobileDetail(false); setSelectedId(null); }}
@@ -439,6 +519,20 @@ export default function InboxPage() {
               {/* Email header */}
               <div className="shrink-0 px-6 py-4 border-b border-border">
                 <h2 className="font-semibold text-base mb-3 leading-snug">{detail.subject}</h2>
+
+                {/* Label chips on open email */}
+                {(() => {
+                  const openEmail = emails.find(e => e.id === detail.id);
+                  const openLabels = openEmail
+                    ? labels.filter(l => l.type === 'user' && openEmail.labelIds.includes(l.id))
+                    : [];
+                  return openLabels.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {openLabels.map(l => <LabelChip key={l.id} label={l} />)}
+                    </div>
+                  ) : null;
+                })()}
+
                 <div className="flex flex-col gap-1 text-sm text-muted-foreground">
                   <div className="flex gap-2">
                     <span className="w-7 shrink-0 text-xs font-medium text-foreground/50 uppercase tracking-wide pt-px">From</span>
@@ -469,10 +563,7 @@ export default function InboxPage() {
                 {!replying ? (
                   <div className="px-6 py-3">
                     <button
-                      onClick={() => {
-                        setReplying(true);
-                        setTimeout(() => replyRef.current?.focus(), 50);
-                      }}
+                      onClick={() => { setReplying(true); setTimeout(() => replyRef.current?.focus(), 50); }}
                       className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
                     >
                       <Reply size={14} />
