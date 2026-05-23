@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Save, Upload, Download, Trash2, KeyRound, UserPlus, AlertTriangle, Plus, Pencil, X, Phone, Mail, Image as ImageIcon, RefreshCw, Eye, EyeOff, Sparkles, Check } from 'lucide-react';
+import { Save, Upload, Download, Trash2, KeyRound, UserPlus, AlertTriangle, Plus, Pencil, X, Phone, Mail, Image as ImageIcon, RefreshCw, Eye, EyeOff, Sparkles, Check, Sun, Moon, Monitor } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { useSettings, useStaff, useCurrentStaff, useModifierGroups } from '@/lib/hooks/useStore';
 import { getStore } from '@/lib/store/store';
 import { downloadBackup, importBackupFromString } from '@/lib/store/backup';
@@ -164,6 +165,8 @@ export default function SettingsPage() {
       </header>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
+
+        <AppearanceSection />
 
         <Section title="Venue">
           <Field label="Name"><input value={draft.venue.name} onChange={e => updateVenue({ name: e.target.value })} className={inputCls} /></Field>
@@ -625,6 +628,49 @@ function AddStaffDialog({ onClose, onCreated }: AddStaffDialogProps) {
         </div>
       </form>
     </div>
+  );
+}
+
+/* ── Appearance ─────────────────────────────────────────────────── */
+
+function AppearanceSection() {
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const options = [
+    { value: 'light',  icon: Sun,     label: 'Light'  },
+    { value: 'dark',   icon: Moon,    label: 'Dark'   },
+    { value: 'system', icon: Monitor, label: 'System' },
+  ] as const;
+
+  return (
+    <Section title="Appearance">
+      <div className="flex items-center justify-between px-3 py-3 rounded-xl border border-border bg-white/50 dark:bg-white/5">
+        <span className="text-sm text-muted-foreground">Theme</span>
+        {mounted ? (
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-black/5 dark:bg-white/8">
+            {options.map(({ value, icon: Icon, label }) => (
+              <button
+                key={value}
+                onClick={() => setTheme(value)}
+                title={label}
+                className={`flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
+                  theme === value
+                    ? 'bg-white dark:bg-white/15 text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Icon size={13} strokeWidth={2} />
+                {label}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="h-10 w-48 rounded-xl bg-black/5 dark:bg-white/8 animate-pulse" />
+        )}
+      </div>
+    </Section>
   );
 }
 

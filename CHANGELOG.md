@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.11.3] - 2026-05-23
+### Changed
+- **Theme switcher moved to Settings**: removed the Light/Dark/System toggle from the Tabs page topbar. It now lives as an "Appearance" section at the top of Settings, with a styled Light / Dark / System pill selector.
+
 ## [1.11.2] - 2026-05-23
 ### Changed
 - **Sidebar — Google submenu collapses**: Google Ads, Analytics, and Search Console sub-items now only expand when the current page is /google, /ads, /analytics, or /gsc. Hidden on all other pages.

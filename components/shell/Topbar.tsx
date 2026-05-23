@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { Plus, DoorOpen, DoorClosed } from 'lucide-react';
-import { ThemeToggle } from './ThemeToggle';
 import { useShift, useTabs, useCurrentStaff, useSettings } from '@/lib/hooks/useStore';
 import { getStore } from '@/lib/store/store';
 import { buildZReport } from '@/lib/domain/shift';
@@ -42,8 +41,6 @@ export function Topbar({ onNewTab }: TopbarProps) {
             {shift ? <DoorOpen size={13} /> : <DoorClosed size={13} />}
             <span className="hidden md:inline">{shift ? 'Shift open' : 'Open shift'}</span>
           </button>
-
-          <ThemeToggle />
 
           <button
             onClick={onNewTab}
