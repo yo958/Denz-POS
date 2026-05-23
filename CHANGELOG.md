@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.11.1] - 2026-05-23
+### Changed
+- **Sidebar — Google submenu**: Google Ads, Analytics, and Search Console are now nested sub-items under Google Overview. In wide mode they appear indented with a left-border connector line; in icon-only mode they stack below the parent icon. The parent "Google Overview" stays highlighted whenever you're on any sub-page.
+
 ## [1.11.0] - 2026-05-23
 ### Added
 - **Google Overview page** (`/google`): new manager-only dashboard combining Google Ads, Analytics, and Search Console in a single view. Shows three headline numbers (Ad Spend, Sessions, Organic Clicks), three service cards each with key metrics + sparkline trend chart, a Top Campaigns vs Top Queries side-by-side table, and a Traffic Sources breakdown. Each service loads independently — if one isn't connected it shows gracefully without breaking the others. "Refresh All" re-fetches all three in parallel.
