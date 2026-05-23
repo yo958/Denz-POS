@@ -90,6 +90,8 @@ export default function AdsPage() {
   const [insightsBusy, setInsightsBusy] = useState(false);
   const [customers, setCustomers]     = useState<CustomerItem[]>([]);
   const [loadError, setLoadError]     = useState('');
+  const [manualCustomerId, setManualCustomerId] = useState('');
+  const [manualBusy, setManualBusy]   = useState(false);
 
   // Manager guard
   if (me?.role !== 'manager') {
@@ -133,10 +135,14 @@ export default function AdsPage() {
 
   const loadCustomers = useCallback(async () => {
     const res  = await fetch('/api/ads/customers');
-    const data = await res.json() as { customers?: CustomerItem[]; error?: string };
+    const data = await res.json() as { customers?: CustomerItem[]; error?: string; message?: string };
     if (!res.ok) {
       if (data.error === 'not_connected') { setState('not_connected'); return; }
-      setState('error'); return;
+      // Show customer picker with manual entry even if auto-detect fails
+      setLoadError(data.message ?? data.error ?? 'Could not list accounts automatically');
+      setCustomers([]);
+      setState('choose_customer');
+      return;
     }
     setCustomers(data.customers ?? []);
     setState('choose_customer');
@@ -280,39 +286,104 @@ export default function AdsPage() {
   }
 
   if (state === 'choose_customer') {
+    const autoFailed = customers.length === 0;
     return (
       <div className="flex flex-col items-center justify-center h-full gap-6 px-6 max-w-md mx-auto">
-        <div>
-          <h2 className="text-lg font-semibold text-center">Choose an account</h2>
-          <p className="text-sm text-muted-foreground text-center mt-1">Multiple Google Ads accounts found. Pick which one to track.</p>
+        <div className="text-center">
+          <h2 className="text-lg font-semibold">
+            {autoFailed ? 'Enter your Customer ID' : 'Choose an account'}
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            {autoFailed
+              ? 'Auto-detection failed. Enter your Google Ads Customer ID manually.'
+              : 'Multiple Google Ads accounts found. Pick which one to track.'}
+          </p>
+          {autoFailed && loadError && (
+            <p className="text-xs text-rose-500 dark:text-rose-400 mt-2 font-mono break-all">{loadError}</p>
+          )}
         </div>
-        <div className="w-full rounded-2xl border border-border divide-y divide-border overflow-hidden">
-          {customers.map(c => (
+
+        {/* Auto-detected accounts */}
+        {customers.length > 0 && (
+          <div className="w-full rounded-2xl border border-border divide-y divide-border overflow-hidden">
+            {customers.map(c => (
+              <button
+                key={c.id}
+                onClick={() => void selectCustomer(c.id)}
+                className="w-full flex items-center justify-between px-4 py-3 text-sm hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+              >
+                <span className="font-medium tabular-nums">{c.formatted}</span>
+                <ChevronRight size={14} className="text-muted-foreground" />
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Manual entry fallback */}
+        <div className="w-full space-y-2">
+          {customers.length > 0 && (
+            <p className="text-xs text-muted-foreground text-center">— or enter manually —</p>
+          )}
+          <div className="flex gap-2">
+            <input
+              value={manualCustomerId}
+              onChange={e => setManualCustomerId(e.target.value.replace(/[^0-9-]/g, ''))}
+              placeholder="123-456-7890"
+              className="flex-1 h-10 px-3 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring tabular-nums"
+            />
             <button
-              key={c.id}
-              onClick={() => void selectCustomer(c.id)}
-              className="w-full flex items-center justify-between px-4 py-3 text-sm hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+              disabled={manualBusy || !manualCustomerId.trim()}
+              onClick={async () => {
+                setManualBusy(true);
+                try { await selectCustomer(manualCustomerId); }
+                finally { setManualBusy(false); }
+              }}
+              className="flex items-center gap-1.5 h-10 px-4 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 disabled:opacity-50 transition-all cursor-pointer"
             >
-              <span className="font-medium tabular-nums">{c.formatted}</span>
-              <ChevronRight size={14} className="text-muted-foreground" />
+              {manualBusy ? <Loader2 size={14} className="animate-spin" /> : <ChevronRight size={14} />}
+              Use this ID
             </button>
-          ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Find it in Google Ads → click your account name at the top → the number shown (e.g. 123-456-7890).
+          </p>
         </div>
+
+        <button onClick={disconnect} className="text-xs text-muted-foreground hover:text-rose-500 cursor-pointer">
+          Disconnect and start over
+        </button>
       </div>
     );
   }
 
   if (state === 'error') {
+    const isTokenError = loadError.includes('DEVELOPER_TOKEN_INVALID') || loadError.includes('developer token');
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 px-6 max-w-md mx-auto text-center">
+      <div className="flex flex-col items-center justify-center h-full gap-4 px-6 max-w-lg mx-auto text-center">
         <AlertCircle size={28} className="text-rose-500" />
         <div>
-          <h2 className="text-base font-semibold">Failed to load stats</h2>
-          <p className="text-sm text-muted-foreground mt-1">{loadError}</p>
+          <h2 className="text-base font-semibold">
+            {isTokenError ? 'Invalid developer token' : 'Failed to load stats'}
+          </h2>
+          {isTokenError ? (
+            <p className="text-sm text-muted-foreground mt-1">
+              Your Google Ads developer token is missing or invalid. Get it from{' '}
+              <strong>Google Ads → Tools & Settings → API Center</strong>, add it as{' '}
+              <code className="text-xs bg-black/8 dark:bg-white/10 px-1 py-0.5 rounded">GOOGLE_ADS_DEVELOPER_TOKEN</code>{' '}
+              in <code className="text-xs bg-black/8 dark:bg-white/10 px-1 py-0.5 rounded">.env.local</code>, then rebuild Docker.
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground mt-1 font-mono text-xs break-all">{loadError}</p>
+          )}
         </div>
-        <button onClick={() => void loadStats()} className="flex items-center gap-2 h-9 px-4 rounded-xl text-sm border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8 cursor-pointer">
-          <RefreshCw size={13} /> Retry
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => void loadStats()} className="flex items-center gap-2 h-9 px-4 rounded-xl text-sm border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8 cursor-pointer">
+            <RefreshCw size={13} /> Retry
+          </button>
+          <button onClick={disconnect} className="flex items-center gap-2 h-9 px-4 rounded-xl text-sm border border-rose-300 dark:border-rose-700 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 cursor-pointer">
+            <Link2Off size={13} /> Disconnect
+          </button>
+        </div>
       </div>
     );
   }

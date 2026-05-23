@@ -1,11 +1,13 @@
 import { google } from 'googleapis';
-import { GoogleAdsApi, fromMicros } from 'google-ads-api';
 
-// ── Paths ───────────────────────────────────────────────────────────────────
+// ── Paths ────────────────────────────────────────────────────────────────────
 const suffix = process.env.NODE_ENV === 'production' ? 'prod' : 'dev';
 export const ADS_TOKEN_DOC_PATH  = `venue-settings/google-ads-${suffix}`;
 export const ADS_CACHE_DOC_PATH  = `venue-settings/ads-stats-${suffix}`;
 export const OPENAI_DOC_PATH     = `venue-settings/openai`;
+
+// Google Ads REST API version (matches v23 of the API)
+const ADS_API_VERSION = 'v23';
 
 // ── OAuth2 client (reuses same Google app as Gmail) ─────────────────────────
 export function makeAdsOAuth2Client() {
@@ -25,25 +27,79 @@ export function adsAppOrigin(): string {
   return 'http://localhost:3001';
 }
 
-// ── Google Ads API client ────────────────────────────────────────────────────
-export function makeAdsApiClient() {
-  return new GoogleAdsApi({
-    client_id:       process.env.GMAIL_CLIENT_ID!,
-    client_secret:   process.env.GMAIL_CLIENT_SECRET!,
-    developer_token: process.env.GOOGLE_ADS_DEVELOPER_TOKEN!,
+// ── Token helper ─────────────────────────────────────────────────────────────
+/** Returns a fresh access token, auto-refreshing if expired. */
+export async function getAdsAccessToken(td: {
+  refreshToken: string;
+  accessToken:  string;
+  expiryDate:   number;
+}): Promise<string> {
+  const oauth2Client = makeAdsOAuth2Client();
+  oauth2Client.setCredentials({
+    refresh_token: td.refreshToken,
+    access_token:  td.accessToken,
+    expiry_date:   td.expiryDate,
   });
+  const { token } = await oauth2Client.getAccessToken();
+  if (!token) throw new Error('Failed to get Google access token');
+  return token;
 }
 
-// ── Stats types ──────────────────────────────────────────────────────────────
+// ── REST helpers ─────────────────────────────────────────────────────────────
+function adsHeaders(accessToken: string): Record<string, string> {
+  return {
+    'Authorization':   `Bearer ${accessToken}`,
+    'developer-token': process.env.GOOGLE_ADS_DEVELOPER_TOKEN!,
+    'Content-Type':    'application/json',
+  };
+}
+
+/** List all accessible customer resource names (e.g. "customers/1234567890"). */
+export async function adsListCustomers(accessToken: string): Promise<string[]> {
+  const res = await fetch(
+    `https://googleads.googleapis.com/${ADS_API_VERSION}/customers:listAccessibleCustomers`,
+    { headers: adsHeaders(accessToken) },
+  );
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`listAccessibleCustomers failed (${res.status}): ${text}`);
+  }
+  const data = await res.json() as { resourceNames?: string[] };
+  return data.resourceNames ?? [];
+}
+
+/** Run a GAQL query and return the results array. */
+export async function adsSearch(
+  customerId: string,
+  accessToken: string,
+  query: string,
+): Promise<Record<string, unknown>[]> {
+  const res = await fetch(
+    `https://googleads.googleapis.com/${ADS_API_VERSION}/customers/${customerId}/googleAds:search`,
+    {
+      method:  'POST',
+      headers: adsHeaders(accessToken),
+      body:    JSON.stringify({ query }),
+    },
+  );
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Google Ads search failed (${res.status}): ${text}`);
+  }
+  const data = await res.json() as { results?: Record<string, unknown>[] };
+  return data.results ?? [];
+}
+
+// ── Stats types ───────────────────────────────────────────────────────────────
 export interface AdsCampaign {
-  id:           string;
-  name:         string;
-  status:       string;
-  impressions:  number;
-  clicks:       number;
-  ctr:          number;   // 0-1
-  cost:         number;   // actual currency (not micros)
-  conversions:  number;
+  id:          string;
+  name:        string;
+  status:      string;
+  impressions: number;
+  clicks:      number;
+  ctr:         number;
+  cost:        number;
+  conversions: number;
 }
 
 export interface AdsKeyword {
@@ -59,24 +115,33 @@ export interface AdsKeyword {
 }
 
 export interface AdsSummary {
-  impressions:     number;
-  clicks:          number;
-  ctr:             number;
-  cost:            number;
-  averageCpc:      number;
-  conversions:     number;
-  conversionsValue:number;
-  roas:            number;  // conversionsValue / cost (0 if no conv tracking)
+  impressions:      number;
+  clicks:           number;
+  ctr:              number;
+  cost:             number;
+  averageCpc:       number;
+  conversions:      number;
+  conversionsValue: number;
+  roas:             number;
 }
 
 export interface AdsStats {
-  summary:      AdsSummary;
-  campaigns:    AdsCampaign[];
-  topKeywords:  AdsKeyword[];   // by spend
-  lowCtrKeywords: AdsKeyword[]; // CTR < avg, cost > 0
-  customerId:   string;
-  fetchedAt:    string;         // ISO
+  summary:        AdsSummary;
+  campaigns:      AdsCampaign[];
+  topKeywords:    AdsKeyword[];
+  lowCtrKeywords: AdsKeyword[];
+  customerId:     string;
+  fetchedAt:      string;
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-export { fromMicros };
+// ── Micro helpers ─────────────────────────────────────────────────────────────
+/** REST API returns int64 values as strings; parse safely. */
+export function micros(v: unknown): number {
+  return (typeof v === 'string' ? parseInt(v, 10) : Number(v) || 0) / 1_000_000;
+}
+export function int64(v: unknown): number {
+  return typeof v === 'string' ? parseInt(v, 10) : Number(v) || 0;
+}
+export function float64(v: unknown): number {
+  return Number(v) || 0;
+}

@@ -1,5 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { makeAdsOAuth2Client, makeAdsApiClient, ADS_TOKEN_DOC_PATH, adsAppOrigin } from '@/lib/google-ads';
+import {
+  makeAdsOAuth2Client,
+  adsAppOrigin,
+  ADS_TOKEN_DOC_PATH,
+  getAdsAccessToken,
+  adsListCustomers,
+} from '@/lib/google-ads';
 import { getAdminDb } from '@/lib/firebase-admin';
 
 export async function GET(request: NextRequest) {
@@ -24,37 +30,38 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${base}/ads?error=no_refresh_token`);
     }
 
-    // List accessible customers so we can auto-select if only one
-    const adsClient = makeAdsApiClient();
-    let customerId: string | null = null;
-    let customerName: string | null = null;
-    let customerCount = 0;
-
-    try {
-      const res = await adsClient.listAccessibleCustomers(tokens.refresh_token);
-      const customers = res.resource_names ?? [];
-      customerCount = customers.length;
-      if (customers.length === 1) {
-        // Extract ID from "customers/1234567890"
-        customerId = customers[0].replace('customers/', '');
-      }
-      // If multiple, we store all resource names and let user pick on the /ads page
-    } catch (e) {
-      console.warn('[ads/callback] Could not list customers:', e);
-    }
-
+    // Store tokens first
     await getAdminDb().doc(ADS_TOKEN_DOC_PATH).set({
       accessToken:   tokens.access_token  ?? '',
       refreshToken:  tokens.refresh_token,
       expiryDate:    tokens.expiry_date   ?? 0,
       tokenType:     tokens.token_type    ?? 'Bearer',
-      customerId:    customerId ?? '',          // empty = user must pick
-      customerName:  customerName ?? '',
-      customerCount,
+      customerId:    '',   // filled below or by user
       connectedAt:   new Date().toISOString(),
     });
 
-    const qs = customerId ? 'connected=true' : 'connected=true&choose_customer=true';
+    // Try to list customers via REST
+    let customerId    = '';
+    let customerCount = 0;
+    try {
+      const accessToken = await getAdsAccessToken({
+        refreshToken: tokens.refresh_token,
+        accessToken:  tokens.access_token ?? '',
+        expiryDate:   tokens.expiry_date  ?? 0,
+      });
+      const customers = await adsListCustomers(accessToken);
+      customerCount   = customers.length;
+      if (customers.length === 1) {
+        customerId = customers[0].replace('customers/', '');
+        await getAdminDb().doc(ADS_TOKEN_DOC_PATH).update({ customerId });
+      }
+    } catch (e) {
+      console.warn('[ads/callback] Could not list customers:', e);
+    }
+
+    const qs = customerId
+      ? 'connected=true'
+      : 'connected=true&choose_customer=true';
     return NextResponse.redirect(`${base}/ads?${qs}`);
   } catch (e) {
     console.error('[ads/callback] OAuth exchange failed:', e);

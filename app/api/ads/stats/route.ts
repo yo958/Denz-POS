@@ -1,8 +1,12 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import {
-  makeAdsApiClient,
   ADS_TOKEN_DOC_PATH,
   ADS_CACHE_DOC_PATH,
+  getAdsAccessToken,
+  adsSearch,
+  micros,
+  int64,
+  float64,
   type AdsStats,
   type AdsSummary,
   type AdsCampaign,
@@ -24,9 +28,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'not_connected' }, { status: 401 });
   }
 
-  const td = tokenDoc.data()!;
-  const customerId    = td.customerId as string;
-  const refreshToken  = td.refreshToken as string;
+  const td         = tokenDoc.data()!;
+  const customerId = td.customerId as string;
 
   if (!customerId) {
     return NextResponse.json({ error: 'no_customer' }, { status: 400 });
@@ -36,7 +39,7 @@ export async function GET(request: NextRequest) {
   if (!forceRefresh) {
     const cacheDoc = await getAdminDb().doc(ADS_CACHE_DOC_PATH).get();
     if (cacheDoc.exists) {
-      const cached = cacheDoc.data()!;
+      const cached    = cacheDoc.data()!;
       const fetchedAt = new Date(cached.fetchedAt as string).getTime();
       if (Date.now() - fetchedAt < CACHE_TTL_MS) {
         return NextResponse.json({ stats: cached as AdsStats, fromCache: true });
@@ -44,13 +47,17 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // ── Fetch fresh data ───────────────────────────────────────────────────────
+  // ── Fresh fetch ────────────────────────────────────────────────────────────
   try {
-    const adsClient = makeAdsApiClient();
-    const customer  = adsClient.Customer({ customer_id: customerId, refresh_token: refreshToken });
+    const accessToken = await getAdsAccessToken({
+      refreshToken: td.refreshToken as string,
+      accessToken:  td.accessToken  as string,
+      expiryDate:   td.expiryDate   as number,
+    });
 
-    // Account summary
-    const summaryRows = await customer.query(`
+    // ── Account summary ────────────────────────────────────────────────────
+    // REST API returns int64 metrics as strings, doubles as numbers
+    const summaryRows = await adsSearch(customerId, accessToken, `
       SELECT
         metrics.impressions,
         metrics.clicks,
@@ -63,24 +70,23 @@ export async function GET(request: NextRequest) {
       WHERE segments.date DURING LAST_30_DAYS
     `);
 
-    const sumRow = summaryRows[0] ?? {};
-    const m = (sumRow as { metrics?: Record<string, number> }).metrics ?? {};
-    const totalCost  = (m.cost_micros           ?? 0) / 1_000_000;
-    const totalAvgCpc = (m.average_cpc          ?? 0) / 1_000_000;
-    const convValue   = m.conversions_value      ?? 0;
+    // REST response: row.metrics.impressions, row.metrics.costMicros (camelCase)
+    const sm  = (summaryRows[0] as { metrics?: Record<string, unknown> })?.metrics ?? {};
+    const totalCost  = micros(sm.costMicros);
+    const convValue  = float64(sm.conversionsValue);
     const summary: AdsSummary = {
-      impressions:      m.impressions       ?? 0,
-      clicks:           m.clicks            ?? 0,
-      ctr:              m.ctr               ?? 0,
+      impressions:      int64(sm.impressions),
+      clicks:           int64(sm.clicks),
+      ctr:              float64(sm.ctr),
       cost:             totalCost,
-      averageCpc:       totalAvgCpc,
-      conversions:      m.conversions       ?? 0,
+      averageCpc:       micros(sm.averageCpc),
+      conversions:      float64(sm.conversions),
       conversionsValue: convValue,
       roas:             totalCost > 0 ? convValue / totalCost : 0,
     };
 
-    // Campaigns
-    const campaignRows = await customer.query(`
+    // ── Campaigns ──────────────────────────────────────────────────────────
+    const campaignRows = await adsSearch(customerId, accessToken, `
       SELECT
         campaign.id,
         campaign.name,
@@ -100,22 +106,25 @@ export async function GET(request: NextRequest) {
     const campaigns: AdsCampaign[] = campaignRows.map(row => {
       const r = row as {
         campaign?: { id?: string; name?: string; status?: string };
-        metrics?:  { impressions?: number; clicks?: number; ctr?: number; cost_micros?: number; conversions?: number };
+        metrics?:  Record<string, unknown>;
       };
       return {
         id:          String(r.campaign?.id ?? ''),
-        name:        r.campaign?.name ?? 'Unknown',
+        name:        r.campaign?.name   ?? 'Unknown',
         status:      r.campaign?.status ?? 'UNKNOWN',
-        impressions: r.metrics?.impressions  ?? 0,
-        clicks:      r.metrics?.clicks       ?? 0,
-        ctr:         r.metrics?.ctr          ?? 0,
-        cost:        (r.metrics?.cost_micros ?? 0) / 1_000_000,
-        conversions: r.metrics?.conversions  ?? 0,
+        impressions: int64(r.metrics?.impressions),
+        clicks:      int64(r.metrics?.clicks),
+        ctr:         float64(r.metrics?.ctr),
+        cost:        micros(r.metrics?.costMicros),
+        conversions: float64(r.metrics?.conversions),
       };
     });
 
-    // Keywords (top by spend)
-    const keywordRows = await customer.query(`
+    // ── Keywords ──────────────────────────────────────────────────────────
+    // In REST responses, field segments snake_case → camelCase:
+    //   ad_group_criterion → adGroupCriterion
+    //   ad_group          → adGroup
+    const keywordRows = await adsSearch(customerId, accessToken, `
       SELECT
         ad_group_criterion.keyword.text,
         ad_group_criterion.keyword.match_type,
@@ -136,26 +145,26 @@ export async function GET(request: NextRequest) {
 
     const allKeywords: AdsKeyword[] = keywordRows.map(row => {
       const r = row as {
-        ad_group_criterion?: { keyword?: { text?: string; match_type?: string } };
-        ad_group?: { name?: string };
-        campaign?: { name?: string };
-        metrics?: { impressions?: number; clicks?: number; ctr?: number; cost_micros?: number; conversions?: number };
+        adGroupCriterion?: { keyword?: { text?: string; matchType?: string } };
+        adGroup?:          { name?: string };
+        campaign?:         { name?: string };
+        metrics?:          Record<string, unknown>;
       };
       return {
-        text:        r.ad_group_criterion?.keyword?.text      ?? '',
-        matchType:   String(r.ad_group_criterion?.keyword?.match_type ?? ''),
+        text:        r.adGroupCriterion?.keyword?.text      ?? '',
+        matchType:   String(r.adGroupCriterion?.keyword?.matchType ?? 'BROAD'),
         campaign:    r.campaign?.name   ?? '',
-        adGroup:     r.ad_group?.name   ?? '',
-        impressions: r.metrics?.impressions  ?? 0,
-        clicks:      r.metrics?.clicks       ?? 0,
-        ctr:         r.metrics?.ctr          ?? 0,
-        cost:        (r.metrics?.cost_micros ?? 0) / 1_000_000,
-        conversions: r.metrics?.conversions  ?? 0,
+        adGroup:     r.adGroup?.name    ?? '',
+        impressions: int64(r.metrics?.impressions),
+        clicks:      int64(r.metrics?.clicks),
+        ctr:         float64(r.metrics?.ctr),
+        cost:        micros(r.metrics?.costMicros),
+        conversions: float64(r.metrics?.conversions),
       };
     });
 
-    const avgCtr = summary.clicks > 0 ? summary.clicks / summary.impressions : 0;
-    const topKeywords    = allKeywords.slice(0, 10);
+    const avgCtr       = summary.impressions > 0 ? summary.clicks / summary.impressions : 0;
+    const topKeywords  = allKeywords.slice(0, 10);
     const lowCtrKeywords = allKeywords
       .filter(k => k.cost > 0 && k.ctr < avgCtr && k.impressions >= 50)
       .sort((a, b) => b.cost - a.cost)
@@ -170,7 +179,6 @@ export async function GET(request: NextRequest) {
       fetchedAt: new Date().toISOString(),
     };
 
-    // Cache to Firestore
     await getAdminDb().doc(ADS_CACHE_DOC_PATH).set(stats);
 
     return NextResponse.json({ stats, fromCache: false });

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { makeAdsApiClient, ADS_TOKEN_DOC_PATH } from '@/lib/google-ads';
+import { ADS_TOKEN_DOC_PATH, getAdsAccessToken, adsListCustomers } from '@/lib/google-ads';
 import { getAdminDb } from '@/lib/firebase-admin';
 
 export async function GET() {
@@ -13,18 +13,20 @@ export async function GET() {
   }
 
   const td = tokenDoc.data()!;
-  const refreshToken = td.refreshToken as string;
 
   try {
-    const adsClient = makeAdsApiClient();
-    const res = await adsClient.listAccessibleCustomers(refreshToken);
-    const resourceNames = res.resource_names ?? [];
+    const accessToken = await getAdsAccessToken({
+      refreshToken: td.refreshToken as string,
+      accessToken:  td.accessToken  as string,
+      expiryDate:   td.expiryDate   as number,
+    });
 
-    // Return IDs with formatting
+    const resourceNames = await adsListCustomers(accessToken);
+
     const customers = resourceNames.map(rn => {
-      const id = rn.replace('customers/', '');
+      const id        = rn.replace('customers/', '');
       const formatted = id.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
-      return { id, formatted, resourceName: rn };
+      return { id, formatted };
     });
 
     return NextResponse.json({ customers, currentId: td.customerId ?? '' });
