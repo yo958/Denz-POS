@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.9.0] - 2026-05-23
+### Added
+- **Google Analytics dashboard** (`/analytics`, manager-only): live 30-day stats pulled from GA4 via service account — no OAuth consent flow required.
+  - Summary cards: Sessions, Users, New Users, Page Views, Bounce Rate, Avg. Session Duration.
+  - CSS spark bar chart showing daily sessions over the 30-day window.
+  - Top Pages table (path, title, views, sessions, avg time on page).
+  - Traffic Sources breakdown with colour-coded horizontal bars (Organic Search, Direct, Social, Paid, etc.).
+  - Devices panel with icons (mobile, desktop, tablet) and percentage bars.
+  - Top Countries list with flag emoji and session counts.
+  - 24-hour Firestore cache (`venue-settings/ga4-stats-*`). Manual Refresh button forces a live fetch.
+  - Auto-detects unconfigured state and shows exact env var names needed.
+- **New API route**: `/api/analytics/stats` — runs 6 GA4 `runReport` calls in parallel via `Promise.all`.
+- **New lib**: `lib/google-analytics.ts` — GA4 service account JWT auth, REST `runReport` helper, all TypeScript types (`GaStats`, `GaSummary`, `GaPageStat`, etc.).
+- **Sidebar**: "Analytics" entry (LineChart icon, manager-only) between Google Ads and Calendar.
+- **New env vars** (add to `.env.local` and `apphosting.yaml` secrets): `GA4_CLIENT_EMAIL`, `GA4_PRIVATE_KEY`, `GA4_PROPERTY_ID`.
+- **AuditAction** union extended: `analytics.refresh`.
+
 ## [1.8.0] - 2026-05-23
 ### Added
 - **Google Ads dashboard** (`/ads`, manager-only): view 30-day campaign performance, keyword stats, and AI-powered recommendations from within the POS.

@@ -19,3 +19,9 @@ env:
     secret: GOOGLE_ADS_LOGIN_CUSTOMER_ID
   - variable: GOOGLE_ADS_REDIRECT_URI
     secret: GOOGLE_ADS_REDIRECT_URI
+  - variable: GA4_CLIENT_EMAIL
+    secret: GA4_CLIENT_EMAIL
+  - variable: GA4_PRIVATE_KEY
+    secret: GA4_PRIVATE_KEY
+  - variable: GA4_PROPERTY_ID
+    secret: GA4_PROPERTY_ID

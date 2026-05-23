@@ -355,6 +355,7 @@ export type AuditAction =
   | 'settings.update' | 'data.export' | 'data.import' | 'data.wipe'
   | 'gmail.connect' | 'gmail.disconnect' | 'gmail.reply'
   | 'ads.connect' | 'ads.disconnect' | 'ads.refresh'
+  | 'analytics.refresh'
   | 'settings.openai';
 export interface AuditEntry {
   id: string;

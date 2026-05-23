@@ -1,0 +1,368 @@
+'use client';
+
+import { useEffect, useState, useCallback } from 'react';
+import {
+  BarChart2, RefreshCw, Users, Eye, MousePointerClick,
+  Globe, Monitor, Smartphone, Tablet, Loader2, AlertCircle, Clock,
+} from 'lucide-react';
+import { useCurrentStaff } from '@/lib/hooks/useStore';
+import { toast } from '@/components/ui/toast';
+import type { GaStats } from '@/lib/google-analytics';
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function num(n: number) { return Math.round(n).toLocaleString(); }
+function pct(n: number) { return `${(n * 100).toFixed(1)}%`; }
+function dur(sec: number) {
+  const m = Math.floor(sec / 60);
+  const s = Math.round(sec % 60);
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+function fmtDate(yyyymmdd: string) {
+  if (yyyymmdd.length !== 8) return yyyymmdd;
+  return `${yyyymmdd.slice(6, 8)}/${yyyymmdd.slice(4, 6)}`;
+}
+function timeAgo(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const h = Math.floor(diff / 3_600_000);
+  if (h < 1) return 'just now';
+  if (h === 1) return '1 hour ago';
+  if (h < 24) return `${h} hours ago`;
+  const d = Math.floor(h / 24);
+  return `${d} day${d === 1 ? '' : 's'} ago`;
+}
+
+// ── Stat card ────────────────────────────────────────────────────────────────
+function StatCard({ label, value, sub, icon: Icon, accent = false }: {
+  label: string; value: string; sub?: string;
+  icon: React.ElementType; accent?: boolean;
+}) {
+  return (
+    <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${accent ? 'border-primary/30 bg-primary/5' : 'border-border bg-white/50 dark:bg-white/3'}`}>
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</span>
+        <Icon size={14} className={accent ? 'text-primary' : 'text-muted-foreground'} strokeWidth={1.8} />
+      </div>
+      <p className={`text-2xl font-bold tabular-nums ${accent ? 'text-primary' : 'text-foreground'}`}>{value}</p>
+      {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+    </div>
+  );
+}
+
+// ── Mini bar chart (CSS-based) ────────────────────────────────────────────────
+function SparkBars({ data }: { data: Array<{ date: string; sessions: number }> }) {
+  if (!data.length) return null;
+  const max = Math.max(...data.map(d => d.sessions), 1);
+  return (
+    <div className="flex items-end gap-[2px] h-16 w-full">
+      {data.map((d, i) => (
+        <div
+          key={i}
+          title={`${fmtDate(d.date)}: ${num(d.sessions)} sessions`}
+          className="flex-1 rounded-sm bg-primary/60 hover:bg-primary transition-colors cursor-default"
+          style={{ height: `${Math.max(2, (d.sessions / max) * 100)}%` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ── Horizontal bar ────────────────────────────────────────────────────────────
+function HBar({ label, value, pctVal, color = 'bg-primary' }: {
+  label: string; value: string; pctVal: number; color?: string;
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-xs">
+        <span className="font-medium truncate max-w-[60%]">{label}</span>
+        <span className="text-muted-foreground tabular-nums">{value}</span>
+      </div>
+      <div className="h-1.5 rounded-full bg-black/8 dark:bg-white/10 overflow-hidden">
+        <div className={`h-full rounded-full ${color} transition-all`} style={{ width: `${Math.min(100, pctVal * 100)}%` }} />
+      </div>
+    </div>
+  );
+}
+
+// ── Device icon ───────────────────────────────────────────────────────────────
+function DeviceIcon({ device }: { device: string }) {
+  const d = device.toLowerCase();
+  if (d === 'mobile') return <Smartphone size={14} className="text-muted-foreground" />;
+  if (d === 'tablet') return <Tablet size={14} className="text-muted-foreground" />;
+  return <Monitor size={14} className="text-muted-foreground" />;
+}
+
+// ── Channel colour ────────────────────────────────────────────────────────────
+const CHANNEL_COLORS: Record<string, string> = {
+  'Organic Search':  'bg-emerald-500',
+  'Direct':          'bg-sky-500',
+  'Organic Social':  'bg-violet-500',
+  'Referral':        'bg-amber-500',
+  'Paid Search':     'bg-rose-500',
+  'Email':           'bg-orange-500',
+  'Paid Social':     'bg-pink-500',
+  'Unassigned':      'bg-slate-400',
+};
+function channelColor(ch: string) {
+  return CHANNEL_COLORS[ch] ?? 'bg-primary';
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+export default function AnalyticsPage() {
+  const me = useCurrentStaff();
+
+  const [state, setState]           = useState<'loading' | 'not_configured' | 'ready' | 'error'>('loading');
+  const [stats, setStats]           = useState<GaStats | null>(null);
+  const [fromCache, setFromCache]   = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError]   = useState('');
+
+  if (me?.role !== 'manager') {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
+        <p className="text-sm">Manager access required.</p>
+      </div>
+    );
+  }
+
+  const loadStats = useCallback(async (force = false) => {
+    setRefreshing(true);
+    try {
+      const res  = await fetch(`/api/analytics/stats${force ? '?refresh=true' : ''}`);
+      const data = await res.json() as { stats?: GaStats; fromCache?: boolean; error?: string; message?: string };
+
+      if (!res.ok) {
+        if (data.error === 'not_configured') { setState('not_configured'); return; }
+        setLoadError(data.message ?? data.error ?? 'Unknown error');
+        setState('error');
+        return;
+      }
+
+      if (data.stats) {
+        setStats(data.stats);
+        setFromCache(data.fromCache ?? false);
+        setState('ready');
+      }
+    } catch (e) {
+      setLoadError(String(e));
+      setState('error');
+    } finally {
+      setRefreshing(false);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => { void loadStats(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── States ────────────────────────────────────────────────────────────────
+  if (state === 'loading') {
+    return (
+      <div className="flex items-center justify-center h-full gap-3 text-muted-foreground">
+        <Loader2 size={20} className="animate-spin" />
+        <span className="text-sm">Loading Analytics…</span>
+      </div>
+    );
+  }
+
+  if (state === 'not_configured') {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-5 px-6 max-w-md mx-auto text-center">
+        <div className="w-16 h-16 rounded-2xl bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center">
+          <AlertCircle size={28} className="text-amber-600 dark:text-amber-400" />
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold">Setup required</h2>
+          <p className="text-sm text-muted-foreground mt-2">
+            Add these three variables to <code className="text-xs bg-black/8 dark:bg-white/10 px-1.5 py-0.5 rounded">.env.local</code> then rebuild Docker:
+          </p>
+          <div className="mt-3 text-left rounded-xl border border-border bg-black/3 dark:bg-white/3 p-3 text-xs font-mono space-y-1 text-muted-foreground">
+            <p>GA4_PROPERTY_ID=<span className="text-foreground">376105042</span></p>
+            <p>GA4_CLIENT_EMAIL=<span className="text-foreground">jd-claude@codicts.iam.gserviceaccount.com</span></p>
+            <p>GA4_PRIVATE_KEY=<span className="text-foreground italic">{"<private key — see instructions>"}</span></p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (state === 'error') {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4 px-6 max-w-lg mx-auto text-center">
+        <AlertCircle size={28} className="text-rose-500" />
+        <div>
+          <h2 className="text-base font-semibold">Failed to load Analytics</h2>
+          <p className="text-xs text-muted-foreground mt-1 font-mono break-all">{loadError}</p>
+        </div>
+        <button onClick={() => { setState('loading'); void loadStats(true); }} className="flex items-center gap-2 h-9 px-4 rounded-xl text-sm border border-border hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer">
+          <RefreshCw size={13} /> Retry
+        </button>
+      </div>
+    );
+  }
+
+  // ── Dashboard ─────────────────────────────────────────────────────────────
+  const s = stats!.summary;
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Header */}
+      <header className="flex items-center justify-between px-6 py-4 border-b border-border glass-strong shrink-0">
+        <div>
+          <h1 className="text-lg font-semibold flex items-center gap-2">
+            <BarChart2 size={18} className="text-primary" strokeWidth={2} />
+            Google Analytics
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Last 30 days · property {stats!.propertyId}
+            {fromCache && stats?.fetchedAt && (
+              <span className="ml-2 text-muted-foreground/70 flex-inline items-center gap-1">
+                · <Clock size={10} className="inline" /> cached {timeAgo(stats.fetchedAt)}
+              </span>
+            )}
+          </p>
+        </div>
+        <button
+          onClick={() => void loadStats(true).then(() => toast.success('Stats refreshed'))}
+          disabled={refreshing}
+          className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-xs font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8 disabled:opacity-50 cursor-pointer"
+        >
+          <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+          {refreshing ? 'Refreshing…' : 'Refresh'}
+        </button>
+      </header>
+
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+
+        {/* Summary cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <StatCard label="Sessions"    value={num(s.sessions)}            icon={MousePointerClick} accent />
+          <StatCard label="Users"       value={num(s.users)}               icon={Users}        />
+          <StatCard label="New Users"   value={num(s.newUsers)}            icon={Users}        sub={`${pct(s.users > 0 ? s.newUsers / s.users : 0)} of users`} />
+          <StatCard label="Page Views"  value={num(s.pageViews)}           icon={Eye}          />
+          <StatCard label="Bounce Rate" value={pct(s.bounceRate)}          icon={BarChart2}    sub={s.bounceRate < 0.4 ? 'Great' : s.bounceRate < 0.6 ? 'Average' : 'High'} />
+          <StatCard label="Avg Duration" value={dur(s.avgSessionDuration)} icon={Clock}        />
+        </div>
+
+        {/* Daily trend */}
+        {(stats!.dailyTrend?.length ?? 0) > 0 && (
+          <section className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold">Daily Sessions</h2>
+              <span className="text-xs text-muted-foreground">
+                {fmtDate(stats!.dailyTrend[0]?.date ?? '')} – {fmtDate(stats!.dailyTrend[stats!.dailyTrend.length - 1]?.date ?? '')}
+              </span>
+            </div>
+            <div className="rounded-2xl border border-border bg-white/50 dark:bg-white/3 p-4">
+              <SparkBars data={stats!.dailyTrend} />
+              <div className="flex justify-between mt-1.5 text-[10px] text-muted-foreground">
+                <span>{fmtDate(stats!.dailyTrend[0]?.date ?? '')}</span>
+                <span>{fmtDate(stats!.dailyTrend[stats!.dailyTrend.length - 1]?.date ?? '')}</span>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Middle row: Top Pages + Traffic Channels */}
+        <div className="grid lg:grid-cols-2 gap-6">
+
+          {/* Top Pages */}
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold">Top Pages</h2>
+            <div className="rounded-2xl border border-border bg-white/50 dark:bg-white/3 overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border bg-black/3 dark:bg-white/3">
+                    <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Page</th>
+                    <th className="text-right px-3 py-2 font-semibold text-muted-foreground">Views</th>
+                    <th className="text-right px-3 py-2 font-semibold text-muted-foreground">Sessions</th>
+                    <th className="text-right px-3 py-2 font-semibold text-muted-foreground">Avg time</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {(stats!.topPages ?? []).map((p, i) => (
+                    <tr key={i} className="hover:bg-black/2 dark:hover:bg-white/2 transition-colors">
+                      <td className="px-3 py-2.5">
+                        <p className="font-medium truncate max-w-[160px]" title={p.title}>{p.title || '(no title)'}</p>
+                        <p className="text-muted-foreground truncate max-w-[160px]" title={p.path}>{p.path}</p>
+                      </td>
+                      <td className="px-3 py-2.5 text-right tabular-nums">{num(p.pageViews)}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums">{num(p.sessions)}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">{dur(p.avgTimeSec)}</td>
+                    </tr>
+                  ))}
+                  {(stats!.topPages?.length ?? 0) === 0 && (
+                    <tr><td colSpan={4} className="px-3 py-4 text-center text-muted-foreground">No page data</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {/* Traffic Channels */}
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold">Traffic Sources</h2>
+            <div className="rounded-2xl border border-border bg-white/50 dark:bg-white/3 p-4 space-y-3">
+              {(stats!.channels ?? []).map((c, i) => (
+                <HBar
+                  key={i}
+                  label={c.channel}
+                  value={`${num(c.sessions)} (${pct(c.pct)})`}
+                  pctVal={c.pct}
+                  color={channelColor(c.channel)}
+                />
+              ))}
+              {(stats!.channels?.length ?? 0) === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-2">No channel data</p>
+              )}
+            </div>
+          </section>
+        </div>
+
+        {/* Bottom row: Devices + Countries */}
+        <div className="grid lg:grid-cols-2 gap-6">
+
+          {/* Devices */}
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold">Devices</h2>
+            <div className="rounded-2xl border border-border bg-white/50 dark:bg-white/3 divide-y divide-border">
+              {(stats!.devices ?? []).map((d, i) => (
+                <div key={i} className="flex items-center gap-3 px-4 py-3">
+                  <DeviceIcon device={d.device} />
+                  <span className="text-sm font-medium capitalize flex-1">{d.device}</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">{num(d.sessions)}</span>
+                  <div className="w-20">
+                    <div className="h-1.5 rounded-full bg-black/8 dark:bg-white/10 overflow-hidden">
+                      <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.min(100, d.pct * 100)}%` }} />
+                    </div>
+                  </div>
+                  <span className="text-xs font-medium w-10 text-right tabular-nums">{pct(d.pct)}</span>
+                </div>
+              ))}
+              {(stats!.devices?.length ?? 0) === 0 && (
+                <p className="text-xs text-muted-foreground px-4 py-3">No device data</p>
+              )}
+            </div>
+          </section>
+
+          {/* Countries */}
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold">Top Countries</h2>
+            <div className="rounded-2xl border border-border bg-white/50 dark:bg-white/3 divide-y divide-border">
+              {(stats!.countries ?? []).map((c, i) => (
+                <div key={i} className="flex items-center gap-3 px-4 py-2.5">
+                  <Globe size={13} className="text-muted-foreground shrink-0" />
+                  <span className="text-sm font-medium flex-1 truncate">{c.country}</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">{num(c.sessions)}</span>
+                  <span className="text-xs font-medium text-muted-foreground w-10 text-right tabular-nums">{pct(c.pct)}</span>
+                </div>
+              ))}
+              {(stats!.countries?.length ?? 0) === 0 && (
+                <p className="text-xs text-muted-foreground px-4 py-3">No country data</p>
+              )}
+            </div>
+          </section>
+
+        </div>
+      </div>
+    </div>
+  );
+}
