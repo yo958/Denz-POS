@@ -47,11 +47,16 @@ export async function getAdsAccessToken(td: {
 
 // ── REST helpers ─────────────────────────────────────────────────────────────
 function adsHeaders(accessToken: string): Record<string, string> {
-  return {
+  const headers: Record<string, string> = {
     'Authorization':   `Bearer ${accessToken}`,
     'developer-token': process.env.GOOGLE_ADS_DEVELOPER_TOKEN!,
     'Content-Type':    'application/json',
   };
+  // Manager (MCC) accounts require login-customer-id so the API knows which
+  // account the developer token is registered under.
+  const loginId = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID;
+  if (loginId) headers['login-customer-id'] = loginId;
+  return headers;
 }
 
 /** List all accessible customer resource names (e.g. "customers/1234567890"). */
