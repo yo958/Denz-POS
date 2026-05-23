@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.10.5] - 2026-05-23
+### Added
+- **Search Console AI Insights**: "Generate Insights" button at the bottom of the `/gsc` page calls GPT with 28-day Search Console data and returns structured SEO recommendations — Quick Wins, Striking Distance Keywords (positions 4–10), Low CTR Opportunities, Device & Audience Insights, Content & Growth Opportunities.
+- **New API route**: `app/api/gsc/insights` (GET returns stored insights, POST calls OpenAI and merges result into GSC cache doc). Uses the same model chosen in Settings → AI Settings.
+
 ## [1.10.4] - 2026-05-23
 ### Added
 - **AI Settings — model selector**: dropdown in Settings → AI Settings lets managers choose the OpenAI model used for Google Ads insights (GPT-4.1 Mini, GPT-4o Mini, GPT-4.1, GPT-4o). Selection saves immediately and persists in Firestore.
