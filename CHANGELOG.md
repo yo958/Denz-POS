@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.10.3] - 2026-05-23
+### Changed
+- **AI Insights model**: switched from `gpt-4o` to `gpt-4.1-mini` to reduce OpenAI API costs.
+
 ## [1.10.2] - 2026-05-23
 ### Added
 - **Google Ads 30-Day Trend chart**: dual-axis `AreaChart` (Recharts) placed between the summary cards and the Campaigns/Keywords tables. Amber line + gradient for daily spend (฿, left Y-axis); blue line + gradient for daily clicks (right Y-axis) — independently scaled so both metrics are always visible.
