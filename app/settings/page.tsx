@@ -1,7 +1,7 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import { Save, Upload, Download, Trash2, KeyRound, UserPlus, AlertTriangle, Plus, Pencil, X, Phone, Mail, Image as ImageIcon, RefreshCw, Eye, EyeOff } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Save, Upload, Download, Trash2, KeyRound, UserPlus, AlertTriangle, Plus, Pencil, X, Phone, Mail, Image as ImageIcon, RefreshCw, Eye, EyeOff, Sparkles, Check } from 'lucide-react';
 import { useSettings, useStaff, useCurrentStaff, useModifierGroups } from '@/lib/hooks/useStore';
 import { getStore } from '@/lib/store/store';
 import { downloadBackup, importBackupFromString } from '@/lib/store/backup';
@@ -366,6 +366,8 @@ export default function SettingsPage() {
 
         <ModifierGroupsSection />
 
+        <OpenAISection />
+
         <Section title="Data">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <button onClick={handleExport} className="flex items-center justify-center gap-2 h-11 rounded-2xl border border-border bg-white/50 dark:bg-white/5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/8 cursor-pointer">
@@ -623,6 +625,116 @@ function AddStaffDialog({ onClose, onCreated }: AddStaffDialogProps) {
         </div>
       </form>
     </div>
+  );
+}
+
+/* ── OpenAI Settings ────────────────────────────────────────────── */
+
+function OpenAISection() {
+  const [key, setKey]       = useState('');
+  const [masked, setMasked] = useState('');
+  const [hasKey, setHasKey] = useState(false);
+  const [showKey, setShowKey] = useState(false);
+  const [busy, setBusy]     = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/settings/openai')
+      .then(r => r.json())
+      .then((d: { hasKey?: boolean; masked?: string }) => {
+        setHasKey(d.hasKey ?? false);
+        setMasked(d.masked ?? '');
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+  }, []);
+
+  async function save() {
+    if (!key.trim()) { toast.error('Enter an API key'); return; }
+    setBusy(true);
+    try {
+      const res = await fetch('/api/settings/openai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: key.trim() }),
+      });
+      if (!res.ok) {
+        const d = await res.json() as { message?: string };
+        toast.error(d.message ?? 'Failed to save key'); return;
+      }
+      const m = key.length > 8 ? `${key.slice(0, 7)}...${key.slice(-4)}` : '****';
+      setMasked(m);
+      setHasKey(true);
+      setKey('');
+      setShowKey(false);
+      toast.success('OpenAI key saved');
+    } catch {
+      toast.error('Failed to save key');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    if (!window.confirm('Remove OpenAI API key?')) return;
+    await fetch('/api/settings/openai', { method: 'DELETE' });
+    setHasKey(false);
+    setMasked('');
+    setKey('');
+    toast.success('Key removed');
+  }
+
+  if (!loaded) return null;
+
+  return (
+    <Section title="AI Settings">
+      <p className="text-xs text-muted-foreground -mt-1">
+        Used by the Google Ads page to generate keyword and copy recommendations.{' '}
+        <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground transition-colors">Get an API key →</a>
+      </p>
+      {hasKey ? (
+        <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-border bg-white/50 dark:bg-white/5">
+          <Sparkles size={14} className="text-violet-500 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium">OpenAI key configured</p>
+            <p className="text-xs text-muted-foreground font-mono">{masked}</p>
+          </div>
+          <Check size={14} className="text-emerald-500 shrink-0" />
+          <button onClick={() => void remove()} className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 cursor-pointer">
+            <Trash2 size={13} />
+          </button>
+        </div>
+      ) : (
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Sparkles size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <input
+              type={showKey ? 'text' : 'password'}
+              value={key}
+              onChange={e => setKey(e.target.value)}
+              placeholder="sk-..."
+              autoComplete="off"
+              className={inputCls + ' pl-8 pr-10'}
+            />
+            <button
+              type="button"
+              onClick={() => setShowKey(v => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+              tabIndex={-1}
+            >
+              {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
+          </div>
+          <button
+            onClick={() => void save()}
+            disabled={busy || !key.trim()}
+            className="flex items-center gap-1.5 h-10 px-4 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 disabled:opacity-50 transition-all cursor-pointer"
+          >
+            {busy ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      )}
+    </Section>
   );
 }
 

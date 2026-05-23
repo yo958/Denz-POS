@@ -353,7 +353,9 @@ export type AuditAction =
   | 'customer.create' | 'customer.update' | 'customer.delete'
   | 'equipment.create' | 'equipment.update' | 'equipment.delete' | 'rental.create'
   | 'settings.update' | 'data.export' | 'data.import' | 'data.wipe'
-  | 'gmail.connect' | 'gmail.disconnect' | 'gmail.reply';
+  | 'gmail.connect' | 'gmail.disconnect' | 'gmail.reply'
+  | 'ads.connect' | 'ads.disconnect' | 'ads.refresh'
+  | 'settings.openai';
 export interface AuditEntry {
   id: string;
   at: Date;

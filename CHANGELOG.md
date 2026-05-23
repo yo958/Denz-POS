@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.8.0] - 2026-05-23
+### Added
+- **Google Ads dashboard** (`/ads`, manager-only): view 30-day campaign performance, keyword stats, and AI-powered recommendations from within the POS.
+  - OAuth2 connect flow (same Google Cloud app as Gmail, separate `adwords` scope and redirect URI).
+  - Summary metric cards: Impressions, Clicks, CTR, Total Spend, Avg. CPC, Conversions, ROAS.
+  - Campaign performance table with status badges.
+  - Top keywords by spend with match-type chips.
+  - Underperforming keywords panel (high spend + below-average CTR) highlighted in amber.
+  - **AI Insights** powered by OpenAI `gpt-4o`: analyses campaign + keyword data and produces actionable Markdown recommendations (quick wins, keywords to pause, ad copy suggestions, bid adjustments, growth opportunities). Rendered with `react-markdown`.
+  - 24-hour Firestore cache (`venue-settings/ads-stats-*`). Manual Refresh button forces a live fetch.
+  - Customer auto-select for single-account users; picker UI for multi-account users.
+  - Disconnect button to revoke stored tokens.
+- **Settings → AI Settings section**: password-input for OpenAI API key, stored server-side in Firestore (`venue-settings/openai`). Displays masked key when configured.
+- **New API routes**: `/api/ads/auth`, `/api/ads/callback`, `/api/ads/customers`, `/api/ads/select-customer`, `/api/ads/stats`, `/api/ads/insights`, `/api/ads/disconnect`, `/api/settings/openai`.
+- **Sidebar**: "Google Ads" entry (TrendingUp icon, manager-only) between Inbox and Calendar.
+- **New packages**: `google-ads-api` v23, `openai`, `react-markdown`.
+- **New env vars** (add to `.env.local` and `apphosting.yaml` secrets): `GOOGLE_ADS_DEVELOPER_TOKEN`, `GOOGLE_ADS_REDIRECT_URI`.
+- **AuditAction** union extended: `ads.connect`, `ads.disconnect`, `ads.refresh`, `settings.openai`.
+
 ## [1.7.0] - 2026-05-23
 ### Added
 - **Gmail Inbox page** (`/inbox`, manager-only): view and reply to the business Gmail account from within the POS. Uses Google OAuth2 + Gmail API with server-side Next.js API routes. OAuth refresh tokens are stored in Firestore (`venue-settings/gmail`). Email HTML bodies are sanitised with DOMPurify before rendering to prevent XSS. Requires Google Cloud setup and `.env.local` credentials — see implementation notes.
