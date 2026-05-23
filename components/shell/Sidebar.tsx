@@ -101,7 +101,7 @@ export function Sidebar() {
                 </Link>
 
                 {/* Sub-items — wide: indented with connector line; compact: icon row */}
-                {children && (
+                {children && parentHighlight && (
                   <div className="
                     hidden lg:flex flex-col gap-0.5
                     ml-3 pl-3 mt-0.5 mb-0.5
@@ -126,7 +126,7 @@ export function Sidebar() {
                 )}
 
                 {/* Compact (icon-only) mode: show child icons directly */}
-                {children && (
+                {children && parentHighlight && (
                   <div className="flex flex-col gap-0.5 lg:hidden">
                     {children.map(({ href: cHref, icon: CIcon, label: cLabel }) => {
                       const cActive = pathname === cHref;
