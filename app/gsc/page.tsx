@@ -4,14 +4,14 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   Search, RefreshCw, MousePointerClick, Eye,
   BarChart2, Trophy, Globe, Monitor, Smartphone, Tablet,
-  Loader2, AlertCircle, Clock, TrendingUp, Sparkles,
+  Loader2, AlertCircle, Clock, TrendingUp,
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
-import ReactMarkdown from 'react-markdown';
 import { useCurrentStaff } from '@/lib/hooks/useStore';
 import { toast } from '@/components/ui/toast';
+import { InsightsPanel } from '@/components/ui/insights-panel';
 import type { GscStats } from '@/lib/google-search-console';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -532,50 +532,13 @@ export default function GscPage() {
         </div>
 
         {/* AI Insights */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold flex items-center gap-2">
-              <Sparkles size={14} className="text-violet-500" />
-              AI Insights
-              {insights.insightsUpdatedAt && (
-                <span className="text-xs font-normal text-muted-foreground flex items-center gap-1">
-                  <Clock size={10} /> {timeAgo(insights.insightsUpdatedAt)}
-                </span>
-              )}
-            </h2>
-            <button
-              onClick={() => void generateInsights()}
-              disabled={insightsBusy}
-              className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-medium bg-violet-600 text-white hover:bg-violet-700 active:scale-95 disabled:opacity-60 transition-all cursor-pointer"
-            >
-              {insightsBusy
-                ? <><Loader2 size={12} className="animate-spin" /> Generating…</>
-                : <><Sparkles size={12} /> {insights.insights ? 'Regenerate' : 'Generate Insights'}</>
-              }
-            </button>
-          </div>
-
-          {!insights.insights ? (
-            <div className="rounded-2xl border border-dashed border-border p-8 text-center text-muted-foreground">
-              <Sparkles size={24} className="mx-auto mb-3 text-violet-400" strokeWidth={1.5} />
-              <p className="text-sm font-medium">No insights yet</p>
-              <p className="text-xs mt-1">Click "Generate Insights" to get AI-powered SEO recommendations.</p>
-              <p className="text-xs mt-1 text-muted-foreground/70">Requires an OpenAI API key — add it in <strong>Settings → AI Settings</strong>.</p>
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-violet-200 dark:border-violet-700/30 bg-violet-50/50 dark:bg-violet-900/5 p-5">
-              <div className="prose prose-sm dark:prose-invert max-w-none
-                prose-headings:font-semibold prose-headings:text-sm prose-headings:mt-4 prose-headings:mb-1
-                prose-p:text-xs prose-p:text-muted-foreground prose-p:leading-relaxed
-                prose-li:text-xs prose-li:text-muted-foreground
-                prose-strong:text-foreground prose-strong:font-semibold
-                prose-code:text-[10px] prose-code:bg-black/8 dark:prose-code:bg-white/10 prose-code:px-1 prose-code:rounded
-              ">
-                <ReactMarkdown>{insights.insights}</ReactMarkdown>
-              </div>
-            </div>
-          )}
-        </section>
+        <InsightsPanel
+          insights={insights.insights}
+          insightsUpdatedAt={insights.insightsUpdatedAt}
+          busy={insightsBusy}
+          emptyText='Click "Generate Insights" to get AI-powered SEO recommendations.'
+          onGenerate={() => void generateInsights()}
+        />
 
       </div>
     </div>

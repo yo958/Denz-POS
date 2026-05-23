@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.10.6] - 2026-05-23
+### Changed
+- **AI Insights formatting**: replaced flat prose rendering with a structured card layout. Each section heading gets a tinted strip with a violet accent bar; list items use a `›` chevron bullet at `text-sm` (up from `text-xs`); bold key phrases stand out clearly against muted body copy. Extracted into a shared `InsightsPanel` component used by both Google Ads and Search Console pages.
+
 ## [1.10.5] - 2026-05-23
 ### Added
 - **Search Console AI Insights**: "Generate Insights" button at the bottom of the `/gsc` page calls GPT with 28-day Search Console data and returns structured SEO recommendations — Quick Wins, Striking Distance Keywords (positions 4–10), Low CTR Opportunities, Device & Audience Insights, Content & Growth Opportunities.
