@@ -37,14 +37,15 @@ function timeAgo(iso: string) {
 }
 
 // ── Stat card ────────────────────────────────────────────────────────────────
-function StatCard({ label, value, sub, icon: Icon, accent = false }: {
+function StatCard({ label, value, sub, icon: Icon, accent = false, iconBg, iconColor }: {
   label: string; value: string; sub?: string;
   icon: React.ElementType; accent?: boolean;
+  iconBg?: string; iconColor?: string;
 }) {
   return (
     <div className={`rounded-2xl border p-4 flex flex-row items-center gap-3 ${accent ? 'border-primary/30 bg-primary/5' : 'border-border bg-white/50 dark:bg-white/3'}`}>
-      <div className={`flex items-center justify-center w-9 h-9 rounded-xl shrink-0 ${accent ? 'bg-primary/10' : 'bg-black/5 dark:bg-white/8'}`}>
-        <Icon size={16} className={accent ? 'text-primary' : 'text-muted-foreground'} strokeWidth={1.8} />
+      <div className={`flex items-center justify-center w-9 h-9 rounded-xl shrink-0 ${iconBg ?? (accent ? 'bg-primary/10' : 'bg-black/5 dark:bg-white/8')}`}>
+        <Icon size={16} className={iconColor ?? (accent ? 'text-primary' : 'text-muted-foreground')} strokeWidth={1.8} />
       </div>
       <div className="min-w-0">
         <p className={`text-sm font-bold tabular-nums truncate ${accent ? 'text-primary' : 'text-foreground'}`}>{value}</p>
@@ -509,12 +510,12 @@ export default function AdsPage() {
 
         {/* Summary cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <StatCard label="Impressions"  value={num(s.impressions)}         icon={Eye}              />
-          <StatCard label="Clicks"       value={num(s.clicks)}              icon={MousePointerClick}/>
-          <StatCard label="CTR"          value={pct(s.ctr)}                 icon={Target}           />
-          <StatCard label="Total Spend"  value={fmt(s.cost)}                icon={DollarSign} accent/>
-          <StatCard label="Avg. CPC"     value={fmt(s.averageCpc)}          icon={DollarSign}       />
-          <StatCard label="Conversions"  value={String(s.conversions.toFixed(0))} icon={Zap}       sub={s.roas > 0 ? `${s.roas.toFixed(2)}x ROAS` : undefined} />
+          <StatCard label="Impressions"  value={num(s.impressions)}               icon={Eye}              iconBg="bg-sky-100 dark:bg-sky-900/20"     iconColor="text-sky-600 dark:text-sky-400" />
+          <StatCard label="Clicks"       value={num(s.clicks)}                    icon={MousePointerClick} iconBg="bg-blue-100 dark:bg-blue-900/20"   iconColor="text-blue-600 dark:text-blue-400" />
+          <StatCard label="CTR"          value={pct(s.ctr)}                       icon={Target}           iconBg="bg-violet-100 dark:bg-violet-900/20" iconColor="text-violet-600 dark:text-violet-400" />
+          <StatCard label="Total Spend"  value={fmt(s.cost)}                      icon={DollarSign} accent />
+          <StatCard label="Avg. CPC"     value={fmt(s.averageCpc)}                icon={DollarSign}       iconBg="bg-amber-100 dark:bg-amber-900/20"   iconColor="text-amber-600 dark:text-amber-400" />
+          <StatCard label="Conversions"  value={String(s.conversions.toFixed(0))} icon={Zap}              iconBg="bg-emerald-100 dark:bg-emerald-900/20" iconColor="text-emerald-600 dark:text-emerald-400" sub={s.roas > 0 ? `${s.roas.toFixed(2)}x ROAS` : undefined} />
         </div>
 
         {/* 30-day trend chart */}

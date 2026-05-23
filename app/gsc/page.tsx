@@ -125,14 +125,15 @@ function PosBadge({ pos }: { pos: number }) {
 }
 
 // ── Stat card ────────────────────────────────────────────────────────────────
-function StatCard({ label, value, sub, icon: Icon, accent = false }: {
+function StatCard({ label, value, sub, icon: Icon, accent = false, iconBg, iconColor }: {
   label: string; value: string; sub?: string;
   icon: React.ElementType; accent?: boolean;
+  iconBg?: string; iconColor?: string;
 }) {
   return (
     <div className={`rounded-2xl border p-4 flex flex-row items-center gap-3 ${accent ? 'border-primary/30 bg-primary/5' : 'border-border bg-white/50 dark:bg-white/3'}`}>
-      <div className={`flex items-center justify-center w-9 h-9 rounded-xl shrink-0 ${accent ? 'bg-primary/10' : 'bg-black/5 dark:bg-white/8'}`}>
-        <Icon size={16} className={accent ? 'text-primary' : 'text-muted-foreground'} strokeWidth={1.8} />
+      <div className={`flex items-center justify-center w-9 h-9 rounded-xl shrink-0 ${iconBg ?? (accent ? 'bg-primary/10' : 'bg-black/5 dark:bg-white/8')}`}>
+        <Icon size={16} className={iconColor ?? (accent ? 'text-primary' : 'text-muted-foreground')} strokeWidth={1.8} />
       </div>
       <div className="min-w-0">
         <p className={`text-sm font-bold tabular-nums truncate ${accent ? 'text-primary' : 'text-foreground'}`}>{value}</p>
@@ -379,11 +380,11 @@ export default function GscPage() {
 
         {/* Summary cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard label="Total Clicks"  value={num(s.clicks)}                              icon={MousePointerClick} accent />
-          <StatCard label="Impressions"   value={num(s.impressions)}                          icon={Eye} />
-          <StatCard label="Avg CTR"       value={pct(s.ctr)}                                  icon={BarChart2}
+          <StatCard label="Total Clicks" value={num(s.clicks)}                                icon={MousePointerClick} accent />
+          <StatCard label="Impressions"  value={num(s.impressions)}                           icon={Eye}      iconBg="bg-sky-100 dark:bg-sky-900/20"     iconColor="text-sky-600 dark:text-sky-400" />
+          <StatCard label="Avg CTR"      value={pct(s.ctr)}                                   icon={BarChart2} iconBg="bg-violet-100 dark:bg-violet-900/20" iconColor="text-violet-600 dark:text-violet-400"
             sub={s.ctr > 0.05 ? 'Above average' : s.ctr > 0.02 ? 'Average' : 'Below average'} />
-          <StatCard label="Avg Position"  value={s.position > 0 ? s.position.toFixed(1) : '—'} icon={Trophy}
+          <StatCard label="Avg Position" value={s.position > 0 ? s.position.toFixed(1) : '—'} icon={Trophy}  iconBg="bg-amber-100 dark:bg-amber-900/20"   iconColor="text-amber-600 dark:text-amber-400"
             sub={s.position > 0 ? (s.position <= 3 ? 'Top 3' : s.position <= 10 ? 'Page 1' : s.position <= 20 ? 'Page 2' : 'Page 3+') : undefined} />
         </div>
 

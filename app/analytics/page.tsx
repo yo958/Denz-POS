@@ -35,18 +35,21 @@ function timeAgo(iso: string) {
 }
 
 // ── Stat card ────────────────────────────────────────────────────────────────
-function StatCard({ label, value, sub, icon: Icon, accent = false }: {
+function StatCard({ label, value, sub, icon: Icon, accent = false, iconBg, iconColor }: {
   label: string; value: string; sub?: string;
   icon: React.ElementType; accent?: boolean;
+  iconBg?: string; iconColor?: string;
 }) {
   return (
-    <div className={`rounded-2xl border p-4 flex flex-col gap-2 ${accent ? 'border-primary/30 bg-primary/5' : 'border-border bg-white/50 dark:bg-white/3'}`}>
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</span>
-        <Icon size={14} className={accent ? 'text-primary' : 'text-muted-foreground'} strokeWidth={1.8} />
+    <div className={`rounded-2xl border p-4 flex flex-row items-center gap-3 ${accent ? 'border-primary/30 bg-primary/5' : 'border-border bg-white/50 dark:bg-white/3'}`}>
+      <div className={`flex items-center justify-center w-9 h-9 rounded-xl shrink-0 ${iconBg ?? (accent ? 'bg-primary/10' : 'bg-black/5 dark:bg-white/8')}`}>
+        <Icon size={16} className={iconColor ?? (accent ? 'text-primary' : 'text-muted-foreground')} strokeWidth={1.8} />
       </div>
-      <p className={`text-2xl font-bold tabular-nums ${accent ? 'text-primary' : 'text-foreground'}`}>{value}</p>
-      {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+      <div className="min-w-0">
+        <p className={`text-sm font-bold tabular-nums truncate ${accent ? 'text-primary' : 'text-foreground'}`}>{value}</p>
+        <p className="text-xs font-medium text-foreground/80">{label}</p>
+        {sub && <p className="text-xs text-muted-foreground truncate">{sub}</p>}
+      </div>
     </div>
   );
 }
@@ -256,13 +259,13 @@ export default function AnalyticsPage() {
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
 
         {/* Summary cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <StatCard label="Sessions"    value={num(s.sessions)}            icon={MousePointerClick} accent />
-          <StatCard label="Users"       value={num(s.users)}               icon={Users}        />
-          <StatCard label="New Users"   value={num(s.newUsers)}            icon={Users}        sub={`${pct(s.users > 0 ? s.newUsers / s.users : 0)} of users`} />
-          <StatCard label="Page Views"  value={num(s.pageViews)}           icon={Eye}          />
-          <StatCard label="Bounce Rate" value={pct(s.bounceRate)}          icon={BarChart2}    sub={s.bounceRate < 0.4 ? 'Great' : s.bounceRate < 0.6 ? 'Average' : 'High'} />
-          <StatCard label="Avg Duration" value={dur(s.avgSessionDuration)} icon={Clock}        />
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <StatCard label="Sessions"     value={num(s.sessions)}            icon={MousePointerClick} accent />
+          <StatCard label="Users"        value={num(s.users)}               icon={Users}     iconBg="bg-sky-100 dark:bg-sky-900/20"     iconColor="text-sky-600 dark:text-sky-400" />
+          <StatCard label="New Users"    value={num(s.newUsers)}            icon={Users}     iconBg="bg-violet-100 dark:bg-violet-900/20" iconColor="text-violet-600 dark:text-violet-400" sub={`${pct(s.users > 0 ? s.newUsers / s.users : 0)} of users`} />
+          <StatCard label="Page Views"   value={num(s.pageViews)}           icon={Eye}       iconBg="bg-emerald-100 dark:bg-emerald-900/20" iconColor="text-emerald-600 dark:text-emerald-400" />
+          <StatCard label="Bounce Rate"  value={pct(s.bounceRate)}          icon={BarChart2} iconBg="bg-amber-100 dark:bg-amber-900/20"   iconColor="text-amber-600 dark:text-amber-400" sub={s.bounceRate < 0.4 ? 'Great' : s.bounceRate < 0.6 ? 'Average' : 'High'} />
+          <StatCard label="Avg Duration" value={dur(s.avgSessionDuration)}  icon={Clock}     iconBg="bg-teal-100 dark:bg-teal-900/20"     iconColor="text-teal-600 dark:text-teal-400" />
         </div>
 
         {/* Daily trend */}

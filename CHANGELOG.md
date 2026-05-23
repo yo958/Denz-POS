@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.10.9] - 2026-05-23
+### Changed
+- **Analytics page**: applied compact horizontal stat card layout (was missing from previous update); grid changed to `sm:grid-cols-3` (2 rows of 3).
+- **All Google pages (Ads, Analytics, Search Console)**: stat card icons now use individual tinted colour backgrounds matching the Reports page style — sky/blue for impressions, violet for CTR/new users, emerald for conversions/page views, amber for CPC/position, teal for duration. Accent card (primary metric) retains its pink highlight.
+
 ## [1.10.8] - 2026-05-23
 ### Changed
 - **Google Ads & Search Console — compact card layout**: stat cards on both pages now use the same horizontal `flex-row` layout as the Reports page (icon in a tinted circle on the left, value + label on the right). Accent card (Total Spend / Total Clicks) retains its primary colour highlight.
