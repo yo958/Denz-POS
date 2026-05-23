@@ -362,7 +362,7 @@ export default function ReportsPage() {
           )}
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: 'Revenue',    value: `${cur}${fmtCur(stats.revenue)}`,  sub: `${stats.paidTabs} paid tab${stats.paidTabs !== 1 ? 's' : ''}`, icon: DollarSign, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/20' },
             { label: 'Expenses',   value: `-${cur}${fmtCur(expenseStats.grand)}`, sub: 'bills logged',  icon: Receipt,    color: 'text-red-600 dark:text-red-400',     bg: 'bg-red-100 dark:bg-red-900/20' },
@@ -370,12 +370,12 @@ export default function ReportsPage() {
           ].map(card => {
             const Icon = card.icon;
             return (
-              <div key={card.label} className="flex flex-col gap-3 p-4 rounded-2xl border border-border bg-white/60 dark:bg-white/5">
-                <div className={`flex items-center justify-center w-9 h-9 rounded-xl ${card.bg}`}><Icon size={18} className={card.color} /></div>
-                <div>
-                  <p className="text-xl font-bold tabular-nums">{card.value}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{card.label}</p>
-                  <p className="text-xs text-muted-foreground">{card.sub}</p>
+              <div key={card.label} className="flex flex-row items-center gap-3 p-4 rounded-2xl border border-border bg-white/60 dark:bg-white/5">
+                <div className={`flex items-center justify-center w-9 h-9 rounded-xl shrink-0 ${card.bg}`}><Icon size={18} className={card.color} /></div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold tabular-nums truncate">{card.value}</p>
+                  <p className="text-xs font-medium text-foreground/80">{card.label}</p>
+                  <p className="text-xs text-muted-foreground truncate">{card.sub}</p>
                 </div>
               </div>
             );
@@ -384,14 +384,14 @@ export default function ReportsPage() {
             const margin = stats.revenue > 0 ? (stats.grossProfit / stats.revenue) * 100 : 0;
             const positive = stats.grossProfit >= 0;
             return (
-              <div className="flex flex-col gap-3 p-4 rounded-2xl border border-border bg-white/60 dark:bg-white/5">
-                <div className={`flex items-center justify-center w-9 h-9 rounded-xl ${positive ? 'bg-teal-100 dark:bg-teal-900/20' : 'bg-red-100 dark:bg-red-900/20'}`}>
+              <div className="flex flex-row items-center gap-3 p-4 rounded-2xl border border-border bg-white/60 dark:bg-white/5">
+                <div className={`flex items-center justify-center w-9 h-9 rounded-xl shrink-0 ${positive ? 'bg-teal-100 dark:bg-teal-900/20' : 'bg-red-100 dark:bg-red-900/20'}`}>
                   <Percent size={18} className={positive ? 'text-teal-600 dark:text-teal-400' : 'text-red-600 dark:text-red-400'} />
                 </div>
-                <div>
-                  <p className="text-xl font-bold tabular-nums">{cur}{fmtCur(stats.grossProfit)}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Gross Profit</p>
-                  <p className="text-xs text-muted-foreground">{Math.round(margin)}% margin · items with cost set</p>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold tabular-nums truncate">{cur}{fmtCur(stats.grossProfit)}</p>
+                  <p className="text-xs font-medium text-foreground/80">Gross Profit</p>
+                  <p className="text-xs text-muted-foreground truncate">{Math.round(margin)}% margin</p>
                 </div>
               </div>
             );
@@ -399,7 +399,7 @@ export default function ReportsPage() {
         </div>
 
         {/* Secondary stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           {[
             { label: 'Net Sales',  value: `${cur}${fmtCur(stats.net)}`,      sub: `−${cur}${fmtCur(stats.refunds)} refunds`, icon: TrendingUp,   color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/20' },
             { label: 'Pipeline',   value: `${cur}${fmtCur(stats.netPipeline)}`, sub: `${stats.openTabs} open tab${stats.openTabs !== 1 ? 's' : ''}${stats.partialCollected > 0 ? ` · ${cur}${fmtCur(stats.partialCollected)} part-paid` : ''}`, icon: Clock, color: 'text-sky-600 dark:text-sky-400', bg: 'bg-sky-100 dark:bg-sky-900/20' },
@@ -407,12 +407,12 @@ export default function ReportsPage() {
           ].map(card => {
             const Icon = card.icon;
             return (
-              <div key={card.label} className="flex flex-col gap-3 p-4 rounded-2xl border border-border bg-white/60 dark:bg-white/5">
-                <div className={`flex items-center justify-center w-9 h-9 rounded-xl ${card.bg}`}><Icon size={18} className={card.color} /></div>
-                <div>
-                  <p className="text-xl font-bold tabular-nums">{card.value}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{card.label}</p>
-                  <p className="text-xs text-muted-foreground">{card.sub}</p>
+              <div key={card.label} className="flex flex-row items-center gap-3 p-4 rounded-2xl border border-border bg-white/60 dark:bg-white/5">
+                <div className={`flex items-center justify-center w-9 h-9 rounded-xl shrink-0 ${card.bg}`}><Icon size={18} className={card.color} /></div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold tabular-nums truncate">{card.value}</p>
+                  <p className="text-xs font-medium text-foreground/80">{card.label}</p>
+                  <p className="text-xs text-muted-foreground truncate">{card.sub}</p>
                 </div>
               </div>
             );
@@ -473,10 +473,12 @@ export default function ReportsPage() {
               .map(([m, v]) => {
                 const { label, icon: Icon } = METHOD_META[m];
                 return (
-                  <div key={m} className="rounded-2xl border border-border p-4 bg-white/50 dark:bg-white/3">
-                    <Icon size={16} className="text-muted-foreground mb-2" />
-                    <p className="text-lg font-bold tabular-nums">{cur}{fmtCur(v)}</p>
-                    <p className="text-xs text-muted-foreground">{label}</p>
+                  <div key={m} className="flex flex-row items-center gap-3 rounded-2xl border border-border p-4 bg-white/50 dark:bg-white/3">
+                    <Icon size={16} className="text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold tabular-nums truncate">{cur}{fmtCur(v)}</p>
+                      <p className="text-xs text-muted-foreground">{label}</p>
+                    </div>
                   </div>
                 );
               })}

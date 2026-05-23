@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.10.7] - 2026-05-23
+### Changed
+- **Reports page — compact card layout**: all stat cards (primary, secondary, payment method) now use a horizontal `flex-row` layout with the icon on the left and value/label/sub on the right. More compact and visually cleaner.
+- **Reports page — grid fixes**: primary stats grid changed to `grid-cols-2 sm:grid-cols-4` so all 4 cards always sit on one row on tablet+; secondary stats (Net Sales, Pipeline, Items Sold) changed to `grid-cols-3` so they always stay on one row.
+
 ## [1.10.6] - 2026-05-23
 ### Changed
 - **AI Insights formatting**: replaced flat prose rendering with a structured card layout. Each section heading gets a tinted strip with a violet accent bar; list items use a `›` chevron bullet at `text-sm` (up from `text-xs`); bold key phrases stand out clearly against muted body copy. Extracted into a shared `InsightsPanel` component used by both Google Ads and Search Console pages.
