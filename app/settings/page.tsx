@@ -630,33 +630,43 @@ function AddStaffDialog({ onClose, onCreated }: AddStaffDialogProps) {
 
 /* ── OpenAI Settings ────────────────────────────────────────────── */
 
+const OPENAI_MODELS: { value: string; label: string; note: string }[] = [
+  { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini',  note: 'Fast & affordable — recommended' },
+  { value: 'gpt-4o-mini',  label: 'GPT-4o Mini',   note: 'Budget option' },
+  { value: 'gpt-4.1',      label: 'GPT-4.1',        note: 'Best quality, higher cost' },
+  { value: 'gpt-4o',       label: 'GPT-4o',          note: 'High quality (legacy)' },
+];
+
 function OpenAISection() {
-  const [key, setKey]       = useState('');
-  const [masked, setMasked] = useState('');
-  const [hasKey, setHasKey] = useState(false);
+  const [key, setKey]         = useState('');
+  const [masked, setMasked]   = useState('');
+  const [hasKey, setHasKey]   = useState(false);
   const [showKey, setShowKey] = useState(false);
-  const [busy, setBusy]     = useState(false);
-  const [loaded, setLoaded] = useState(false);
+  const [model, setModel]     = useState('gpt-4.1-mini');
+  const [busy, setBusy]       = useState(false);
+  const [modelBusy, setModelBusy] = useState(false);
+  const [loaded, setLoaded]   = useState(false);
 
   useEffect(() => {
     fetch('/api/settings/openai')
       .then(r => r.json())
-      .then((d: { hasKey?: boolean; masked?: string }) => {
+      .then((d: { hasKey?: boolean; masked?: string; model?: string }) => {
         setHasKey(d.hasKey ?? false);
         setMasked(d.masked ?? '');
+        setModel(d.model ?? 'gpt-4.1-mini');
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
   }, []);
 
-  async function save() {
+  async function saveKey() {
     if (!key.trim()) { toast.error('Enter an API key'); return; }
     setBusy(true);
     try {
       const res = await fetch('/api/settings/openai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: key.trim() }),
+        body: JSON.stringify({ apiKey: key.trim(), model }),
       });
       if (!res.ok) {
         const d = await res.json() as { message?: string };
@@ -672,6 +682,23 @@ function OpenAISection() {
       toast.error('Failed to save key');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function saveModel(newModel: string) {
+    setModel(newModel);
+    setModelBusy(true);
+    try {
+      await fetch('/api/settings/openai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: newModel }),
+      });
+      toast.success('Model updated');
+    } catch {
+      toast.error('Failed to save model');
+    } finally {
+      setModelBusy(false);
     }
   }
 
@@ -692,6 +719,8 @@ function OpenAISection() {
         Used by the Google Ads page to generate keyword and copy recommendations.{' '}
         <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground transition-colors">Get an API key →</a>
       </p>
+
+      {/* API Key */}
       {hasKey ? (
         <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-border bg-white/50 dark:bg-white/5">
           <Sparkles size={14} className="text-violet-500 shrink-0" />
@@ -726,7 +755,7 @@ function OpenAISection() {
             </button>
           </div>
           <button
-            onClick={() => void save()}
+            onClick={() => void saveKey()}
             disabled={busy || !key.trim()}
             className="flex items-center gap-1.5 h-10 px-4 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 disabled:opacity-50 transition-all cursor-pointer"
           >
@@ -734,6 +763,25 @@ function OpenAISection() {
           </button>
         </div>
       )}
+
+      {/* Model selector */}
+      <Field label="Model">
+        <div className="relative">
+          <select
+            value={model}
+            disabled={modelBusy}
+            onChange={e => void saveModel(e.target.value)}
+            className={inputCls + ' pr-8 disabled:opacity-60'}
+          >
+            {OPENAI_MODELS.map(m => (
+              <option key={m.value} value={m.value}>{m.label} — {m.note}</option>
+            ))}
+          </select>
+          {modelBusy && (
+            <RefreshCw size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-muted-foreground pointer-events-none" />
+          )}
+        </div>
+      </Field>
     </Section>
   );
 }

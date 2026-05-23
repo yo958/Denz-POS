@@ -25,7 +25,9 @@ export async function POST() {
   if (!openaiDoc.exists || !openaiDoc.data()?.apiKey) {
     return NextResponse.json({ error: 'no_openai_key' }, { status: 401 });
   }
-  const apiKey = openaiDoc.data()!.apiKey as string;
+  const openaiData = openaiDoc.data()!;
+  const apiKey = openaiData.apiKey as string;
+  const model  = (openaiData.model as string | undefined) ?? 'gpt-4.1-mini';
 
   // ── Load stats ─────────────────────────────────────────────────────────────
   const cacheDoc = await getAdminDb().doc(ADS_CACHE_DOC_PATH).get();
@@ -93,7 +95,7 @@ Keep each section concise and specific. Use the actual keyword names and figures
   try {
     const openai = new OpenAI({ apiKey });
     const completion = await openai.chat.completions.create({
-      model:       'gpt-4.1-mini',
+      model,
       messages:    [{ role: 'user', content: prompt }],
       max_tokens:  2000,
       temperature: 0.3,

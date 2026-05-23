@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.10.4] - 2026-05-23
+### Added
+- **AI Settings — model selector**: dropdown in Settings → AI Settings lets managers choose the OpenAI model used for Google Ads insights (GPT-4.1 Mini, GPT-4o Mini, GPT-4.1, GPT-4o). Selection saves immediately and persists in Firestore.
+### Changed
+- Model is now read from Firestore at request time; no longer hardcoded in the insights route.
+
 ## [1.10.3] - 2026-05-23
 ### Changed
 - **AI Insights model**: switched from `gpt-4o` to `gpt-4.1-mini` to reduce OpenAI API costs.
