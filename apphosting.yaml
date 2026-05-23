@@ -25,3 +25,5 @@ env:
     secret: GA4_PRIVATE_KEY
   - variable: GA4_PROPERTY_ID
     secret: GA4_PROPERTY_ID
+  - variable: GSC_SITE_URL
+    secret: GSC_SITE_URL

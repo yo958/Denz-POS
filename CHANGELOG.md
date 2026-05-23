@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.10.0] - 2026-05-23
+### Added
+- **Google Search Console dashboard** (`/gsc`, manager-only): live 28-day search performance data pulled from GSC via the same GA4 service account — no additional credentials or OAuth flow required.
+  - Summary cards: Total Clicks, Impressions, Avg CTR, Avg Position (colour-coded green/blue/amber/red).
+  - Dual-bar daily trend chart — muted bars for impressions, primary bars for clicks on the same timeline.
+  - Top Queries table: query text, clicks, impressions, CTR, colour-coded position badge.
+  - Top Pages table: clean path display (origin stripped), clicks, impressions, CTR, position.
+  - Devices panel (mobile/desktop/tablet) with click counts and percentage bars.
+  - Top Countries with correct flag emojis and full country names (ISO 3166-1 alpha-3 → alpha-2 mapping for 50+ countries).
+  - 24-hour Firestore cache (`venue-settings/gsc-stats-*`). Manual Refresh button forces live fetch.
+  - Date range calculated at request time (real YYYY-MM-DD, not GA4-style relative strings; accounts for GSC's 2-day data lag).
+- **New API route**: `/api/gsc/stats` — runs 6 GSC `searchAnalytics/query` calls in parallel via `Promise.all`.
+- **New lib**: `lib/google-search-console.ts` — reuses `GA4_CLIENT_EMAIL` + `GA4_PRIVATE_KEY` with `webmasters.readonly` scope, REST query helper, all TypeScript types.
+- **Sidebar**: "Search Console" entry (Search icon, manager-only) between Analytics and Calendar.
+- **New env var** (add to `.env.local` and `apphosting.yaml` secrets): `GSC_SITE_URL=https://denzphuket.com/`.
+- **AuditAction** union extended: `gsc.refresh`.
+
 ## [1.9.0] - 2026-05-23
 ### Added
 - **Google Analytics dashboard** (`/analytics`, manager-only): live 30-day stats pulled from GA4 via service account — no OAuth consent flow required.
