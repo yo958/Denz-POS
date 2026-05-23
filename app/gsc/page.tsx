@@ -6,6 +6,9 @@ import {
   BarChart2, Trophy, Globe, Monitor, Smartphone, Tablet,
   Loader2, AlertCircle, Clock, TrendingUp,
 } from 'lucide-react';
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+} from 'recharts';
 import { useCurrentStaff } from '@/lib/hooks/useStore';
 import { toast } from '@/components/ui/toast';
 import type { GscStats } from '@/lib/google-search-console';
@@ -134,32 +137,61 @@ function StatCard({ label, value, sub, icon: Icon, accent = false }: {
   );
 }
 
-// ── Dual spark bars (clicks + impressions) ────────────────────────────────────
-function SparkBarsGSC({ data }: { data: GscStats['dailyTrend'] }) {
+// ── Clicks + Impressions area chart (dual Y-axis) ─────────────────────────────
+function GscTrendChart({ data }: { data: GscStats['dailyTrend'] }) {
   if (!data.length) return null;
-  const maxImp = Math.max(...data.map(d => d.impressions), 1);
-  const maxClk = Math.max(...data.map(d => d.clicks), 1);
+  const chartData = data.map(d => ({
+    label:       fmtDate(d.date),
+    clicks:      d.clicks,
+    impressions: d.impressions,
+  }));
+  const interval = data.length > 20 ? 4 : data.length > 10 ? 2 : 0;
   return (
-    <div className="flex items-end gap-[2px] h-16 w-full">
-      {data.map((d, i) => (
-        <div
-          key={i}
-          className="flex-1 h-full flex items-end gap-[1px]"
-          title={`${fmtDate(d.date)}: ${d.clicks} clicks, ${d.impressions.toLocaleString()} impressions`}
-        >
-          {/* Impressions bar (muted) */}
-          <div
-            className="flex-1 rounded-sm bg-sky-400/30 dark:bg-sky-400/20"
-            style={{ height: `${Math.max(2, (d.impressions / maxImp) * 100)}%` }}
-          />
-          {/* Clicks bar (primary) */}
-          <div
-            className="flex-1 rounded-sm bg-primary/70 hover:bg-primary transition-colors cursor-default"
-            style={{ height: `${Math.max(2, (d.clicks / maxClk) * 100)}%` }}
-          />
-        </div>
-      ))}
-    </div>
+    <ResponsiveContainer width="100%" height={220}>
+      <AreaChart data={chartData} margin={{ top: 4, right: 48, left: 0, bottom: 0 }}>
+        <defs>
+          <linearGradient id="gradImpressions" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%"  stopColor="#38bdf8" stopOpacity={0.30} />
+            <stop offset="95%" stopColor="#38bdf8" stopOpacity={0.02} />
+          </linearGradient>
+          <linearGradient id="gradClicks" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%"  stopColor="#f43f5e" stopOpacity={0.40} />
+            <stop offset="95%" stopColor="#f43f5e" stopOpacity={0.02} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" stroke="currentColor" strokeOpacity={0.06} vertical={false} />
+        <XAxis
+          dataKey="label"
+          tick={{ fontSize: 10, fill: 'currentColor', opacity: 0.45 }}
+          axisLine={false} tickLine={false}
+          interval={interval}
+        />
+        {/* Left axis — impressions */}
+        <YAxis
+          yAxisId="imp"
+          orientation="left"
+          tick={{ fontSize: 10, fill: '#38bdf8', opacity: 0.7 }}
+          axisLine={false} tickLine={false} width={42}
+          tickFormatter={v => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
+        />
+        {/* Right axis — clicks (independent scale so it's always visible) */}
+        <YAxis
+          yAxisId="clk"
+          orientation="right"
+          tick={{ fontSize: 10, fill: '#f43f5e', opacity: 0.7 }}
+          axisLine={false} tickLine={false} width={36}
+          tickFormatter={v => String(v)}
+        />
+        <Tooltip
+          contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '12px', fontSize: '12px', padding: '8px 12px' }}
+          formatter={(value: unknown, name: unknown) => [num(Number(value)), name === 'clicks' ? 'Clicks' : 'Impressions']}
+          labelStyle={{ fontWeight: 600, marginBottom: 4 }}
+          cursor={{ stroke: 'currentColor', strokeOpacity: 0.1, strokeWidth: 20 }}
+        />
+        <Area yAxisId="imp" type="monotone" dataKey="impressions" stroke="#38bdf8" strokeWidth={2} fill="url(#gradImpressions)" dot={false} activeDot={{ r: 4, strokeWidth: 0, fill: '#38bdf8' }} />
+        <Area yAxisId="clk" type="monotone" dataKey="clicks"      stroke="#f43f5e" strokeWidth={2} fill="url(#gradClicks)"      dot={false} activeDot={{ r: 4, strokeWidth: 0, fill: '#f43f5e' }} />
+      </AreaChart>
+    </ResponsiveContainer>
   );
 }
 
@@ -317,31 +349,21 @@ export default function GscPage() {
 
         {/* Daily trend */}
         {(stats!.dailyTrend?.length ?? 0) > 0 && (
-          <section className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold">Daily Trend</h2>
-              <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-sm bg-sky-400/50 inline-block" />
-                  Impressions
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-sm bg-primary/70 inline-block" />
-                  Clicks
-                </span>
-                <span className="text-muted-foreground/60">
+          <div className="rounded-2xl border border-border bg-white/60 dark:bg-white/5 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-sm font-semibold">Daily Trend</p>
+                <p className="text-xs text-muted-foreground">
                   {fmtDate(stats!.dailyTrend[0]?.date ?? '')} – {fmtDate(stats!.dailyTrend[stats!.dailyTrend.length - 1]?.date ?? '')}
-                </span>
+                </p>
+              </div>
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-sky-400/80" />Impressions</span>
+                <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-rose-500/80" />Clicks</span>
               </div>
             </div>
-            <div className="rounded-2xl border border-border bg-white/50 dark:bg-white/3 p-4">
-              <SparkBarsGSC data={stats!.dailyTrend} />
-              <div className="flex justify-between mt-1.5 text-[10px] text-muted-foreground">
-                <span>{fmtDate(stats!.dailyTrend[0]?.date ?? '')}</span>
-                <span>{fmtDate(stats!.dailyTrend[stats!.dailyTrend.length - 1]?.date ?? '')}</span>
-              </div>
-            </div>
-          </section>
+            <GscTrendChart data={stats!.dailyTrend} />
+          </div>
         )}
 
         {/* Top Queries */}

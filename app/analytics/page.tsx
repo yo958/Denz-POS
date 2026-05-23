@@ -5,6 +5,9 @@ import {
   BarChart2, RefreshCw, Users, Eye, MousePointerClick,
   Globe, Monitor, Smartphone, Tablet, Loader2, AlertCircle, Clock,
 } from 'lucide-react';
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts';
 import { useCurrentStaff } from '@/lib/hooks/useStore';
 import { toast } from '@/components/ui/toast';
 import type { GaStats } from '@/lib/google-analytics';
@@ -48,21 +51,41 @@ function StatCard({ label, value, sub, icon: Icon, accent = false }: {
   );
 }
 
-// ── Mini bar chart (CSS-based) ────────────────────────────────────────────────
-function SparkBars({ data }: { data: Array<{ date: string; sessions: number }> }) {
+// ── Sessions area chart ───────────────────────────────────────────────────────
+function SessionsChart({ data }: { data: Array<{ date: string; sessions: number }> }) {
   if (!data.length) return null;
-  const max = Math.max(...data.map(d => d.sessions), 1);
+  const chartData = data.map(d => ({ label: fmtDate(d.date), sessions: d.sessions }));
+  const interval  = data.length > 20 ? 4 : data.length > 10 ? 2 : 0;
   return (
-    <div className="flex items-end gap-[2px] h-16 w-full">
-      {data.map((d, i) => (
-        <div
-          key={i}
-          title={`${fmtDate(d.date)}: ${num(d.sessions)} sessions`}
-          className="flex-1 rounded-sm bg-primary/60 hover:bg-primary transition-colors cursor-default"
-          style={{ height: `${Math.max(2, (d.sessions / max) * 100)}%` }}
+    <ResponsiveContainer width="100%" height={220}>
+      <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+        <defs>
+          <linearGradient id="gradSessions" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.35} />
+            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.02} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" stroke="currentColor" strokeOpacity={0.06} vertical={false} />
+        <XAxis
+          dataKey="label"
+          tick={{ fontSize: 10, fill: 'currentColor', opacity: 0.45 }}
+          axisLine={false} tickLine={false}
+          interval={interval}
         />
-      ))}
-    </div>
+        <YAxis
+          tick={{ fontSize: 10, fill: 'currentColor', opacity: 0.45 }}
+          axisLine={false} tickLine={false} width={36}
+          tickFormatter={v => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
+        />
+        <Tooltip
+          contentStyle={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '12px', fontSize: '12px', padding: '8px 12px' }}
+          formatter={(value: unknown) => [num(Number(value)), 'Sessions']}
+          labelStyle={{ fontWeight: 600, marginBottom: 4 }}
+          cursor={{ stroke: 'currentColor', strokeOpacity: 0.1, strokeWidth: 20 }}
+        />
+        <Area type="monotone" dataKey="sessions" stroke="#3b82f6" strokeWidth={2} fill="url(#gradSessions)" dot={false} activeDot={{ r: 4, strokeWidth: 0, fill: '#3b82f6' }} />
+      </AreaChart>
+    </ResponsiveContainer>
   );
 }
 
@@ -244,21 +267,21 @@ export default function AnalyticsPage() {
 
         {/* Daily trend */}
         {(stats!.dailyTrend?.length ?? 0) > 0 && (
-          <section className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold">Daily Sessions</h2>
-              <span className="text-xs text-muted-foreground">
-                {fmtDate(stats!.dailyTrend[0]?.date ?? '')} – {fmtDate(stats!.dailyTrend[stats!.dailyTrend.length - 1]?.date ?? '')}
-              </span>
-            </div>
-            <div className="rounded-2xl border border-border bg-white/50 dark:bg-white/3 p-4">
-              <SparkBars data={stats!.dailyTrend} />
-              <div className="flex justify-between mt-1.5 text-[10px] text-muted-foreground">
-                <span>{fmtDate(stats!.dailyTrend[0]?.date ?? '')}</span>
-                <span>{fmtDate(stats!.dailyTrend[stats!.dailyTrend.length - 1]?.date ?? '')}</span>
+          <div className="rounded-2xl border border-border bg-white/60 dark:bg-white/5 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-sm font-semibold">Daily Sessions</p>
+                <p className="text-xs text-muted-foreground">
+                  {fmtDate(stats!.dailyTrend[0]?.date ?? '')} – {fmtDate(stats!.dailyTrend[stats!.dailyTrend.length - 1]?.date ?? '')}
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="inline-block w-3 h-3 rounded-sm bg-blue-500/80" />
+                Sessions
               </div>
             </div>
-          </section>
+            <SessionsChart data={stats!.dailyTrend} />
+          </div>
         )}
 
         {/* Middle row: Top Pages + Traffic Channels */}

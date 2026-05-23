@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.10.1] - 2026-05-23
+### Changed
+- **Analytics & Search Console**: replaced CSS spark-bar charts with Recharts `AreaChart` (gradient fill, axes, hover tooltip) matching the Reports page style.
+- **Search Console daily trend**: dual Y-axis so impressions (left, sky blue) and clicks (right, rose) are independently scaled and both clearly visible.
+
 ## [1.10.0] - 2026-05-23
 ### Added
 - **Google Search Console dashboard** (`/gsc`, manager-only): live 28-day search performance data pulled from GSC via the same GA4 service account — no additional credentials or OAuth flow required.
