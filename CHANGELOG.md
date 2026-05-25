@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.11.4] - 2026-05-25
+### Fixed
+- **Gmail OAuth callback**: redirect URL now derived from `GMAIL_REDIRECT_URI` env var instead of `request.nextUrl.origin` — prevents Docker's internal `0.0.0.0:3000` address being used in production redirects. Added error logging for failed OAuth exchanges.
+- **docker-compose.yml**: renamed service from `app` to `denz-pos` for clarity.
+
 ## [1.11.3] - 2026-05-23
 ### Changed
 - **Theme switcher moved to Settings**: removed the Light/Dark/System toggle from the Tabs page topbar. It now lives as an "Appearance" section at the top of Settings, with a styled Light / Dark / System pill selector.
