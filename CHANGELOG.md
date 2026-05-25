@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.11.5] - 2026-05-25
+### Fixed
+- **apphosting.yaml**: set `availability: RUNTIME` on all secrets — prevents Firebase App Hosting from trying to resolve secrets at Cloud Build time (which caused FAILED_PRECONDITION build failures).
+
 ## [1.11.4] - 2026-05-25
 ### Fixed
 - **Gmail OAuth callback**: redirect URL now derived from `GMAIL_REDIRECT_URI` env var instead of `request.nextUrl.origin` — prevents Docker's internal `0.0.0.0:3000` address being used in production redirects. Added error logging for failed OAuth exchanges.
