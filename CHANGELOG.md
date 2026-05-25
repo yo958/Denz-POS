@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.11.6] - 2026-05-25
+### Fixed
+- **next.config.ts**: skip TypeScript and ESLint checks during Firebase App Hosting build — Cloud Build runner runs out of memory (~2 GB heap limit) during `tsc`. Type safety is enforced locally via `tsc --noEmit` before every push.
+
 ## [1.11.5] - 2026-05-25
 ### Fixed
 - **apphosting.yaml**: set `availability: RUNTIME` on all secrets — prevents Firebase App Hosting from trying to resolve secrets at Cloud Build time (which caused FAILED_PRECONDITION build failures).
