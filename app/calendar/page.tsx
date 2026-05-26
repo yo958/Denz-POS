@@ -316,14 +316,20 @@ export default function CalendarPage() {
   // ─── Grid cell helpers ────────────────────────────────────────────────────
 
   function coworkCellItems(spaceId: string, spaceName: string, day: Date) {
-    // Match by tab label OR by a desk line item whose product name starts with the space name.
+    // Match by desk line item whose product name starts with the space name.
+    // Only fall back to label matching for tabs that have no desk items at all
+    // (edge-case / legacy data) — prevents stale labels from causing false matches
+    // when a desk item is voided and replaced with a different space's desk.
     // Expand by qty so multi-seat bookings (e.g. qty:2 on No Desk) show as multiple pills.
-    const matchingTabs = deskTabs.filter(t =>
-      tabCoversDay(t, day, openingHours) && (
-        t.label === spaceName ||
-        t.items.some(i => i.product.category === 'desks' && i.product.name.startsWith(spaceName))
-      ),
-    );
+    const matchingTabs = deskTabs.filter(t => {
+      if (!tabCoversDay(t, day, openingHours)) return false;
+      const hasDeskItems = t.items.some(i => i.product.category === 'desks');
+      if (hasDeskItems) {
+        return t.items.some(i => i.product.category === 'desks' && i.product.name.startsWith(spaceName));
+      }
+      // No desk items — fall back to label (handles legacy / manually-labelled tabs)
+      return t.label === spaceName;
+    });
     // Dedup by customer name — keep the single most "desk-primary" tab per customer.
     // Handles cases where a customer has both a weekly desk pass AND a separate paid
     // food/café tab that also contains desk content (both would otherwise show as pills).
