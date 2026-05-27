@@ -811,6 +811,22 @@ export default function POSPage() {
     toast.success(`${cur}${fmtCur(amount)} partial payment logged`);
   }
 
+  /* ── Mark fully paid via partial payments ─────────── */
+  function handleMarkPaid() {
+    if (!activeTab) return;
+    store.products.set(prev => decrementForTab(prev, activeTab.items));
+    store.tabs.set(prev => prev.map(t => t.id !== activeTab.id ? t : {
+      ...t,
+      status: 'paid',
+      paymentMethod: 'split',
+      paidAt: new Date(),
+      paidByStaffId: me?.id,
+    }));
+    const total = tabGrandTotal(activeTab.items, activeTab.discount);
+    store.log('tab.pay', `${activeTab.customerName} · ${activeTab.label} · partial payments · ${cur}${fmtCur(total)}`, me?.id);
+    toast.success('Tab closed — fully paid');
+  }
+
   /* ── Pay ───────────────────────────────────────────── */
   function handlePay(method: PaymentMethod) {
     if (!activeTab) return;
@@ -1119,6 +1135,7 @@ export default function POSPage() {
               onPrint={handlePrintReceipt}
               onRefund={() => setRefundOpen(true)}
               onPartialPay={handlePartialPay}
+              onMarkPaid={handleMarkPaid}
               hideCharge={isFolio || !hasActiveStays}
             />
           )}

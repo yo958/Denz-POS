@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { CreditCard, QrCode, Banknote, BedDouble, Tag, Printer, ChefHat, RotateCcw, SplitSquareVertical, Plus, X } from 'lucide-react';
+import { CreditCard, QrCode, Banknote, BedDouble, Tag, Printer, ChefHat, RotateCcw, SplitSquareVertical, Plus, X, CheckCircle2 } from 'lucide-react';
 import type { PartialPayment, PaymentMethod, Tab } from '@/lib/types';
 import {
   tabDiscountAmount, tabTax, tabGrandTotal, tabRefundedAmount, tabPartialPaidAmount, lineUnitPrice, lineEffectiveUnitPrice,
@@ -24,10 +24,11 @@ interface PaymentBarProps {
   /** Hide "Charge to Room" (used inside the room folio itself). */
   hideCharge?: boolean;
   unsentItemsCount: number;
+  onMarkPaid?: () => void;
 }
 
 export function PaymentBar({
-  tab, onPay, onSplit, onDiscount, onSendKitchen, onPrint, onRefund, onPartialPay, hideCharge, unsentItemsCount,
+  tab, onPay, onSplit, onDiscount, onSendKitchen, onPrint, onRefund, onPartialPay, hideCharge, unsentItemsCount, onMarkPaid,
 }: PaymentBarProps) {
   const settings  = useSettings();
   const [showPartialForm, setShowPartialForm] = useState(false);
@@ -118,6 +119,16 @@ export function PaymentBar({
           </div>
         )}
       </div>
+
+      {isOpen && partialPaid > 0 && remaining <= 0 && (
+        <button
+          onClick={onMarkPaid}
+          className="w-full flex items-center justify-center gap-2 h-12 rounded-2xl bg-emerald-500 text-white font-semibold text-sm hover:bg-emerald-600 active:scale-95 transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          <CheckCircle2 size={16} strokeWidth={2} />
+          Close Tab — Fully Paid
+        </button>
+      )}
 
       {!isOpen ? (
         <div className="space-y-2">

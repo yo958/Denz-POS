@@ -25,11 +25,12 @@ interface CartProps {
   onPrint: () => void;
   onRefund: () => void;
   onPartialPay: (amount: number, method: PartialPayment['method'], note?: string) => void;
+  onMarkPaid: () => void;
   hideCharge?: boolean;
 }
 
 export function Cart({
-  tab, onQtyChange, onVoidLine, onLineDiscount, onPay, onSplit, onDiscount, onSendKitchen, onPrint, onRefund, onPartialPay, hideCharge,
+  tab, onQtyChange, onVoidLine, onLineDiscount, onPay, onSplit, onDiscount, onSendKitchen, onPrint, onRefund, onPartialPay, onMarkPaid, hideCharge,
 }: CartProps) {
   if (!tab) {
     return (
@@ -84,6 +85,7 @@ export function Cart({
           onPrint={onPrint}
           onRefund={onRefund}
           onPartialPay={onPartialPay}
+          onMarkPaid={onMarkPaid}
           hideCharge={hideCharge}
           unsentItemsCount={unsentItemsCount}
         />

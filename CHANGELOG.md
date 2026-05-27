@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.11.8] - 2026-05-27
+### Fixed
+- **Partial payments**: tabs fully covered by partial payments now show a green "Close Tab — Fully Paid" button instead of remaining open indefinitely. Clicking it marks the tab as `paid` (method: split) and removes it from the active list.
+
 ## [1.11.7] - 2026-05-26
 ### Fixed
 - **Calendar**: customer appearing 3× in calendar grid when their desk was swapped (voided + replaced). The matching logic used `tab.label` to assign a tab to a space row, but the label is set at tab creation and never updated when desk items change. A tab with label "Desk + 24\"" that had its desk voided and replaced with two different desks would appear in all three space rows. Fix: when a tab has desk items, match exclusively by item name — label matching is now only used as a fallback for tabs with no desk items at all.
