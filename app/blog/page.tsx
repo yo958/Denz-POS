@@ -6,7 +6,8 @@ import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
 import {
   Newspaper, Plus, Pencil, Trash2, Eye, EyeOff, Tag, FolderOpen,
-  X, Search, ChevronDown, ImageIcon, Globe, FileText,
+  X, Search, ChevronDown, ImageIcon, Globe, FileText, Upload,
+  CheckCircle, AlertCircle, Loader2,
 } from 'lucide-react';
 import { useCurrentStaff } from '@/lib/hooks/useStore';
 import { toast } from '@/components/ui/toast';
@@ -607,6 +608,309 @@ function TaxonomyManager({
   );
 }
 
+// ── CSV Import helpers ────────────────────────────────────────────────────────
+
+function stripWpBlocks(html: string): string {
+  // Remove WordPress Gutenberg block comments
+  let out = html.replace(/<!-- wp:[^>]*?-->/g, '').replace(/<!-- \/wp:[^>]*?-->/g, '');
+  // Unwrap <figure class="wp-block-image..."> but keep inner <img>
+  out = out.replace(/<figure[^>]*class="[^"]*wp-block-image[^"]*"[^>]*>([\s\S]*?)<\/figure>/gi, (_, inner) => {
+    const imgMatch = inner.match(/<img[^>]+>/i);
+    return imgMatch ? imgMatch[0] : '';
+  });
+  // Clean up extra blank lines
+  out = out.replace(/(\n\s*){3,}/g, '\n\n').trim();
+  return out;
+}
+
+async function fetchImageAsBase64(url: string): Promise<string | null> {
+  try {
+    const res = await fetch('/api/blog/fetch-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    if (!res.ok) return null;
+    const { dataUrl } = await res.json();
+    return dataUrl ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function replaceContentImageUrls(html: string): Promise<string> {
+  const urlRegex = /<img([^>]*?)src="(https?:\/\/[^"]+)"([^>]*?)>/gi;
+  const matches = [...html.matchAll(urlRegex)];
+  let out = html;
+  for (const m of matches) {
+    const [full, pre, url, post] = m;
+    const base64 = await fetchImageAsBase64(url);
+    if (base64) {
+      out = out.replace(full, `<img${pre}src="${base64}"${post}>`);
+    }
+  }
+  return out;
+}
+
+interface ImportRow {
+  title: string;
+  content: string;
+  excerpt: string;
+  date: string;
+  imageUrl: string;
+  categories: string[];
+  tags: string[];
+}
+
+function parseCSV(text: string): ImportRow[] {
+  const lines = text.split('\n');
+  const headers = parseCSVLine(lines[0]).map(h => h.replace(/^﻿/, '').trim());
+
+  const rows: ImportRow[] = [];
+  let i = 1;
+  while (i < lines.length) {
+    // Handle multi-line fields (quoted with embedded newlines)
+    let line = lines[i];
+    let quoteCount = (line.match(/"/g) || []).length;
+    while (quoteCount % 2 !== 0 && i + 1 < lines.length) {
+      i++;
+      line += '\n' + lines[i];
+      quoteCount = (line.match(/"/g) || []).length;
+    }
+    i++;
+    if (!line.trim()) continue;
+    const cols = parseCSVLine(line);
+    const get = (name: string) => cols[headers.indexOf(name)]?.trim() ?? '';
+    const postType = get('Post Type');
+    if (postType && postType !== 'post') continue; // skip pages etc
+    rows.push({
+      title: get('Title'),
+      content: get('Content'),
+      excerpt: get('Excerpt'),
+      date: get('Date'),
+      imageUrl: get('Image URL'),
+      categories: get('Categories').split('|').map(s => s.trim()).filter(Boolean),
+      tags: get('Tags').split('|').map(s => s.trim()).filter(Boolean),
+    });
+  }
+  return rows;
+}
+
+function parseCSVLine(line: string): string[] {
+  const cols: string[] = [];
+  let cur = '';
+  let inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuote && line[i + 1] === '"') { cur += '"'; i++; }
+      else inQuote = !inQuote;
+    } else if (ch === ',' && !inQuote) {
+      cols.push(cur); cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  cols.push(cur);
+  return cols;
+}
+
+interface ImportProgress {
+  total: number;
+  done: number;
+  current: string;
+  errors: string[];
+  finished: boolean;
+}
+
+function ImportDialog({
+  existingCategories, existingTags, onDone, onClose,
+}: {
+  existingCategories: BlogTaxonomy[];
+  existingTags: BlogTaxonomy[];
+  onDone: () => void;
+  onClose: () => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [progress, setProgress] = useState<ImportProgress | null>(null);
+
+  async function ensureTaxonomy(
+    name: string,
+    existing: BlogTaxonomy[],
+    endpoint: string,
+  ): Promise<{ updated: BlogTaxonomy[], slug: string }> {
+    const slug = slugify(name);
+    if (existing.find(t => t.slug === slug)) return { updated: existing, slug };
+    const res = await apiFetch<{ category?: BlogTaxonomy; tag?: BlogTaxonomy }>(endpoint, {
+      method: 'POST',
+      body: JSON.stringify({ name, slug }),
+    });
+    const created = res.category ?? res.tag!;
+    return { updated: [...existing, created], slug };
+  }
+
+  async function runImport(file: File) {
+    const text = await file.text();
+    const rows = parseCSV(text);
+    if (rows.length === 0) { toast.error('No posts found in CSV'); return; }
+
+    let cats = existingCategories;
+    let tgs = existingTags;
+
+    setProgress({ total: rows.length, done: 0, current: '', errors: [], finished: false });
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const errors: string[] = [];
+      setProgress(p => ({ ...p!, done: i, current: row.title }));
+
+      try {
+        // Ensure categories exist
+        const catSlugs: string[] = [];
+        for (const catName of row.categories) {
+          const r = await ensureTaxonomy(catName, cats, '/api/blog/categories');
+          cats = r.updated;
+          catSlugs.push(r.slug);
+        }
+
+        // Ensure tags exist
+        const tagSlugs: string[] = [];
+        for (const tagName of row.tags) {
+          const r = await ensureTaxonomy(tagName, tgs, '/api/blog/tags');
+          tgs = r.updated;
+          tagSlugs.push(r.slug);
+        }
+
+        // Clean content
+        const cleanedContent = stripWpBlocks(row.content);
+
+        // Fetch inline images
+        setProgress(p => ({ ...p!, current: `${row.title} (fetching images…)` }));
+        const contentWithImages = await replaceContentImageUrls(cleanedContent);
+
+        // Fetch feature image
+        let featureImage = '';
+        if (row.imageUrl) {
+          const b64 = await fetchImageAsBase64(row.imageUrl);
+          featureImage = b64 ?? row.imageUrl; // fall back to original URL
+        }
+
+        // Create post as draft
+        const postData: Partial<BlogPost> = {
+          title: row.title,
+          slug: slugify(row.title),
+          content: contentWithImages,
+          excerpt: row.excerpt,
+          featureImage,
+          categories: catSlugs,
+          tags: tagSlugs,
+          status: 'draft',
+          publishedAt: row.date ? new Date(row.date).toISOString() : undefined,
+        };
+        await apiFetch('/api/blog/posts', {
+          method: 'POST',
+          body: JSON.stringify(postData),
+        });
+      } catch (e) {
+        errors.push(row.title);
+        setProgress(p => ({ ...p!, errors: [...(p?.errors ?? []), row.title] }));
+        console.error('Import error for', row.title, e);
+      }
+    }
+
+    setProgress(p => ({ ...p!, done: rows.length, current: '', finished: true }));
+    onDone();
+  }
+
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) runImport(file);
+    e.target.value = '';
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-background rounded-2xl border border-border w-full max-w-md shadow-xl p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-base font-bold">Import from CSV</h2>
+          {(!progress || progress.finished) && (
+            <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted"><X size={16} /></button>
+          )}
+        </div>
+
+        {!progress ? (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Select a WordPress posts CSV export. All posts will be imported as <strong>drafts</strong> — feature images and inline images will be downloaded automatically.
+            </p>
+            <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
+              <li>WordPress block comments are stripped</li>
+              <li>Categories and tags are created automatically</li>
+              <li>Images are fetched and stored as base64</li>
+            </ul>
+            <button
+              onClick={() => fileRef.current?.click()}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 transition-colors text-sm font-medium"
+            >
+              <Upload size={16} /> Choose CSV file
+            </button>
+            <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFile} />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Progress</span>
+                <span className="font-medium">{progress.done} / {progress.total}</span>
+              </div>
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all duration-300 rounded-full"
+                  style={{ width: `${(progress.done / progress.total) * 100}%` }}
+                />
+              </div>
+            </div>
+
+            {progress.current && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 size={12} className="animate-spin shrink-0" />
+                <span className="truncate">{progress.current}</span>
+              </div>
+            )}
+
+            {progress.errors.length > 0 && (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 space-y-1">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-destructive">
+                  <AlertCircle size={12} /> {progress.errors.length} failed to import
+                </div>
+                <ul className="text-xs text-muted-foreground space-y-0.5 pl-4 list-disc">
+                  {progress.errors.map((t, i) => <li key={i} className="truncate">{t}</li>)}
+                </ul>
+              </div>
+            )}
+
+            {progress.finished && (
+              <div className="flex items-center gap-2 text-sm font-medium text-emerald-600">
+                <CheckCircle size={16} />
+                Import complete — {progress.done - progress.errors.length} posts imported
+              </div>
+            )}
+
+            {progress.finished && (
+              <button
+                onClick={onClose}
+                className="w-full px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium"
+              >
+                Done
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function BlogPage() {
@@ -618,6 +922,7 @@ export default function BlogPage() {
   const [tab, setTab] = useState<'posts' | 'categories' | 'tags'>('posts');
   const [editing, setEditing] = useState<BlogPost | null | 'new'>(null);
   const [search, setSearch] = useState('');
+  const [importing, setImporting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -736,12 +1041,21 @@ export default function BlogPage() {
             <p className="text-xs text-muted-foreground">{posts.filter(p => p.status === 'published').length} published · {posts.filter(p => p.status === 'draft').length} drafts</p>
           </div>
         </div>
-        <button
-          onClick={() => setEditing('new')}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium"
-        >
-          <Plus size={16} />New Article
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setImporting(true)}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-white/50 dark:bg-white/5 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+            title="Import from CSV"
+          >
+            <Upload size={15} />Import
+          </button>
+          <button
+            onClick={() => setEditing('new')}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium"
+          >
+            <Plus size={16} />New Article
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -854,6 +1168,16 @@ export default function BlogPage() {
           items={tags}
           onAdd={handleAddTag}
           onDelete={handleDeleteTag}
+        />
+      )}
+
+      {/* Import dialog */}
+      {importing && (
+        <ImportDialog
+          existingCategories={categories}
+          existingTags={tags}
+          onDone={load}
+          onClose={() => setImporting(false)}
         />
       )}
 
