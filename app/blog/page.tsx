@@ -610,14 +610,43 @@ function TaxonomyManager({
 
 // ── CSV Import helpers ────────────────────────────────────────────────────────
 
+function ytVideoId(url: string): string | null {
+  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{11})/);
+  return m ? m[1] : null;
+}
+
+function ytEmbed(videoId: string): string {
+  return `<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:12px;margin:1.5rem 0"><iframe src="https://www.youtube.com/embed/${videoId}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0" allowfullscreen loading="lazy"></iframe></div>`;
+}
+
 function stripWpBlocks(html: string): string {
-  // Remove WordPress Gutenberg block comments
-  let out = html.replace(/<!-- wp:[^>]*?-->/g, '').replace(/<!-- \/wp:[^>]*?-->/g, '');
+  let out = html;
+
+  // Convert wp:embed YouTube blocks → responsive iframe
+  out = out.replace(
+    /<!-- wp:embed[^>]*?-->([\s\S]*?)<!-- \/wp:embed -->/gi,
+    (_, inner) => {
+      const urlMatch = inner.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{11})[^\s<]*/);
+      if (urlMatch) return ytEmbed(urlMatch[1]);
+      return inner; // non-YouTube embed — leave as-is
+    },
+  );
+
+  // Remove remaining WordPress block comments
+  out = out.replace(/<!-- wp:[^>]*?-->/g, '').replace(/<!-- \/wp:[^>]*?-->/g, '');
+
   // Unwrap <figure class="wp-block-image..."> but keep inner <img>
   out = out.replace(/<figure[^>]*class="[^"]*wp-block-image[^"]*"[^>]*>([\s\S]*?)<\/figure>/gi, (_, inner) => {
     const imgMatch = inner.match(/<img[^>]+>/i);
     return imgMatch ? imgMatch[0] : '';
   });
+
+  // Convert bare YouTube URLs in <p> tags to embeds
+  out = out.replace(/<p[^>]*>\s*(https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)[\w?=&-]+)\s*<\/p>/gi, (_, url) => {
+    const id = ytVideoId(url);
+    return id ? ytEmbed(id) : `<p>${url}</p>`;
+  });
+
   // Clean up extra blank lines
   out = out.replace(/(\n\s*){3,}/g, '\n\n').trim();
   return out;

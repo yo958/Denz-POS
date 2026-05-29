@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.12.12] - 2026-05-29
+### Fixed
+- Blog import: convert WordPress wp:embed YouTube blocks and bare YouTube URLs in paragraphs to responsive iframes
+
 ## [1.12.11] - 2026-05-29
 ### Added
 - Blog bulk actions: Publish (green), Unpublish, and Delete — all run in parallel on selected articles; preserves original publishedAt when bulk-publishing
