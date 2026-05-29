@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.12.2] - 2026-05-29
+### Added
+- Blog editor: Image toolbar button — pick a file, inserts inline into article content as base64
+
 ## [1.12.1] - 2026-05-29
 ### Fixed
 - Blog categories/tags POST: omit `description` field when undefined — Firestore Admin SDK rejects `undefined` values causing silent failure

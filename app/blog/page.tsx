@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import Image from '@tiptap/extension-image';
 import {
   Newspaper, Plus, Pencil, Trash2, Eye, EyeOff, Tag, FolderOpen,
   X, Search, ChevronDown, ImageIcon, Globe, FileText,
@@ -72,8 +73,9 @@ function MetaCounter({ value, max, label }: { value: string; max: number; label:
 // ── RichTextEditor ────────────────────────────────────────────────────────────
 
 function RichTextEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const imgInputRef = useRef<HTMLInputElement>(null);
   const editor = useEditor({
-    extensions: [StarterKit],
+    extensions: [StarterKit, Image.configure({ inline: false, allowBase64: true })],
     content: value,
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
   });
@@ -96,6 +98,18 @@ function RichTextEditor({ value, onChange }: { value: string; onChange: (v: stri
         : 'border-border bg-white/50 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10'
     }`;
 
+  function handleImgFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !editor) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const src = ev.target?.result as string;
+      editor.chain().focus().setImage({ src }).run();
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  }
+
   return (
     <div className="rounded-xl border border-border overflow-hidden">
       <div className="flex items-center gap-1 px-2 py-1.5 border-b border-border bg-white/30 dark:bg-black/20 flex-wrap">
@@ -107,6 +121,11 @@ function RichTextEditor({ value, onChange }: { value: string; onChange: (v: stri
         <span className="w-px h-4 bg-border mx-0.5" />
         <button type="button" className={btn(editor.isActive('bulletList'))} onClick={() => editor.chain().focus().toggleBulletList().run()}>• List</button>
         <button type="button" className={btn(editor.isActive('orderedList'))} onClick={() => editor.chain().focus().toggleOrderedList().run()}>1. List</button>
+        <span className="w-px h-4 bg-border mx-0.5" />
+        <button type="button" className={btn(false)} onClick={() => imgInputRef.current?.click()} title="Insert image">
+          <ImageIcon size={13} className="inline -mt-0.5" /> Image
+        </button>
+        <input ref={imgInputRef} type="file" accept="image/*" className="hidden" onChange={handleImgFile} />
       </div>
       <EditorContent
         editor={editor}
@@ -121,6 +140,7 @@ function RichTextEditor({ value, onChange }: { value: string; onChange: (v: stri
           '[&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-5',
           '[&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-5',
           '[&_.ProseMirror_li]:my-0.5',
+          '[&_.ProseMirror_img]:rounded-lg [&_.ProseMirror_img]:max-w-full [&_.ProseMirror_img]:my-3',
         ].join(' ')}
       />
     </div>
