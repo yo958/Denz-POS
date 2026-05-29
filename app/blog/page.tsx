@@ -645,6 +645,7 @@ async function fetchImageAsBase64(url: string): Promise<string | null> {
 
 interface ImportRow {
   title: string;
+  slug: string;
   content: string;
   excerpt: string;
   date: string;
@@ -676,8 +677,14 @@ function parseCSV(text: string): ImportRow[] {
     const get = (name: string) => cols[headers.indexOf(name)]?.trim() ?? '';
     const postType = get('Post Type');
     if (postType && postType !== 'post') continue; // skip pages etc
+    // Extract slug from Permalink URL; fall back to slugifying the title
+    const permalink = get('Permalink');
+    const permalinkSlug = permalink
+      ? permalink.replace(/https?:\/\/[^/]+/, '').replace(/^\/|\/$/g, '').split('/').pop() ?? ''
+      : '';
     rows.push({
       title: get('Title'),
+      slug: permalinkSlug || slugify(get('Title')),
       content: get('Content'),
       excerpt: get('Excerpt'),
       date: get('Date'),
@@ -791,7 +798,7 @@ function ImportDialog({
         // Create post as draft
         const postData: Partial<BlogPost> = {
           title: row.title,
-          slug: slugify(row.title),
+          slug: row.slug,
           content: contentWithImages,
           excerpt: row.excerpt,
           featureImage,

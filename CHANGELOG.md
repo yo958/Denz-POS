@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.12.10] - 2026-05-29
+### Fixed
+- Blog import: use original permalink slug from CSV instead of slugifying the title (preserves WordPress SEO URLs)
+
 ## [1.12.9] - 2026-05-29
 ### Fixed
 - Blog publish: preserve original publishedAt date when publishing imported drafts; only default to now for posts that have no date set
