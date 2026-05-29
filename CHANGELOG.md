@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.12.16] - 2026-05-30
+### Fixed
+- Blog editor: leaving source mode no longer reloads TipTap, preventing it from stripping embed attributes (class, data-instgrm-*, style) on blockquotes
+
 ## [1.12.15] - 2026-05-30
 ### Added
 - Blog editor: source HTML toggle (`</>`) — switch to raw textarea to paste Instagram/YouTube/any embed code directly into content

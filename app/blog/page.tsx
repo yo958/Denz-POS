@@ -95,9 +95,13 @@ function RichTextEditor({ value, onChange }: { value: string; onChange: (v: stri
     if (!sourceMode && editor) {
       // Entering source mode — sync latest TipTap HTML into value
       onChange(editor.getHTML());
-    } else if (sourceMode && editor) {
-      // Leaving source mode — reload TipTap with current raw HTML
-      editor.commands.setContent(value);
+    }
+    // When leaving source mode: do NOT call setContent — TipTap would strip
+    // custom attributes (class, data-instgrm-*, style) from embed blockquotes.
+    // The value stays as raw HTML; prevValue is updated so the sync useEffect
+    // doesn't also call setContent.
+    if (sourceMode) {
+      prevValue.current = value;
     }
     setSourceMode(s => !s);
   }
