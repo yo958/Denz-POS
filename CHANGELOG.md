@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.12.14] - 2026-05-29
+### Fixed
+- Add missing react-is dependency (required by recharts) — was causing Firebase App Hosting build to fail
+
 ## [1.12.13] - 2026-05-29
 ### Fixed
 - Firestore security rules: add public read for published blog-posts, categories, and tags so website can query without auth

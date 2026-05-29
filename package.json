@@ -1,6 +1,6 @@
 {
   "name": "denz-pos",
-  "version": "1.12.13",
+  "version": "1.12.14",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -25,6 +25,7 @@
     "openai": "^6.39.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "react-is": "^19.2.6",
     "react-markdown": "^10.1.0",
     "recharts": "^3.8.1",
     "shadcn": "^4.7.0",
