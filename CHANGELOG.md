@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.12.5] - 2026-05-29
+### Fixed
+- Shell: main content area was overflow-hidden, preventing scroll on long pages (blog, etc.)
+
 ## [1.12.4] - 2026-05-29
 ### Changed
 - Blog page: full width layout, matching all other POS pages

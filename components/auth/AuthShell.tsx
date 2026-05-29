@@ -106,7 +106,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
     <>
       <Sidebar />
       <div
-        className="flex flex-col flex-1 min-h-screen min-w-0 overflow-hidden"
+        className="flex flex-col flex-1 min-h-screen min-w-0 overflow-y-auto"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 56px)' }}
       >
         {children}
