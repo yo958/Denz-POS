@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.12.7] - 2026-05-29
+### Added
+- Blog import: reads rank_math_description → metaDescription and rank_math_focus_keyword → focusKeyword; prefers Image Featured URL over Image URL for feature image
+
 ## [1.12.6] - 2026-05-29
 ### Added
 - Blog: multi-select articles by clicking rows; "Select all" toggle; bulk delete bar with confirmation

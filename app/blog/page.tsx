@@ -660,6 +660,8 @@ interface ImportRow {
   imageUrl: string;
   categories: string[];
   tags: string[];
+  metaDescription: string;
+  focusKeyword: string;
 }
 
 function parseCSV(text: string): ImportRow[] {
@@ -688,9 +690,11 @@ function parseCSV(text: string): ImportRow[] {
       content: get('Content'),
       excerpt: get('Excerpt'),
       date: get('Date'),
-      imageUrl: get('Image URL'),
+      imageUrl: get('Image Featured') || get('Image URL'),
       categories: get('Categories').split('|').map(s => s.trim()).filter(Boolean),
       tags: get('Tags').split('|').map(s => s.trim()).filter(Boolean),
+      metaDescription: get('rank_math_description'),
+      focusKeyword: get('rank_math_focus_keyword'),
     });
   }
   return rows;
@@ -806,6 +810,8 @@ function ImportDialog({
           tags: tagSlugs,
           status: 'draft',
           publishedAt: row.date ? new Date(row.date).toISOString() : undefined,
+          ...(row.metaDescription ? { metaDescription: row.metaDescription } : {}),
+          ...(row.focusKeyword ? { focusKeyword: row.focusKeyword } : {}),
         };
         await apiFetch('/api/blog/posts', {
           method: 'POST',
