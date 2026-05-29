@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.12.13] - 2026-05-29
+### Fixed
+- Firestore security rules: add public read for published blog-posts, categories, and tags so website can query without auth
+
 ## [1.12.12] - 2026-05-29
 ### Fixed
 - Blog import: convert WordPress wp:embed YouTube blocks and bare YouTube URLs in paragraphs to responsive iframes
