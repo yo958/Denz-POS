@@ -76,15 +76,23 @@ function MetaCounter({ value, max, label }: { value: string; max: number; label:
 function RichTextEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const imgInputRef = useRef<HTMLInputElement>(null);
   const [sourceMode, setSourceMode] = useState(false);
+  const sourceModeRef = useRef(false);
+
   const editor = useEditor({
     extensions: [StarterKit, Image.configure({ inline: false, allowBase64: true })],
     content: value,
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
   });
 
-  // Sync external value changes (e.g. when opening a different post)
+  // Sync external value changes (e.g. opening a different post).
+  // Skip while in source mode — typing in the textarea updates `value` which
+  // would otherwise trigger setContent, re-parsing and stripping embed attributes.
   const prevValue = useRef(value);
   useEffect(() => {
+    if (sourceModeRef.current) {
+      prevValue.current = value;
+      return;
+    }
     if (editor && value !== prevValue.current && value !== editor.getHTML()) {
       editor.commands.setContent(value);
     }
@@ -92,18 +100,15 @@ function RichTextEditor({ value, onChange }: { value: string; onChange: (v: stri
   }, [editor, value]);
 
   function toggleSourceMode() {
-    if (!sourceMode && editor) {
-      // Entering source mode — sync latest TipTap HTML into value
+    const entering = !sourceMode;
+    if (entering && editor) {
+      // Entering source mode — capture latest TipTap HTML first
       onChange(editor.getHTML());
     }
-    // When leaving source mode: do NOT call setContent — TipTap would strip
-    // custom attributes (class, data-instgrm-*, style) from embed blockquotes.
-    // The value stays as raw HTML; prevValue is updated so the sync useEffect
-    // doesn't also call setContent.
-    if (sourceMode) {
-      prevValue.current = value;
-    }
-    setSourceMode(s => !s);
+    // Leaving source mode — do NOT reload TipTap (it would strip embed attributes).
+    // prevValue is already kept in sync by the guarded useEffect above.
+    sourceModeRef.current = entering;
+    setSourceMode(entering);
   }
 
   if (!editor) return null;
@@ -157,13 +162,19 @@ function RichTextEditor({ value, onChange }: { value: string; onChange: (v: stri
       </div>
 
       {sourceMode ? (
-        <textarea
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          className="w-full min-h-[300px] px-3 py-2.5 text-xs font-mono bg-black/3 dark:bg-white/3 resize-y outline-none"
-          placeholder="Paste raw HTML or embed code here…"
-          spellCheck={false}
-        />
+        <div className="flex flex-col">
+          <textarea
+            value={value}
+            onChange={e => onChange(e.target.value)}
+            className="w-full min-h-[400px] px-3 py-3 text-xs font-mono bg-black/3 dark:bg-white/3 resize-y outline-none leading-relaxed"
+            placeholder="Paste raw HTML or embed code here…"
+            spellCheck={false}
+            autoFocus
+          />
+          <p className="px-3 py-2 text-xs text-muted-foreground border-t border-border">
+            Tip: paste Instagram/YouTube embed code anywhere in the HTML, then click Save — no need to switch back to rich text.
+          </p>
+        </div>
       ) : (
         <EditorContent
           editor={editor}

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.12.17] - 2026-05-30
+### Fixed
+- Blog editor: source mode no longer silently re-parses HTML via TipTap sync while typing (used sourceModeRef to guard the sync useEffect)
+### Changed
+- Blog editor: source textarea is taller (400px), auto-focuses, and shows a tip about saving without switching back to rich text
+
 ## [1.12.16] - 2026-05-30
 ### Fixed
 - Blog editor: leaving source mode no longer reloads TipTap, preventing it from stripping embed attributes (class, data-instgrm-*, style) on blockquotes
