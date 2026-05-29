@@ -23,8 +23,9 @@ export async function POST(request: NextRequest) {
       id: ref.id,
       name: body.name,
       slug: body.slug,
-      description: body.description,
       createdAt: new Date().toISOString(),
+      // omit description if not provided — Firestore rejects undefined values
+      ...(body.description ? { description: body.description } : {}),
     };
     await ref.set(tag);
     return NextResponse.json({ tag }, { status: 201 });

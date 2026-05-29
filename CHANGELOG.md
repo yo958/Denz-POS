@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.12.1] - 2026-05-29
+### Fixed
+- Blog categories/tags POST: omit `description` field when undefined — Firestore Admin SDK rejects `undefined` values causing silent failure
+- TaxonomyManager and TaxonomyPicker: wrap `onAdd`/`onCreate` in try/finally so `saving` state always resets even on API errors (button was stuck greyed out)
+
 ## [1.12.0] - 2026-05-29
 ### Added
 - **Blog management page** (`/blog`) — create, edit, publish, and delete articles with a rich TipTap editor

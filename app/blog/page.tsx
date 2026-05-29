@@ -154,9 +154,14 @@ function TaxonomyPicker({
   async function handleCreate() {
     if (!newName.trim()) return;
     setCreating(true);
-    await onCreate(newName.trim());
-    setNewName('');
-    setCreating(false);
+    try {
+      await onCreate(newName.trim());
+      setNewName('');
+    } catch {
+      // error already toasted by the caller
+    } finally {
+      setCreating(false);
+    }
   }
 
   return (
@@ -533,9 +538,14 @@ function TaxonomyManager({
   async function handleAdd() {
     if (!name.trim()) return;
     setSaving(true);
-    await onAdd(name.trim());
-    setName('');
-    setSaving(false);
+    try {
+      await onAdd(name.trim());
+      setName('');
+    } catch {
+      // error already toasted by the caller
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
