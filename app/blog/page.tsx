@@ -75,6 +75,7 @@ function MetaCounter({ value, max, label }: { value: string; max: number; label:
 
 function RichTextEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const imgInputRef = useRef<HTMLInputElement>(null);
+  const [sourceMode, setSourceMode] = useState(false);
   const editor = useEditor({
     extensions: [StarterKit, Image.configure({ inline: false, allowBase64: true })],
     content: value,
@@ -89,6 +90,17 @@ function RichTextEditor({ value, onChange }: { value: string; onChange: (v: stri
     }
     prevValue.current = value;
   }, [editor, value]);
+
+  function toggleSourceMode() {
+    if (!sourceMode && editor) {
+      // Entering source mode — sync latest TipTap HTML into value
+      onChange(editor.getHTML());
+    } else if (sourceMode && editor) {
+      // Leaving source mode — reload TipTap with current raw HTML
+      editor.commands.setContent(value);
+    }
+    setSourceMode(s => !s);
+  }
 
   if (!editor) return null;
 
@@ -114,36 +126,58 @@ function RichTextEditor({ value, onChange }: { value: string; onChange: (v: stri
   return (
     <div className="rounded-xl border border-border overflow-hidden">
       <div className="flex items-center gap-1 px-2 py-1.5 border-b border-border bg-white/30 dark:bg-black/20 flex-wrap">
-        <button type="button" className={btn(editor.isActive('heading', { level: 2 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>H2</button>
-        <button type="button" className={btn(editor.isActive('heading', { level: 3 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>H3</button>
-        <span className="w-px h-4 bg-border mx-0.5" />
-        <button type="button" className={`${btn(editor.isActive('bold'))} font-bold`} onClick={() => editor.chain().focus().toggleBold().run()}>B</button>
-        <button type="button" className={`${btn(editor.isActive('italic'))} italic`} onClick={() => editor.chain().focus().toggleItalic().run()}>I</button>
-        <span className="w-px h-4 bg-border mx-0.5" />
-        <button type="button" className={btn(editor.isActive('bulletList'))} onClick={() => editor.chain().focus().toggleBulletList().run()}>• List</button>
-        <button type="button" className={btn(editor.isActive('orderedList'))} onClick={() => editor.chain().focus().toggleOrderedList().run()}>1. List</button>
-        <span className="w-px h-4 bg-border mx-0.5" />
-        <button type="button" className={btn(false)} onClick={() => imgInputRef.current?.click()} title="Insert image">
-          <ImageIcon size={13} className="inline -mt-0.5" /> Image
+        {!sourceMode && <>
+          <button type="button" className={btn(editor.isActive('heading', { level: 2 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>H2</button>
+          <button type="button" className={btn(editor.isActive('heading', { level: 3 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>H3</button>
+          <span className="w-px h-4 bg-border mx-0.5" />
+          <button type="button" className={`${btn(editor.isActive('bold'))} font-bold`} onClick={() => editor.chain().focus().toggleBold().run()}>B</button>
+          <button type="button" className={`${btn(editor.isActive('italic'))} italic`} onClick={() => editor.chain().focus().toggleItalic().run()}>I</button>
+          <span className="w-px h-4 bg-border mx-0.5" />
+          <button type="button" className={btn(editor.isActive('bulletList'))} onClick={() => editor.chain().focus().toggleBulletList().run()}>• List</button>
+          <button type="button" className={btn(editor.isActive('orderedList'))} onClick={() => editor.chain().focus().toggleOrderedList().run()}>1. List</button>
+          <span className="w-px h-4 bg-border mx-0.5" />
+          <button type="button" className={btn(false)} onClick={() => imgInputRef.current?.click()} title="Insert image">
+            <ImageIcon size={13} className="inline -mt-0.5" /> Image
+          </button>
+          <input ref={imgInputRef} type="file" accept="image/*" className="hidden" onChange={handleImgFile} />
+          <span className="w-px h-4 bg-border mx-0.5" />
+        </>}
+        <button
+          type="button"
+          className={btn(sourceMode)}
+          onClick={toggleSourceMode}
+          title="Toggle source HTML"
+        >
+          {'</>'}
         </button>
-        <input ref={imgInputRef} type="file" accept="image/*" className="hidden" onChange={handleImgFile} />
       </div>
-      <EditorContent
-        editor={editor}
-        className={[
-          'min-h-[220px] px-3 py-2.5 text-sm bg-black/3 dark:bg-white/3',
-          '[&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-[200px]',
-          '[&_.ProseMirror_h2]:text-lg [&_.ProseMirror_h2]:font-bold [&_.ProseMirror_h2]:mt-3 [&_.ProseMirror_h2]:mb-1',
-          '[&_.ProseMirror_h3]:text-base [&_.ProseMirror_h3]:font-bold [&_.ProseMirror_h3]:mt-2 [&_.ProseMirror_h3]:mb-0.5',
-          '[&_.ProseMirror_p]:my-1',
-          '[&_.ProseMirror_strong]:font-bold',
-          '[&_.ProseMirror_em]:italic',
-          '[&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-5',
-          '[&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-5',
-          '[&_.ProseMirror_li]:my-0.5',
-          '[&_.ProseMirror_img]:rounded-lg [&_.ProseMirror_img]:max-w-full [&_.ProseMirror_img]:my-3',
-        ].join(' ')}
-      />
+
+      {sourceMode ? (
+        <textarea
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          className="w-full min-h-[300px] px-3 py-2.5 text-xs font-mono bg-black/3 dark:bg-white/3 resize-y outline-none"
+          placeholder="Paste raw HTML or embed code here…"
+          spellCheck={false}
+        />
+      ) : (
+        <EditorContent
+          editor={editor}
+          className={[
+            'min-h-[220px] px-3 py-2.5 text-sm bg-black/3 dark:bg-white/3',
+            '[&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-[200px]',
+            '[&_.ProseMirror_h2]:text-lg [&_.ProseMirror_h2]:font-bold [&_.ProseMirror_h2]:mt-3 [&_.ProseMirror_h2]:mb-1',
+            '[&_.ProseMirror_h3]:text-base [&_.ProseMirror_h3]:font-bold [&_.ProseMirror_h3]:mt-2 [&_.ProseMirror_h3]:mb-0.5',
+            '[&_.ProseMirror_p]:my-1',
+            '[&_.ProseMirror_strong]:font-bold',
+            '[&_.ProseMirror_em]:italic',
+            '[&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-5',
+            '[&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-5',
+            '[&_.ProseMirror_li]:my-0.5',
+            '[&_.ProseMirror_img]:rounded-lg [&_.ProseMirror_img]:max-w-full [&_.ProseMirror_img]:my-3',
+          ].join(' ')}
+        />
+      )}
     </div>
   );
 }

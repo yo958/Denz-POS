@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.12.15] - 2026-05-30
+### Added
+- Blog editor: source HTML toggle (`</>`) — switch to raw textarea to paste Instagram/YouTube/any embed code directly into content
+
 ## [1.12.14] - 2026-05-29
 ### Fixed
 - Add missing react-is dependency (required by recharts) — was causing Firebase App Hosting build to fail
