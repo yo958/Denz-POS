@@ -923,6 +923,8 @@ export default function BlogPage() {
   const [editing, setEditing] = useState<BlogPost | null | 'new'>(null);
   const [search, setSearch] = useState('');
   const [importing, setImporting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -975,6 +977,20 @@ export default function BlogPage() {
     } catch {
       toast.error('Failed to delete article');
     }
+  }
+
+  async function handleBulkDelete() {
+    if (!await confirm({ title: `Delete ${selected.size} articles?`, message: 'This cannot be undone.', danger: true })) return;
+    setBulkDeleting(true);
+    try {
+      await Promise.all([...selected].map(id => apiFetch(`/api/blog/posts/${id}`, { method: 'DELETE' })));
+      setPosts(prev => prev.filter(p => !selected.has(p.id)));
+      setSelected(new Set());
+      toast.success(`${selected.size} articles deleted`);
+    } catch {
+      toast.error('Some articles failed to delete');
+    }
+    setBulkDeleting(false);
   }
 
   async function handleTogglePublish(post: BlogPost) {
@@ -1082,15 +1098,40 @@ export default function BlogPage() {
       {/* Posts tab */}
       {tab === 'posts' && (
         <div className="space-y-3">
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search articles…"
-              className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-border bg-white/50 dark:bg-white/5 focus:outline-none focus:ring-1 focus:ring-ring"
-            />
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search articles…"
+                className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-border bg-white/50 dark:bg-white/5 focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
+            {filtered.length > 0 && (
+              <button
+                onClick={() => setSelected(selected.size === filtered.length ? new Set() : new Set(filtered.map(p => p.id)))}
+                className="px-3 py-2 text-xs font-medium rounded-xl border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/10 transition-colors whitespace-nowrap"
+              >
+                {selected.size === filtered.length ? 'Deselect all' : 'Select all'}
+              </button>
+            )}
           </div>
+
+          {/* Bulk action bar */}
+          {selected.size > 0 && (
+            <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800/40">
+              <span className="text-sm font-medium text-rose-700 dark:text-rose-400">{selected.size} selected</span>
+              <button
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-medium hover:bg-rose-700 disabled:opacity-50 transition-colors"
+              >
+                <Trash2 size={13} />{bulkDeleting ? 'Deleting…' : `Delete ${selected.size}`}
+              </button>
+            </div>
+          )}
+
           {loading
             ? <p className="text-sm text-muted-foreground text-center py-8">Loading…</p>
             : filtered.length === 0
@@ -1102,7 +1143,25 @@ export default function BlogPage() {
                 </div>
               )
               : filtered.map(post => (
-                <div key={post.id} className="flex gap-4 p-4 rounded-2xl border border-border bg-white/50 dark:bg-white/3 hover:border-primary/30 transition-colors group">
+                <div
+                  key={post.id}
+                  onClick={() => setSelected(prev => { const n = new Set(prev); n.has(post.id) ? n.delete(post.id) : n.add(post.id); return n; })}
+                  className={`flex gap-4 p-4 rounded-2xl border transition-colors cursor-pointer group ${
+                    selected.has(post.id)
+                      ? 'border-rose-300 bg-rose-50 dark:border-rose-800/50 dark:bg-rose-900/10'
+                      : 'border-border bg-white/50 dark:bg-white/3 hover:border-primary/30'
+                  }`}
+                >
+                  {/* Checkbox */}
+                  <div className="flex items-center shrink-0">
+                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
+                      selected.has(post.id)
+                        ? 'border-rose-500 bg-rose-500'
+                        : 'border-border group-hover:border-primary/50'
+                    }`}>
+                      {selected.has(post.id) && <span className="text-white text-[10px] leading-none font-bold">✓</span>}
+                    </div>
+                  </div>
                   {post.featureImage && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={post.featureImage} alt="" className="w-20 h-16 object-cover rounded-xl shrink-0" />
@@ -1124,7 +1183,7 @@ export default function BlogPage() {
                       <span className="text-xs text-muted-foreground">{readingTime(post.content)}</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
                     <button
                       onClick={() => handleTogglePublish(post)}
                       title={post.status === 'published' ? 'Unpublish' : 'Publish'}

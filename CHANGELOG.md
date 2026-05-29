@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.12.6] - 2026-05-29
+### Added
+- Blog: multi-select articles by clicking rows; "Select all" toggle; bulk delete bar with confirmation
+
 ## [1.12.5] - 2026-05-29
 ### Fixed
 - Shell: main content area was overflow-hidden, preventing scroll on long pages (blog, etc.)
