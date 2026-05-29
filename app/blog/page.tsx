@@ -995,7 +995,7 @@ export default function BlogPage() {
         method: 'PUT',
         body: JSON.stringify({
           status: newStatus,
-          publishedAt: newStatus === 'published' ? new Date().toISOString() : post.publishedAt,
+          publishedAt: newStatus === 'published' ? (post.publishedAt ?? new Date().toISOString()) : post.publishedAt,
         }),
       });
       setPosts(prev => prev.map(p => p.id === res.post.id ? res.post : p));
