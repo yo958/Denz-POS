@@ -1029,7 +1029,7 @@ export default function BlogPage() {
   const editPost = editing === 'new' ? null : editing;
 
   return (
-    <div className="flex flex-col gap-6 p-6 max-w-5xl mx-auto">
+    <div className="flex flex-col gap-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">

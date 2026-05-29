@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.12.4] - 2026-05-29
+### Changed
+- Blog page: full width layout, matching all other POS pages
+
 ## [1.12.3] - 2026-05-29
 ### Added
 - Blog: Import CSV button — parses WordPress post exports, strips Gutenberg block comments, fetches feature images + inline images server-side as base64, auto-creates categories/tags, imports as drafts with live progress UI
