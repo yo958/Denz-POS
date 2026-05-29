@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.12.11] - 2026-05-29
+### Added
+- Blog bulk actions: Publish (green), Unpublish, and Delete — all run in parallel on selected articles; preserves original publishedAt when bulk-publishing
+
 ## [1.12.10] - 2026-05-29
 ### Fixed
 - Blog import: use original permalink slug from CSV instead of slugifying the title (preserves WordPress SEO URLs)

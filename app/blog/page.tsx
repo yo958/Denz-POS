@@ -926,7 +926,7 @@ export default function BlogPage() {
   const [search, setSearch] = useState('');
   const [importing, setImporting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -981,18 +981,39 @@ export default function BlogPage() {
     }
   }
 
-  async function handleBulkDelete() {
-    if (!await confirm({ title: `Delete ${selected.size} articles?`, message: 'This cannot be undone.', danger: true })) return;
-    setBulkDeleting(true);
-    try {
-      await Promise.all([...selected].map(id => apiFetch(`/api/blog/posts/${id}`, { method: 'DELETE' })));
-      setPosts(prev => prev.filter(p => !selected.has(p.id)));
-      setSelected(new Set());
-      toast.success(`${selected.size} articles deleted`);
-    } catch {
-      toast.error('Some articles failed to delete');
+  async function handleBulkAction(action: 'publish' | 'unpublish' | 'delete') {
+    const count = selected.size;
+    if (action === 'delete') {
+      if (!await confirm({ title: `Delete ${count} articles?`, message: 'This cannot be undone.', danger: true })) return;
     }
-    setBulkDeleting(false);
+    setBulkBusy(true);
+    try {
+      if (action === 'delete') {
+        await Promise.all([...selected].map(id => apiFetch(`/api/blog/posts/${id}`, { method: 'DELETE' })));
+        setPosts(prev => prev.filter(p => !selected.has(p.id)));
+        toast.success(`${count} articles deleted`);
+      } else {
+        const newStatus = action === 'publish' ? 'published' : 'draft';
+        const updated = await Promise.all(
+          [...selected].map(id => {
+            const post = posts.find(p => p.id === id)!;
+            return apiFetch<{ post: BlogPost }>(`/api/blog/posts/${id}`, {
+              method: 'PUT',
+              body: JSON.stringify({
+                status: newStatus,
+                publishedAt: newStatus === 'published' ? (post.publishedAt ?? new Date().toISOString()) : post.publishedAt,
+              }),
+            }).then(r => r.post);
+          }),
+        );
+        setPosts(prev => prev.map(p => updated.find(u => u.id === p.id) ?? p));
+        toast.success(`${count} articles ${action === 'publish' ? 'published' : 'unpublished'}`);
+      }
+      setSelected(new Set());
+    } catch {
+      toast.error('Some articles failed to update');
+    }
+    setBulkBusy(false);
   }
 
   async function handleTogglePublish(post: BlogPost) {
@@ -1122,15 +1143,31 @@ export default function BlogPage() {
 
           {/* Bulk action bar */}
           {selected.size > 0 && (
-            <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800/40">
-              <span className="text-sm font-medium text-rose-700 dark:text-rose-400">{selected.size} selected</span>
-              <button
-                onClick={handleBulkDelete}
-                disabled={bulkDeleting}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-medium hover:bg-rose-700 disabled:opacity-50 transition-colors"
-              >
-                <Trash2 size={13} />{bulkDeleting ? 'Deleting…' : `Delete ${selected.size}`}
-              </button>
+            <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-primary/5 border border-primary/20">
+              <span className="text-sm font-medium text-foreground">{selected.size} selected</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleBulkAction('publish')}
+                  disabled={bulkBusy}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                >
+                  <Eye size={13} />{bulkBusy ? '…' : 'Publish'}
+                </button>
+                <button
+                  onClick={() => handleBulkAction('unpublish')}
+                  disabled={bulkBusy}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-white/50 dark:bg-white/5 text-xs font-medium hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-50 transition-colors"
+                >
+                  <EyeOff size={13} />{bulkBusy ? '…' : 'Unpublish'}
+                </button>
+                <button
+                  onClick={() => handleBulkAction('delete')}
+                  disabled={bulkBusy}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-medium hover:bg-rose-700 disabled:opacity-50 transition-colors"
+                >
+                  <Trash2 size={13} />{bulkBusy ? '…' : 'Delete'}
+                </button>
+              </div>
             </div>
           )}
 
