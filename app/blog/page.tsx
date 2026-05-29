@@ -623,6 +623,8 @@ function stripWpBlocks(html: string): string {
   return out;
 }
 
+const MAX_FEATURE_IMAGE_BYTES = 600_000; // ~450KB actual — well under Firestore 1MB doc limit
+
 async function fetchImageAsBase64(url: string): Promise<string | null> {
   try {
     const res = await fetch('/api/blog/fetch-image', {
@@ -631,25 +633,14 @@ async function fetchImageAsBase64(url: string): Promise<string | null> {
       body: JSON.stringify({ url }),
     });
     if (!res.ok) return null;
-    const { dataUrl } = await res.json();
-    return dataUrl ?? null;
+    const { dataUrl } = await res.json() as { dataUrl?: string };
+    if (!dataUrl) return null;
+    // Reject if base64 payload would push doc over Firestore limit
+    if (dataUrl.length > MAX_FEATURE_IMAGE_BYTES) return null;
+    return dataUrl;
   } catch {
     return null;
   }
-}
-
-async function replaceContentImageUrls(html: string): Promise<string> {
-  const urlRegex = /<img([^>]*?)src="(https?:\/\/[^"]+)"([^>]*?)>/gi;
-  const matches = [...html.matchAll(urlRegex)];
-  let out = html;
-  for (const m of matches) {
-    const [full, pre, url, post] = m;
-    const base64 = await fetchImageAsBase64(url);
-    if (base64) {
-      out = out.replace(full, `<img${pre}src="${base64}"${post}>`);
-    }
-  }
-  return out;
 }
 
 interface ImportRow {
@@ -785,18 +776,16 @@ function ImportDialog({
           tagSlugs.push(r.slug);
         }
 
-        // Clean content
-        const cleanedContent = stripWpBlocks(row.content);
+        // Clean content — strip WP block comments, leave image src URLs as-is
+        // (avoids Firestore 1MB doc limit from base64-encoding inline images)
+        const contentWithImages = stripWpBlocks(row.content);
 
-        // Fetch inline images
-        setProgress(p => ({ ...p!, current: `${row.title} (fetching images…)` }));
-        const contentWithImages = await replaceContentImageUrls(cleanedContent);
-
-        // Fetch feature image
+        // Fetch feature image as base64; fall back to original URL if too large or fetch fails
         let featureImage = '';
         if (row.imageUrl) {
+          setProgress(p => ({ ...p!, current: `${row.title} (fetching image…)` }));
           const b64 = await fetchImageAsBase64(row.imageUrl);
-          featureImage = b64 ?? row.imageUrl; // fall back to original URL
+          featureImage = b64 ?? row.imageUrl;
         }
 
         // Create post as draft

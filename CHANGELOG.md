@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.12.8] - 2026-05-29
+### Fixed
+- Blog import: inline content images no longer converted to base64 (prevents Firestore 1MB doc limit errors); feature image base64 capped at 600KB, falls back to original URL if too large
+
 ## [1.12.7] - 2026-05-29
 ### Added
 - Blog import: reads rank_math_description → metaDescription and rank_math_focus_keyword → focusKeyword; prefers Image Featured URL over Image URL for feature image
