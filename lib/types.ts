@@ -357,7 +357,8 @@ export type AuditAction =
   | 'ads.connect' | 'ads.disconnect' | 'ads.refresh'
   | 'analytics.refresh'
   | 'gsc.refresh' | 'gsc.insights'
-  | 'settings.openai';
+  | 'settings.openai'
+  | 'blog.create' | 'blog.update' | 'blog.delete' | 'blog.publish';
 export interface AuditEntry {
   id: string;
   at: Date;
@@ -431,4 +432,32 @@ export interface Settings {
   currency: string;         // "$", "€"
   receipt: ReceiptSettings;
   device: DeviceSettings;
+}
+
+/* ── Blog ─────────────────────────────────────────────────────── */
+export interface BlogPost {
+  id: string;
+  title: string;
+  slug: string;
+  content: string;          // TipTap HTML
+  excerpt?: string;
+  featureImage?: string;    // data URL or external URL
+  metaTitle?: string;       // falls back to title
+  metaDescription?: string;
+  focusKeyword?: string;
+  categories: string[];     // category slugs
+  tags: string[];           // tag slugs
+  status: 'draft' | 'published';
+  publishedAt?: string;     // ISO string
+  createdAt: string;
+  updatedAt: string;
+  author?: string;
+}
+
+export interface BlogTaxonomy {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  createdAt: string;
 }

@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.12.0] - 2026-05-29
+### Added
+- **Blog management page** (`/blog`) — create, edit, publish, and delete articles with a rich TipTap editor
+- **SEO fields** per article: meta title (60-char counter), meta description (160-char counter), and focus keyword
+- **Feature image** upload with preview on all article cards
+- **Categories & Tags** manager — create/delete taxonomies inline; multi-select on each article
+- Blog API routes: `GET/POST /api/blog/posts`, `GET/PUT/DELETE /api/blog/posts/[id]`, `GET/POST/DELETE /api/blog/categories`, `GET/POST/DELETE /api/blog/tags` — all backed by Firebase Admin + Firestore
+- `BlogPost` and `BlogTaxonomy` types added to `lib/types.ts`; `blog.*` AuditActions added
+- Blog nav item in Sidebar (manager-only, after Inbox)
+
 ## [1.11.8] - 2026-05-27
 ### Fixed
 - **Partial payments**: tabs fully covered by partial payments now show a green "Close Tab — Fully Paid" button instead of remaining open indefinitely. Clicking it marks the tab as `paid` (method: split) and removes it from the active list.

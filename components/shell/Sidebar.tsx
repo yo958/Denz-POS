@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutGrid, BookOpen, BedDouble, BarChart2, Settings, Laptop, ChefHat,
   History, LogOut, Users, LayoutDashboard, Receipt, Globe, CalendarDays,
-  Inbox, TrendingUp, LineChart, Search, Layers,
+  Inbox, TrendingUp, LineChart, Search, Layers, Newspaper,
 } from 'lucide-react';
 import { useCurrentStaff, setCurrentStaffId } from '@/lib/hooks/useStore';
 import { signOut } from '@/lib/firebase';
@@ -30,6 +30,7 @@ const NAV: NavItem[] = [
   { href: '/kds',          icon: ChefHat,         label: 'Kitchen',       managerOnly: false },
   { href: '/online-orders',icon: Globe,           label: 'Online Orders', managerOnly: true  },
   { href: '/inbox',        icon: Inbox,           label: 'Inbox',         managerOnly: true  },
+  { href: '/blog',         icon: Newspaper,       label: 'Blog',          managerOnly: true  },
   {
     href: '/google', icon: Layers, label: 'Google Overview', managerOnly: true,
     children: [
