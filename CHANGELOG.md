@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.12.18] - 2026-05-30
+### Added
+- Settings → Website section: "Search Engine Visibility" toggle — discourages search engines from indexing the website (sets noindex via Firestore venue-settings/website); useful before switching domain from old WordPress site
+- API route POST/GET /api/settings/website to persist the setting
+
 ## [1.12.17] - 2026-05-30
 ### Fixed
 - Blog editor: source mode no longer silently re-parses HTML via TipTap sync while typing (used sourceModeRef to guard the sync useEffect)

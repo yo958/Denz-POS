@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Save, Upload, Download, Trash2, KeyRound, UserPlus, AlertTriangle, Plus, Pencil, X, Phone, Mail, Image as ImageIcon, RefreshCw, Eye, EyeOff, Sparkles, Check, Sun, Moon, Monitor } from 'lucide-react';
+import { Save, Upload, Download, Trash2, KeyRound, UserPlus, AlertTriangle, Plus, Pencil, X, Phone, Mail, Image as ImageIcon, RefreshCw, Eye, EyeOff, Sparkles, Check, Sun, Moon, Monitor, Globe, EyeOff as SearchOff } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useSettings, useStaff, useCurrentStaff, useModifierGroups } from '@/lib/hooks/useStore';
 import { getStore } from '@/lib/store/store';
@@ -369,6 +369,8 @@ export default function SettingsPage() {
 
         <ModifierGroupsSection />
 
+        <WebsiteSection />
+
         <OpenAISection />
 
         <Section title="Data">
@@ -670,6 +672,76 @@ function AppearanceSection() {
           <div className="h-10 w-48 rounded-xl bg-black/5 dark:bg-white/8 animate-pulse" />
         )}
       </div>
+    </Section>
+  );
+}
+
+/* ── Website Settings ───────────────────────────────────────────── */
+
+function WebsiteSection() {
+  const [noindex, setNoindex] = useState(false);
+  const [loaded, setLoaded]   = useState(false);
+  const [busy, setBusy]       = useState(false);
+
+  useEffect(() => {
+    fetch('/api/settings/website')
+      .then(r => r.json())
+      .then((d: { noindex?: boolean }) => { setNoindex(d.noindex ?? false); setLoaded(true); })
+      .catch(() => setLoaded(true));
+  }, []);
+
+  async function toggle() {
+    const next = !noindex;
+    setBusy(true);
+    try {
+      await fetch('/api/settings/website', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ noindex: next }),
+      });
+      setNoindex(next);
+      toast.success(next ? 'Search engines discouraged from indexing' : 'Search engine indexing enabled');
+    } catch {
+      toast.error('Failed to save setting');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!loaded) return null;
+
+  return (
+    <Section title="Website">
+      <div className="flex items-start gap-3 p-4 rounded-2xl border border-border bg-white/50 dark:bg-white/3">
+        <div className={`flex items-center justify-center w-9 h-9 rounded-xl shrink-0 ${noindex ? 'bg-amber-100 dark:bg-amber-900/20' : 'bg-emerald-100 dark:bg-emerald-900/20'}`}>
+          <Globe size={16} className={noindex ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'} strokeWidth={1.8} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-foreground mb-0.5">Search Engine Visibility</p>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            {noindex
+              ? 'Search engines are discouraged from indexing the website. Enable this while the site is in development or before switching the domain.'
+              : 'Search engines are allowed to index the website. Disable this before going live if the site is not ready.'}
+          </p>
+        </div>
+        <button
+          onClick={toggle}
+          disabled={busy}
+          className={`shrink-0 px-3 h-8 rounded-xl text-xs font-medium border transition-colors cursor-pointer disabled:opacity-50 ${
+            noindex
+              ? 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-400 hover:bg-amber-100'
+              : 'border-border bg-white/50 dark:bg-white/5 text-muted-foreground hover:bg-black/5 dark:hover:bg-white/10'
+          }`}
+        >
+          {busy ? '...' : noindex ? 'Discouraged' : 'Visible'}
+        </button>
+      </div>
+      {noindex && (
+        <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+          <AlertTriangle size={12} />
+          Robots meta tag set to noindex,nofollow across the entire website.
+        </p>
+      )}
     </Section>
   );
 }
