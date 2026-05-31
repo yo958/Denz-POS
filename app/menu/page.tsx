@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { Plus, Pencil, Archive, ArchiveRestore, Trash2, Upload } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import { Plus, Pencil, Archive, ArchiveRestore, Trash2, Upload, Search, ChevronDown } from 'lucide-react';
 import { useProducts, useCurrentStaff, useSettings, useModifierGroups } from '@/lib/hooks/useStore';
 import { fmtCur } from '@/lib/format';
 import { getStore } from '@/lib/store/store';
@@ -236,6 +238,10 @@ function ProductDialog({ product, onClose, onSave }: ProductDialogProps) {
     price: 0,
     category: 'food',
     description: '',
+    longDescription: '',
+    metaTitle: '',
+    metaDescription: '',
+    focusKeyword: '',
     stock: null,
     lowStockAt: null,
     cost: null,
@@ -243,6 +249,7 @@ function ProductDialog({ product, onClose, onSave }: ProductDialogProps) {
     glyph: null,
     sendToKitchen: false,
   });
+  const [seoOpen, setSeoOpen] = useState(false);
 
   async function handleImageFile(file: File) {
     if (!file.type.startsWith('image/')) { toast.error('Pick an image file'); return; }
@@ -298,6 +305,60 @@ function ProductDialog({ product, onClose, onSave }: ProductDialogProps) {
         <Field label="Description">
           <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className={inputCls} />
         </Field>
+
+        <div className="space-y-1.5">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Website description (optional)</span>
+          <p className="text-xs text-muted-foreground">Rich text shown on this item's page on the website. Leave empty to show only the short description above.</p>
+          <RichTextEditor value={form.longDescription ?? ''} onChange={v => setForm(f => ({ ...f, longDescription: v }))} />
+        </div>
+
+        {/* SEO panel */}
+        <div className="rounded-xl border border-violet-200 dark:border-violet-700/30 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setSeoOpen(o => !o)}
+            className="w-full flex items-center justify-between px-4 py-3 bg-violet-50 dark:bg-violet-900/10 text-sm font-medium text-violet-700 dark:text-violet-400 cursor-pointer"
+          >
+            <span className="flex items-center gap-2">
+              <Search size={14} />SEO Settings
+            </span>
+            <ChevronDown size={14} className={`transition-transform ${seoOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {seoOpen && (
+            <div className="p-4 space-y-3 bg-violet-50/30 dark:bg-violet-900/5">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Focus Keyword</label>
+                <input
+                  value={form.focusKeyword ?? ''}
+                  onChange={e => setForm(f => ({ ...f, focusKeyword: e.target.value }))}
+                  placeholder="e.g. thai green curry phuket"
+                  className="w-full text-sm px-3 py-2 rounded-xl border border-border bg-white/50 dark:bg-white/5 focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Meta Title</label>
+                <input
+                  value={form.metaTitle ?? ''}
+                  onChange={e => setForm(f => ({ ...f, metaTitle: e.target.value }))}
+                  placeholder={form.name ? `${form.name} — Denz Café, Phuket` : 'Custom page title for search engines…'}
+                  className="w-full text-sm px-3 py-2 rounded-xl border border-border bg-white/50 dark:bg-white/5 focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+                <MetaCounter value={form.metaTitle ?? ''} max={60} label="Meta title" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Meta Description</label>
+                <textarea
+                  value={form.metaDescription ?? ''}
+                  onChange={e => setForm(f => ({ ...f, metaDescription: e.target.value }))}
+                  rows={3}
+                  placeholder="Summary shown in Google search results…"
+                  className="w-full text-sm px-3 py-2 rounded-xl border border-border bg-white/50 dark:bg-white/5 focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+                />
+                <MetaCounter value={form.metaDescription ?? ''} max={160} label="Meta description" />
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="space-y-1.5">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Image / icon</span>
@@ -525,6 +586,69 @@ function downscaleImage(file: File, maxEdge: number, quality: number): Promise<s
     };
     reader.readAsDataURL(file);
   });
+}
+
+function MetaCounter({ value, max, label }: { value: string; max: number; label: string }) {
+  const len = value.length;
+  const ok = len >= 1 && len <= max;
+  return (
+    <p className={`text-xs mt-0.5 ${ok ? 'text-muted-foreground' : 'text-amber-600 dark:text-amber-400'}`}>
+      {label}: {len}/{max} chars
+    </p>
+  );
+}
+
+function RichTextEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const editor = useEditor({
+    extensions: [StarterKit],
+    content: value,
+    onUpdate: ({ editor }) => {
+      onChange(editor.getHTML());
+    },
+  });
+
+  useEffect(() => {
+    if (editor && value !== editor.getHTML()) editor.commands.setContent(value);
+  }, [editor, value]);
+
+  if (!editor) return null;
+
+  const btn = (active: boolean) =>
+    `px-2 h-7 rounded-lg text-xs font-medium border cursor-pointer transition-colors ${
+      active
+        ? 'border-primary bg-primary text-primary-foreground'
+        : 'border-border bg-white/50 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10'
+    }`;
+
+  return (
+    <div className="rounded-xl border border-border overflow-hidden">
+      <div className="flex items-center gap-1 px-2 py-1.5 border-b border-border bg-white/30 dark:bg-black/20 flex-wrap">
+        <button type="button" className={btn(editor.isActive('heading', { level: 2 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>H2</button>
+        <button type="button" className={btn(editor.isActive('heading', { level: 3 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>H3</button>
+        <span className="w-px h-4 bg-border mx-0.5" />
+        <button type="button" className={`${btn(editor.isActive('bold'))} font-bold`} onClick={() => editor.chain().focus().toggleBold().run()}>B</button>
+        <button type="button" className={`${btn(editor.isActive('italic'))} italic`} onClick={() => editor.chain().focus().toggleItalic().run()}>I</button>
+        <span className="w-px h-4 bg-border mx-0.5" />
+        <button type="button" className={btn(editor.isActive('bulletList'))} onClick={() => editor.chain().focus().toggleBulletList().run()}>• List</button>
+        <button type="button" className={btn(editor.isActive('orderedList'))} onClick={() => editor.chain().focus().toggleOrderedList().run()}>1. List</button>
+      </div>
+      <EditorContent
+        editor={editor}
+        className={[
+          'min-h-[160px] px-3 py-2.5 text-sm bg-black/3 dark:bg-white/3',
+          '[&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-[140px]',
+          '[&_.ProseMirror_h2]:text-lg [&_.ProseMirror_h2]:font-bold [&_.ProseMirror_h2]:mt-3 [&_.ProseMirror_h2]:mb-1',
+          '[&_.ProseMirror_h3]:text-base [&_.ProseMirror_h3]:font-bold [&_.ProseMirror_h3]:mt-2 [&_.ProseMirror_h3]:mb-0.5',
+          '[&_.ProseMirror_p]:my-1',
+          '[&_.ProseMirror_strong]:font-bold',
+          '[&_.ProseMirror_em]:italic',
+          '[&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-5',
+          '[&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-5',
+          '[&_.ProseMirror_li]:my-0.5',
+        ].join(' ')}
+      />
+    </div>
+  );
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.12.19] - 2026-05-31
+### Added
+- Menu item editor: rich text "Website description" field (TipTap, same editor as blogs) for long-form content on the website detail page
+- Menu item editor: collapsible SEO panel — Focus Keyword, Meta Title (60-char), Meta Description (160-char)
+- Product type: `longDescription`, `metaTitle`, `metaDescription`, `focusKeyword` fields
+
 ## [1.12.18] - 2026-05-30
 ### Added
 - Settings → Website section: "Search Engine Visibility" toggle — discourages search engines from indexing the website (sets noindex via Firestore venue-settings/website); useful before switching domain from old WordPress site

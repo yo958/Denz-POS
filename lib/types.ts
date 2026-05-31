@@ -32,6 +32,12 @@ export interface Product {
   price: number;
   category: ProductCategory;
   description: string;
+  /** Custom page title for search engines (falls back to name). */
+  metaTitle?: string;
+  /** Custom meta description for search engines. */
+  metaDescription?: string;
+  /** Focus keyword to guide SEO writing. */
+  focusKeyword?: string;
   /** Null = not stocked (desks, rooms, services, or stock tracking disabled). Number = current units in stock. */
   stock: number | null;
   /** Optional low-stock threshold. */
@@ -59,7 +65,7 @@ export interface Product {
    * Prices are set at the product level; the shared group options carry no default price.
    */
   modifierOptionPriceOverrides?: Record<string, Record<string, number>>;
-  /** Extended description shown on the room's individual page on the website. */
+  /** TipTap HTML shown on the item's detail page on the website (rooms, menu items, coworking). */
   longDescription?: string;
   /** Gallery images (data URLs) shown on the room's detail page. Max 6 images. */
   gallery?: string[];
