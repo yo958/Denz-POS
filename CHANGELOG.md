@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.12.20] - 2026-05-31
+### Fixed
+- Menu: product images now write to a separate `product-images/{id}` Firestore collection so the website can display them — the products slice was already ~965 KB and a base64 image pushed it over Firestore's 1 MB limit, causing silent write failure
+- Storage: strip `image` from products slice before Firestore write; restore from local cache when remote snapshot arrives, so POS display is unaffected
+
 ## [1.12.19] - 2026-05-31
 ### Added
 - Menu item editor: rich text "Website description" field (TipTap, same editor as blogs) for long-form content on the website detail page

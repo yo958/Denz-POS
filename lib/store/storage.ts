@@ -41,6 +41,17 @@ export class StorageSlice<T> {
     private readonly version: number,
     private readonly initial: () => T,
     private readonly migrate?: (oldVersion: number, oldData: unknown) => T,
+    /**
+     * Called before serializing to Firestore. Strip or transform fields that
+     * are too large for a single Firestore document (e.g. base64 images).
+     */
+    private readonly firestoreTransform?: (value: T) => T,
+    /**
+     * Called when a Firestore snapshot arrives. Lets you merge fields that
+     * were stripped by `firestoreTransform` back from the local cache so they
+     * aren't lost when the remote snapshot is applied.
+     */
+    private readonly firestoreRecvMerge?: (remote: T, local: T) => T,
   ) {
     this.cache = this.load();
     if (typeof window !== 'undefined') {
@@ -95,8 +106,9 @@ export class StorageSlice<T> {
 
   private firestorePersist(value: T) {
     if (!this.firestoreDoc) return;
+    const toWrite = this.firestoreTransform ? this.firestoreTransform(value) : value;
     // Serialize with our custom replacer so Dates survive the round-trip
-    const serialized = JSON.stringify(value, replacer);
+    const serialized = JSON.stringify(toWrite, replacer);
     // Record write time BEFORE the async import so the guard is set
     // even if the import takes a moment to resolve.
     this._lastLocalWriteAt = Date.now();
@@ -175,9 +187,10 @@ export class StorageSlice<T> {
           }
           try {
             const parsed = JSON.parse(remote.serialized, reviver) as T;
+            const merged = this.firestoreRecvMerge ? this.firestoreRecvMerge(parsed, this.cache) : parsed;
             this._suppressFirestoreWrite = true;
-            this.cache = parsed;
-            this.localPersist(parsed);
+            this.cache = merged;
+            this.localPersist(merged);
             this.listeners.forEach(l => l());
           } catch (e) {
             console.warn(`[firestore] parse error for ${this.key}`, e);

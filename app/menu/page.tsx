@@ -13,6 +13,8 @@ import { toast } from '@/components/ui/toast';
 import { CsvImportDialog } from '@/components/menu/CsvImportDialog';
 import { Switch } from '@/components/ui/switch';
 import type { Product, ProductCategory } from '@/lib/types';
+import { db } from '@/lib/firebase';
+import { doc, setDoc, deleteField } from 'firebase/firestore';
 
 const CATEGORY_LABEL: Partial<Record<ProductCategory, string>> = {
   food: 'Food', drinks: 'Drinks', dessert: 'Dessert',
@@ -92,6 +94,16 @@ export default function MenuPage() {
       getStore().products.set(prev => [...prev, form]);
       getStore().log('product.create', form.name, me?.id);
       toast.success('Added');
+    }
+    // Write image to its own Firestore doc so the website can display it
+    // (the products slice strips images to stay under Firestore's 1 MB limit).
+    const imgRef = doc(db, 'product-images', form.id);
+    if (form.image) {
+      setDoc(imgRef, { image: form.image }, { merge: true })
+        .catch(e => console.warn('[product-images] write error', e));
+    } else {
+      setDoc(imgRef, { image: deleteField() }, { merge: true })
+        .catch(e => console.warn('[product-images] delete error', e));
     }
     setEditing(null);
     setCreating(false);

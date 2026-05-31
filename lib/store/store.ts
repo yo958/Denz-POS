@@ -24,7 +24,18 @@ const CURRENT_SCHEMA = 1;
 class Store {
   readonly settings = new StorageSlice<Settings>('denz.settings', CURRENT_SCHEMA, () => SEED_SETTINGS);
   readonly staff    = new StorageSlice<Staff[]>('denz.staff',    CURRENT_SCHEMA, () => SEED_STAFF);
-  readonly products = new StorageSlice<Product[]>('denz.products', CURRENT_SCHEMA, () => SEED_PRODUCTS);
+  readonly products = new StorageSlice<Product[]>(
+    'denz.products', CURRENT_SCHEMA, () => SEED_PRODUCTS,
+    undefined,
+    // Strip base64 images before writing to Firestore — keeps the slice under 1 MB.
+    // Images are written separately to `product-images/{id}`.
+    (products) => products.map(({ image: _img, ...p }) => p as Product),
+    // When a Firestore snapshot arrives (without images), restore local images.
+    (remote, local) => {
+      const localById = new Map(local.map(p => [p.id, p.image]));
+      return remote.map(p => ({ ...p, image: localById.get(p.id) ?? p.image }));
+    },
+  );
   readonly modifierGroups = new StorageSlice<ModifierGroup[]>('denz.modifierGroups', CURRENT_SCHEMA, () => SEED_MODIFIER_GROUPS);
   readonly tabs     = new StorageSlice<Tab[]>('denz.tabs',       CURRENT_SCHEMA, () => SEED_TABS);
   readonly stays    = new StorageSlice<Stay[]>('denz.stays',     CURRENT_SCHEMA, () => SEED_STAYS);
