@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.12.22] - 2026-06-01
+### Fixed
+- reviews/fetch: corrected Outcraper API endpoint to `api.app.outscraper.com/maps/reviews-v3`, fixed field names (`author_title`, `author_image`, `review_img_urls` instead of `autor_*` / `photos_links`), fixed dedup key
+- reviews/settings GET: now returns `reviews` array so the manager panel loads on page open
+
 ## [1.12.21] - 2026-06-01
 ### Added
 - Settings: Google Reviews section — Outcraper API key, Place ID, fetch rules (media-only, min rating, check interval, cache TTL), Fetch Now button, and a Reviews Manager table with per-review visible/approved toggles and tag editor (food/coworking/rooms/general)

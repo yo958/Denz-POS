@@ -34,6 +34,7 @@ export async function GET() {
     fetchedAt: data.fetchedAt ?? null,
     nextCheckAt: data.nextCheckAt ?? null,
     totalFetched: data.totalFetched ?? 0,
+    reviews: data.reviews ?? [],
   });
 }
 
