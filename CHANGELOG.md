@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.12.23] - 2026-06-01
+### Fixed
+- Settings → Google Reviews manager: review thumbnails now load via `/api/proxy-image` — same fix as website (Google grass-cs CDN blocked browser requests)
+
 ## [1.12.22] - 2026-06-01
 ### Fixed
 - reviews/fetch: corrected Outcraper API endpoint to `api.app.outscraper.com/maps/reviews-v3`, fixed field names (`author_title`, `author_image`, `review_img_urls` instead of `autor_*` / `photos_links`), fixed dedup key

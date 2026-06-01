@@ -908,6 +908,12 @@ function OpenAISection() {
 
 /* ── Google Reviews ─────────────────────────────────────────── */
 
+function proxyImg(url: string, size = 'w200'): string {
+  if (!url || !url.includes('googleusercontent.com')) return url;
+  const sized = /=[swh]\d/.test(url) ? url : `${url}=${size}`;
+  return `/api/proxy-image?url=${encodeURIComponent(sized)}`;
+}
+
 const REVIEW_TAGS: { value: ReviewTag; label: string }[] = [
   { value: 'food',       label: 'Food & Café' },
   { value: 'coworking',  label: 'Coworking' },
@@ -1188,7 +1194,7 @@ function GoogleReviewsSection() {
                     {/* Photo thumbnail */}
                     {review.photos[0] ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={review.photos[0]} alt="" className="w-14 h-10 object-cover rounded-lg shrink-0" />
+                      <img src={proxyImg(review.photos[0])} alt="" className="w-14 h-10 object-cover rounded-lg shrink-0" />
                     ) : (
                       <div className="w-14 h-10 rounded-lg bg-black/10 dark:bg-white/10 shrink-0 flex items-center justify-center">
                         <ImageIcon size={14} className="text-muted-foreground" />
