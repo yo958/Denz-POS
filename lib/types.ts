@@ -364,7 +364,8 @@ export type AuditAction =
   | 'analytics.refresh'
   | 'gsc.refresh' | 'gsc.insights'
   | 'settings.openai'
-  | 'blog.create' | 'blog.update' | 'blog.delete' | 'blog.publish';
+  | 'blog.create' | 'blog.update' | 'blog.delete' | 'blog.publish'
+  | 'reviews.fetch' | 'reviews.settings' | 'reviews.update';
 export interface AuditEntry {
   id: string;
   at: Date;
@@ -466,4 +467,34 @@ export interface BlogTaxonomy {
   slug: string;
   description?: string;
   createdAt: string;
+}
+
+/* ── Google Reviews ───────────────────────────────────────────── */
+export type ReviewTag = 'food' | 'coworking' | 'rooms' | 'general';
+
+export interface GoogleReview {
+  reviewId: string;
+  authorName: string;
+  authorPhoto?: string;
+  rating: number;
+  text: string;
+  photos: string[];
+  publishedAt: string;
+  visible: boolean;
+  tags: ReviewTag[];
+  approved: boolean;
+}
+
+export interface GoogleReviewSettings {
+  apiKey?: string;
+  placeId?: string;
+  maxReviews: number;
+  mediaOnly: boolean;
+  minRating: number;
+  cacheTtlHours: number;
+  checkIntervalHours: number;
+  fetchedAt?: string;
+  nextCheckAt?: string;
+  totalFetched?: number;
+  reviews: GoogleReview[];
 }

@@ -23,6 +23,12 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
 
+    // Google Reviews cache — public read so website can display reviews client-side
+    match /venue-settings/google-reviews {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
     // Product images — stored separately so they don't bloat the products slice (1 MB Firestore limit)
     match /product-images/{productId} {
       allow read: if true;

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.21] - 2026-06-01
+### Added
+- Settings: Google Reviews section — Outcraper API key, Place ID, fetch rules (media-only, min rating, check interval, cache TTL), Fetch Now button, and a Reviews Manager table with per-review visible/approved toggles and tag editor (food/coworking/rooms/general)
+- API routes: `reviews/settings` (GET/POST), `reviews/fetch` (POST — Outcraper fetch with dedup), `reviews/update` (POST — patch single review fields)
+- Types: `GoogleReview`, `GoogleReviewSettings`, `ReviewTag`; audit actions `reviews.fetch`, `reviews.settings`, `reviews.update`
+- Firestore rules: public read on `venue-settings/google-reviews` for website client-side access
+
 ## [1.12.20] - 2026-05-31
 ### Fixed
 - Menu: product images now write to a separate `product-images/{id}` Firestore collection so the website can display them — the products slice was already ~965 KB and a base64 image pushed it over Firestore's 1 MB limit, causing silent write failure

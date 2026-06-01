@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Save, Upload, Download, Trash2, KeyRound, UserPlus, AlertTriangle, Plus, Pencil, X, Phone, Mail, Image as ImageIcon, RefreshCw, Eye, EyeOff, Sparkles, Check, Sun, Moon, Monitor, Globe, EyeOff as SearchOff } from 'lucide-react';
+import { Save, Upload, Download, Trash2, KeyRound, UserPlus, AlertTriangle, Plus, Pencil, X, Phone, Mail, Image as ImageIcon, RefreshCw, Eye, EyeOff, Sparkles, Check, Sun, Moon, Monitor, Globe, EyeOff as SearchOff, Star, Tag, ChevronDown, ChevronUp } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useSettings, useStaff, useCurrentStaff, useModifierGroups } from '@/lib/hooks/useStore';
 import { getStore } from '@/lib/store/store';
@@ -11,7 +11,7 @@ import { createStaffAccount, sendPasswordReset } from '@/lib/firebase';
 import { confirm } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/toast';
 import { newId } from '@/lib/domain/id';
-import type { DayOfWeek, ModifierGroup, ModifierOption, Settings, Staff, StaffRole } from '@/lib/types';
+import type { DayOfWeek, GoogleReview, GoogleReviewSettings, ModifierGroup, ModifierOption, ReviewTag, Settings, Staff, StaffRole } from '@/lib/types';
 
 export default function SettingsPage() {
   const settings = useSettings();
@@ -372,6 +372,8 @@ export default function SettingsPage() {
         <WebsiteSection />
 
         <OpenAISection />
+
+        <GoogleReviewsSection />
 
         <Section title="Data">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -900,6 +902,364 @@ function OpenAISection() {
           )}
         </div>
       </Field>
+    </Section>
+  );
+}
+
+/* ── Google Reviews ─────────────────────────────────────────── */
+
+const REVIEW_TAGS: { value: ReviewTag; label: string }[] = [
+  { value: 'food',       label: 'Food & Café' },
+  { value: 'coworking',  label: 'Coworking' },
+  { value: 'rooms',      label: 'Rooms' },
+  { value: 'general',    label: 'General' },
+];
+
+function StarRow({ rating }: { rating: number }) {
+  return (
+    <div className="flex gap-0.5">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Star key={i} size={11} className={i < rating ? 'fill-amber-400 text-amber-400' : 'text-border'} />
+      ))}
+    </div>
+  );
+}
+
+function GoogleReviewsSection() {
+  const [cfg, setCfg] = useState<Partial<GoogleReviewSettings>>({
+    maxReviews: 50, mediaOnly: true, minRating: 4, cacheTtlHours: 720, checkIntervalHours: 24,
+  });
+  const [apiKey, setApiKey]     = useState('');
+  const [showKey, setShowKey]   = useState(false);
+  const [hasKey, setHasKey]     = useState(false);
+  const [maskedKey, setMaskedKey] = useState('');
+  const [loaded, setLoaded]     = useState(false);
+  const [saving, setSaving]     = useState(false);
+  const [fetching, setFetching] = useState(false);
+  const [reviews, setReviews]   = useState<GoogleReview[]>([]);
+  const [showManager, setShowManager] = useState(false);
+  const [tagPopover, setTagPopover]   = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/reviews/settings')
+      .then(r => r.json())
+      .then((d: Partial<GoogleReviewSettings> & { hasKey?: boolean; maskedKey?: string }) => {
+        setHasKey(d.hasKey ?? false);
+        setMaskedKey(d.maskedKey ?? '');
+        setCfg({
+          placeId: d.placeId ?? '',
+          maxReviews: d.maxReviews ?? 50,
+          mediaOnly: d.mediaOnly ?? true,
+          minRating: d.minRating ?? 4,
+          cacheTtlHours: d.cacheTtlHours ?? 720,
+          checkIntervalHours: d.checkIntervalHours ?? 24,
+          fetchedAt: d.fetchedAt ?? undefined,
+          nextCheckAt: d.nextCheckAt ?? undefined,
+          totalFetched: d.totalFetched ?? 0,
+        });
+        setReviews(d.reviews ?? []);
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+  }, []);
+
+  async function saveSettings() {
+    setSaving(true);
+    try {
+      await fetch('/api/reviews/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
+          placeId: cfg.placeId,
+          maxReviews: cfg.maxReviews,
+          mediaOnly: cfg.mediaOnly,
+          minRating: cfg.minRating,
+          cacheTtlHours: cfg.cacheTtlHours,
+          checkIntervalHours: cfg.checkIntervalHours,
+        }),
+      });
+      if (apiKey.trim()) {
+        const k = apiKey.trim();
+        setMaskedKey(k.length > 8 ? `${k.slice(0, 4)}...${k.slice(-4)}` : '****');
+        setHasKey(true);
+        setApiKey('');
+      }
+      toast.success('Reviews settings saved');
+    } catch {
+      toast.error('Failed to save settings');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function fetchNow() {
+    if (!hasKey && !apiKey.trim()) { toast.error('Save your API key first'); return; }
+    if (!cfg.placeId?.trim()) { toast.error('Enter a Google Place ID first'); return; }
+    if (!hasKey && apiKey.trim()) await saveSettings();
+    setFetching(true);
+    try {
+      const res = await fetch('/api/reviews/fetch', { method: 'POST' });
+      const d = await res.json() as { ok?: boolean; added?: number; total?: number; message?: string };
+      if (!res.ok) { toast.error(d.message ?? 'Fetch failed'); return; }
+      toast.success(`Fetched — ${d.added} new review${d.added !== 1 ? 's' : ''} added (${d.total} total)`);
+      // Reload reviews
+      const updated = await fetch('/api/reviews/settings').then(r => r.json()) as { reviews?: GoogleReview[] };
+      setReviews(updated.reviews ?? []);
+    } catch {
+      toast.error('Fetch failed');
+    } finally {
+      setFetching(false);
+    }
+  }
+
+  async function updateReview(reviewId: string, patch: { visible?: boolean; tags?: ReviewTag[]; approved?: boolean }) {
+    await fetch('/api/reviews/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reviewId, ...patch }),
+    });
+    setReviews(prev => prev.map(r => r.reviewId === reviewId ? { ...r, ...patch } : r));
+  }
+
+  if (!loaded) return null;
+
+  return (
+    <Section title="Google Reviews">
+      <p className="text-xs text-muted-foreground -mt-1">
+        Pull reviews from Google via Outcraper API, cache them in Firestore, and display them on the website.{' '}
+        <a href="https://app.outscraper.com/api-key" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground transition-colors">Get an API key →</a>
+      </p>
+
+      {/* API Key */}
+      <Field label="Outcraper API Key">
+        {hasKey ? (
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-border bg-white/50 dark:bg-white/5">
+            <Star size={14} className="text-amber-500 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">API key configured</p>
+              <p className="text-xs text-muted-foreground font-mono">{maskedKey}</p>
+            </div>
+            <Check size={14} className="text-emerald-500 shrink-0" />
+            <button onClick={() => { setHasKey(false); setMaskedKey(''); }} className="flex items-center justify-center w-8 h-8 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 cursor-pointer">
+              <Pencil size={13} />
+            </button>
+          </div>
+        ) : (
+          <div className="relative">
+            <input
+              type={showKey ? 'text' : 'password'}
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
+              placeholder="Paste Outcraper API key"
+              autoComplete="off"
+              className={inputCls + ' pr-10'}
+            />
+            <button
+              type="button"
+              onClick={() => setShowKey(v => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              tabIndex={-1}
+            >
+              {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
+          </div>
+        )}
+      </Field>
+
+      {/* Place ID */}
+      <Field label="Google Place ID">
+        <input
+          value={cfg.placeId ?? ''}
+          onChange={e => setCfg(p => ({ ...p, placeId: e.target.value }))}
+          placeholder="ChIJ..."
+          className={inputCls}
+        />
+        <p className="text-[11px] text-muted-foreground mt-1">Find your Place ID at <a href="https://developers.google.com/maps/documentation/places/web-service/place-id" target="_blank" rel="noopener noreferrer" className="underline">Google's Place ID Finder →</a></p>
+      </Field>
+
+      {/* Fetch Rules */}
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Max Reviews to Fetch">
+          <input
+            type="number"
+            min={1} max={100}
+            value={cfg.maxReviews ?? 50}
+            onChange={e => setCfg(p => ({ ...p, maxReviews: Number(e.target.value) }))}
+            className={inputCls}
+          />
+        </Field>
+        <Field label="Minimum Star Rating">
+          <select
+            value={cfg.minRating ?? 4}
+            onChange={e => setCfg(p => ({ ...p, minRating: Number(e.target.value) }))}
+            className={inputCls}
+          >
+            {[5, 4, 3, 2, 1].map(n => <option key={n} value={n}>{n} star{n !== 1 ? 's' : ''} & above</option>)}
+          </select>
+        </Field>
+        <Field label="Check for New Reviews (hours)">
+          <input
+            type="number"
+            min={1}
+            value={cfg.checkIntervalHours ?? 24}
+            onChange={e => setCfg(p => ({ ...p, checkIntervalHours: Number(e.target.value) }))}
+            className={inputCls}
+          />
+        </Field>
+        <Field label="Full Re-fetch Cache (hours)">
+          <input
+            type="number"
+            min={1}
+            value={cfg.cacheTtlHours ?? 720}
+            onChange={e => setCfg(p => ({ ...p, cacheTtlHours: Number(e.target.value) }))}
+            className={inputCls}
+          />
+        </Field>
+      </div>
+
+      {/* Media Only toggle */}
+      <label className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-border bg-white/50 dark:bg-white/5 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={cfg.mediaOnly ?? true}
+          onChange={e => setCfg(p => ({ ...p, mediaOnly: e.target.checked }))}
+          className="w-4 h-4 accent-primary"
+        />
+        <div>
+          <p className="text-sm font-medium">Media only</p>
+          <p className="text-xs text-muted-foreground">Only store reviews that include photos</p>
+        </div>
+      </label>
+
+      {/* Status */}
+      {cfg.fetchedAt && (
+        <div className="text-xs text-muted-foreground px-1">
+          Last fetched: {new Date(cfg.fetchedAt).toLocaleString()} · {cfg.totalFetched ?? 0} reviews stored
+          {cfg.nextCheckAt && <> · Next check: {new Date(cfg.nextCheckAt).toLocaleString()}</>}
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => void saveSettings()}
+          disabled={saving}
+          className="flex items-center gap-1.5 h-10 px-4 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 disabled:opacity-50 transition-all cursor-pointer"
+        >
+          {saving ? <RefreshCw size={13} className="animate-spin" /> : <Save size={13} />}
+          Save Settings
+        </button>
+        <button
+          onClick={() => void fetchNow()}
+          disabled={fetching}
+          className="flex items-center gap-1.5 h-10 px-4 rounded-xl text-sm font-semibold border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8 disabled:opacity-50 transition-all cursor-pointer"
+        >
+          {fetching ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+          Fetch Now
+        </button>
+      </div>
+
+      {/* Reviews Manager */}
+      {reviews.length > 0 && (
+        <div className="border border-border rounded-2xl overflow-hidden">
+          <button
+            onClick={() => setShowManager(v => !v)}
+            className="flex items-center justify-between w-full px-4 py-3 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+          >
+            <span className="flex items-center gap-2">
+              <Tag size={14} className="text-muted-foreground" />
+              Manage Reviews ({reviews.length})
+            </span>
+            {showManager ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+
+          {showManager && (
+            <div className="border-t border-border">
+              {/* Bulk actions */}
+              <div className="flex gap-2 px-4 py-2 border-b border-border bg-black/3 dark:bg-white/3">
+                <button onClick={() => void Promise.all(reviews.map(r => updateReview(r.reviewId, { visible: true })))} className="text-xs px-2.5 py-1 rounded-lg border border-border hover:bg-black/5 dark:hover:bg-white/8 cursor-pointer">Show all</button>
+                <button onClick={() => void Promise.all(reviews.map(r => updateReview(r.reviewId, { visible: false })))} className="text-xs px-2.5 py-1 rounded-lg border border-border hover:bg-black/5 dark:hover:bg-white/8 cursor-pointer">Hide all</button>
+              </div>
+
+              <div className="divide-y divide-border max-h-[500px] overflow-y-auto">
+                {reviews.map(review => (
+                  <div key={review.reviewId} className="flex items-start gap-3 px-4 py-3">
+                    {/* Photo thumbnail */}
+                    {review.photos[0] ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={review.photos[0]} alt="" className="w-14 h-10 object-cover rounded-lg shrink-0" />
+                    ) : (
+                      <div className="w-14 h-10 rounded-lg bg-black/10 dark:bg-white/10 shrink-0 flex items-center justify-center">
+                        <ImageIcon size={14} className="text-muted-foreground" />
+                      </div>
+                    )}
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <StarRow rating={review.rating} />
+                        <span className="text-xs font-medium truncate">{review.authorName}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground line-clamp-2">{review.text}</p>
+
+                      {/* Tags */}
+                      <div className="relative mt-1.5 flex flex-wrap gap-1">
+                        {REVIEW_TAGS.map(t => (
+                          <button
+                            key={t.value}
+                            onClick={() => {
+                              const current = review.tags ?? [];
+                              const next = current.includes(t.value)
+                                ? current.filter(x => x !== t.value)
+                                : [...current, t.value];
+                              void updateReview(review.reviewId, { tags: next });
+                            }}
+                            className={`text-[10px] px-1.5 py-0.5 rounded-md border transition-colors cursor-pointer ${
+                              review.tags?.includes(t.value)
+                                ? 'bg-primary/10 border-primary/30 text-primary font-medium'
+                                : 'border-border text-muted-foreground hover:border-primary/40'
+                            }`}
+                          >
+                            {t.label}
+                          </button>
+                        ))}
+                        {tagPopover === review.reviewId && (
+                          <div className="hidden" onClick={() => setTagPopover(null)} />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Controls */}
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      {/* Visible toggle */}
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={review.visible}
+                          onChange={e => void updateReview(review.reviewId, { visible: e.target.checked })}
+                          className="w-3.5 h-3.5 accent-primary"
+                        />
+                        <span className="text-[11px] text-muted-foreground">Visible</span>
+                      </label>
+                      {/* Approved toggle */}
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={review.approved}
+                          onChange={e => void updateReview(review.reviewId, { approved: e.target.checked })}
+                          className="w-3.5 h-3.5 accent-primary"
+                        />
+                        <span className="text-[11px] text-muted-foreground">Approved</span>
+                      </label>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </Section>
   );
 }
