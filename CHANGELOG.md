@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.12.24] - 2026-06-01
+### Fixed
+- Rooms page: room images now write to `product-images/{id}` Firestore collection on save (same fix as menu v1.12.20 — base64 images inline in the products slice exceeded 1MB and were silently dropped)
+- One-time migration useEffect: on page load, any rooms with images in localStorage are automatically written to `product-images` in Firestore
+
 ## [1.12.23] - 2026-06-01
 ### Fixed
 - Settings → Google Reviews manager: review thumbnails now load via `/api/proxy-image` — same fix as website (Google grass-cs CDN blocked browser requests)

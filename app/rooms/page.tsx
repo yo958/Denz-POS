@@ -17,6 +17,8 @@ import {
   formatDate, formatElapsed, lineKey, lineUnitPrice, lineEffectiveUnitPrice, modifiersSummary, tabGrandTotal,
 } from '@/lib/domain/tabs';
 import type { Product, Stay, RoomSeason } from '@/lib/types';
+import { db } from '@/lib/firebase';
+import { doc, setDoc, deleteField } from 'firebase/firestore';
 
 export default function RoomsPage() {
   const products     = useProducts();
@@ -40,6 +42,16 @@ export default function RoomsPage() {
     const stay = stays.find(s => s.id === id);
     if (stay) setFolioStay(stay);
   }, [searchParams, stays]);
+
+  // One-time migration: write any existing room images to product-images collection
+  // (images stored inline in the products slice exceed Firestore's 1MB limit and are silently dropped)
+  useEffect(() => {
+    const roomProducts = products.filter(p => p.category === 'rooms' && p.image);
+    roomProducts.forEach(room => {
+      setDoc(doc(db, 'product-images', room.id), { image: room.image }, { merge: true })
+        .catch(() => {});
+    });
+  }, [products.filter(p => p.category === 'rooms').map(p => p.id).join(',')]);
 
   const rooms = products.filter(p => p.category === 'rooms' && (showArchived || !p.archived));
   // A room is available only if it has no active stay (current or upcoming) at all.
@@ -107,6 +119,16 @@ export default function RoomsPage() {
       store.products.set(prev => [...prev, form]);
       store.log('product.create', form.name, me?.id);
       toast.success('Room added');
+    }
+    // Write image to its own Firestore doc so the website can display it
+    // (the products slice strips images to stay under Firestore's 1 MB limit).
+    const imgRef = doc(db, 'product-images', form.id);
+    if (form.image) {
+      setDoc(imgRef, { image: form.image }, { merge: true })
+        .catch(e => console.warn('[product-images] write error', e));
+    } else {
+      setDoc(imgRef, { image: deleteField() }, { merge: true })
+        .catch(e => console.warn('[product-images] delete error', e));
     }
     setEditing(null);
     setCreating(false);
