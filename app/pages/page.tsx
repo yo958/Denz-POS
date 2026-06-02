@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Save, Plus, Trash2, Loader2, FileText, ChevronDown, ChevronUp } from 'lucide-react';
+import { Save, Plus, Trash2, Loader2, FileText, ChevronDown, ChevronUp, Search } from 'lucide-react';
 import { useCurrentStaff } from '@/lib/hooks/useStore';
 import { toast } from '@/components/ui/toast';
 
@@ -26,6 +26,7 @@ interface HomeContent {
   faq?: {
     items?: FaqItem[];
   };
+  seo?: SeoContent;
 }
 
 interface SimplePageContent {
@@ -34,6 +35,7 @@ interface SimplePageContent {
     title?: string;
     subtitle?: string;
   };
+  seo?: SeoContent;
 }
 
 interface RoomsContent extends SimplePageContent {
@@ -46,6 +48,7 @@ interface GuideContent {
     title?: string;
     body?: string;
   };
+  seo?: SeoContent;
 }
 
 interface ContactContent {
@@ -53,6 +56,13 @@ interface ContactContent {
     title?: string;
     subtitle?: string;
   };
+  seo?: SeoContent;
+}
+
+interface SeoContent {
+  metaTitle?: string;
+  metaDescription?: string;
+  focusKeyword?: string;
 }
 
 type PageSlug = 'home' | 'menu' | 'coworking' | 'rooms' | 'guide' | 'contact';
@@ -119,12 +129,76 @@ function Section({ title, note, children }: { title: string; note?: string; chil
   );
 }
 
+function SeoPanel({ seo, onChange }: { seo: SeoContent; onChange: (s: SeoContent) => void }) {
+  const [open, setOpen] = useState(false);
+  const titleLen = (seo.metaTitle ?? '').length;
+  const descLen  = (seo.metaDescription ?? '').length;
+  return (
+    <div className="rounded-2xl border border-violet-200 dark:border-violet-700/30 overflow-hidden mb-4">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between gap-3 px-5 py-4 bg-violet-50 dark:bg-violet-900/10 hover:bg-violet-100/70 dark:hover:bg-violet-900/20 transition-colors text-left"
+      >
+        <div className="flex items-center gap-2.5">
+          <Search size={15} className="text-violet-500" strokeWidth={1.8} />
+          <span className="text-sm font-semibold text-violet-700 dark:text-violet-300">SEO</span>
+          {(seo.metaTitle || seo.metaDescription || seo.focusKeyword) && (
+            <span className="text-xs bg-violet-200 dark:bg-violet-700/40 text-violet-700 dark:text-violet-300 rounded-full px-2 py-0.5 font-medium">Saved</span>
+          )}
+        </div>
+        {open ? <ChevronUp size={14} className="text-violet-500" /> : <ChevronDown size={14} className="text-violet-500" />}
+      </button>
+      {open && (
+        <div className="p-5 border-t border-violet-200 dark:border-violet-700/30 bg-white dark:bg-background">
+          <div className="grid grid-cols-[160px_1fr] gap-4 items-start py-3 border-b border-border">
+            <label className="text-sm font-medium text-foreground pt-2">Focus Keyword</label>
+            <input
+              type="text"
+              value={seo.focusKeyword ?? ''}
+              onChange={e => onChange({ ...seo, focusKeyword: e.target.value })}
+              placeholder="e.g. coworking phuket"
+              className="w-full h-9 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div className="grid grid-cols-[160px_1fr] gap-4 items-start py-3 border-b border-border">
+            <label className="text-sm font-medium text-foreground pt-2">
+              Meta Title
+              <span className={`block text-xs font-normal mt-0.5 ${titleLen > 60 ? 'text-rose-500' : 'text-muted-foreground'}`}>{titleLen}/60</span>
+            </label>
+            <input
+              type="text"
+              value={seo.metaTitle ?? ''}
+              onChange={e => onChange({ ...seo, metaTitle: e.target.value })}
+              placeholder="Leave blank to use default"
+              className="w-full h-9 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div className="grid grid-cols-[160px_1fr] gap-4 items-start py-3">
+            <label className="text-sm font-medium text-foreground pt-2">
+              Meta Description
+              <span className={`block text-xs font-normal mt-0.5 ${descLen > 160 ? 'text-rose-500' : 'text-muted-foreground'}`}>{descLen}/160</span>
+            </label>
+            <textarea
+              value={seo.metaDescription ?? ''}
+              onChange={e => onChange({ ...seo, metaDescription: e.target.value })}
+              placeholder="Leave blank to use default"
+              rows={3}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Tab editors ───────────────────────────────────────────────────────────────
 
 function HomeEditor({ content, onChange }: { content: HomeContent; onChange: (c: HomeContent) => void }) {
   const hero  = content.hero  ?? {};
   const about = content.about ?? {};
   const faqs  = content.faq?.items ?? [];
+  const seo   = content.seo   ?? {};
 
   function setHero(patch: Partial<typeof hero>) {
     onChange({ ...content, hero: { ...hero, ...patch } });
@@ -218,6 +292,8 @@ function HomeEditor({ content, onChange }: { content: HomeContent; onChange: (c:
           </button>
         </div>
       </Section>
+
+      <SeoPanel seo={seo} onChange={s => onChange({ ...content, seo: s })} />
     </div>
   );
 }
@@ -261,21 +337,25 @@ function SimplePageEditor({
   defaults: { badge?: string; title?: string; subtitle?: string };
 }) {
   const hero = content.hero ?? {};
+  const seo  = content.seo  ?? {};
   function setHero(patch: Partial<typeof hero>) {
     onChange({ ...content, hero: { ...hero, ...patch } });
   }
   return (
-    <Section title="Hero section">
-      <FieldRow label="Badge label">
-        <Input value={hero.badge ?? ''} onChange={v => setHero({ badge: v })} placeholder={defaults.badge ?? ''} />
-      </FieldRow>
-      <FieldRow label="Page title">
-        <Input value={hero.title ?? ''} onChange={v => setHero({ title: v })} placeholder={defaults.title ?? ''} />
-      </FieldRow>
-      <FieldRow label="Subtitle">
-        <Textarea value={hero.subtitle ?? ''} onChange={v => setHero({ subtitle: v })} placeholder={defaults.subtitle ?? ''} rows={2} />
-      </FieldRow>
-    </Section>
+    <div>
+      <Section title="Hero section">
+        <FieldRow label="Badge label">
+          <Input value={hero.badge ?? ''} onChange={v => setHero({ badge: v })} placeholder={defaults.badge ?? ''} />
+        </FieldRow>
+        <FieldRow label="Page title">
+          <Input value={hero.title ?? ''} onChange={v => setHero({ title: v })} placeholder={defaults.title ?? ''} />
+        </FieldRow>
+        <FieldRow label="Subtitle">
+          <Textarea value={hero.subtitle ?? ''} onChange={v => setHero({ subtitle: v })} placeholder={defaults.subtitle ?? ''} rows={2} />
+        </FieldRow>
+      </Section>
+      <SeoPanel seo={seo} onChange={s => onChange({ ...content, seo: s })} />
+    </div>
   );
 }
 
@@ -320,38 +400,46 @@ function RoomsEditor({ content, onChange }: { content: RoomsContent; onChange: (
 
 function GuideEditor({ content, onChange }: { content: GuideContent; onChange: (c: GuideContent) => void }) {
   const hero = content.hero ?? {};
+  const seo  = content.seo  ?? {};
   function setHero(patch: Partial<typeof hero>) {
     onChange({ ...content, hero: { ...hero, ...patch } });
   }
   return (
-    <Section title="Hero section">
-      <FieldRow label="Badge label">
-        <Input value={hero.badge ?? ''} onChange={v => setHero({ badge: v })} placeholder="Denz Phuket Guide" />
-      </FieldRow>
-      <FieldRow label="Page title">
-        <Input value={hero.title ?? ''} onChange={v => setHero({ title: v })} placeholder="Your local guide to life in Phuket" />
-      </FieldRow>
-      <FieldRow label="Body text">
-        <Textarea value={hero.body ?? ''} onChange={v => setHero({ body: v })} placeholder="From the best spots to eat and work…" rows={3} />
-      </FieldRow>
-    </Section>
+    <div>
+      <Section title="Hero section">
+        <FieldRow label="Badge label">
+          <Input value={hero.badge ?? ''} onChange={v => setHero({ badge: v })} placeholder="Denz Phuket Guide" />
+        </FieldRow>
+        <FieldRow label="Page title">
+          <Input value={hero.title ?? ''} onChange={v => setHero({ title: v })} placeholder="Your local guide to life in Phuket" />
+        </FieldRow>
+        <FieldRow label="Body text">
+          <Textarea value={hero.body ?? ''} onChange={v => setHero({ body: v })} placeholder="From the best spots to eat and work…" rows={3} />
+        </FieldRow>
+      </Section>
+      <SeoPanel seo={seo} onChange={s => onChange({ ...content, seo: s })} />
+    </div>
   );
 }
 
 function ContactEditor({ content, onChange }: { content: ContactContent; onChange: (c: ContactContent) => void }) {
   const hero = content.hero ?? {};
+  const seo  = content.seo  ?? {};
   function setHero(patch: Partial<typeof hero>) {
     onChange({ ...content, hero: { ...hero, ...patch } });
   }
   return (
-    <Section title="Hero section" note="Opening hours, address and social links are managed in Settings → Venue">
-      <FieldRow label="Page title">
-        <Input value={hero.title ?? ''} onChange={v => setHero({ title: v })} placeholder="Get in touch" />
-      </FieldRow>
-      <FieldRow label="Subtitle">
-        <Textarea value={hero.subtitle ?? ''} onChange={v => setHero({ subtitle: v })} placeholder="Have a question? Slide into our DMs…" rows={2} />
-      </FieldRow>
-    </Section>
+    <div>
+      <Section title="Hero section" note="Opening hours, address and social links are managed in Settings → Venue">
+        <FieldRow label="Page title">
+          <Input value={hero.title ?? ''} onChange={v => setHero({ title: v })} placeholder="Get in touch" />
+        </FieldRow>
+        <FieldRow label="Subtitle">
+          <Textarea value={hero.subtitle ?? ''} onChange={v => setHero({ subtitle: v })} placeholder="Have a question? Slide into our DMs…" rows={2} />
+        </FieldRow>
+      </Section>
+      <SeoPanel seo={seo} onChange={s => onChange({ ...content, seo: s })} />
+    </div>
   );
 }
 

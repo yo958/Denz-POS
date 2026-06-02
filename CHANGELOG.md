@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.12.26] - 2026-06-02
+### Added
+- Pages CMS: SEO panel (violet, collapsible) on every page tab — Focus Keyword, Meta Title (60-char counter), Meta Description (160-char counter)
+
 ## [1.12.25] - 2026-06-02
 ### Added
 - Pages CMS: new `/pages` section in POS with tabs for Home, Menu, Coworking, Rooms, Guide, and Contact — edit hero headlines, subtitles, CTAs, about text, FAQ items, and feature lists
