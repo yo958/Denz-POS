@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.25] - 2026-06-02
+### Added
+- Pages CMS: new `/pages` section in POS with tabs for Home, Menu, Coworking, Rooms, Guide, and Contact — edit hero headlines, subtitles, CTAs, about text, FAQ items, and feature lists
+- `page-content` Firestore collection with public read / staff write rules
+- `GET/PUT /api/pages/[slug]` API routes backed by Firebase Admin
+- `pages.update` AuditAction
+
 ## [1.12.24] - 2026-06-01
 ### Fixed
 - Rooms page: room images now write to `product-images/{id}` Firestore collection on save (same fix as menu v1.12.20 — base64 images inline in the products slice exceeded 1MB and were silently dropped)

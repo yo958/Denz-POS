@@ -365,7 +365,8 @@ export type AuditAction =
   | 'gsc.refresh' | 'gsc.insights'
   | 'settings.openai'
   | 'blog.create' | 'blog.update' | 'blog.delete' | 'blog.publish'
-  | 'reviews.fetch' | 'reviews.settings' | 'reviews.update';
+  | 'reviews.fetch' | 'reviews.settings' | 'reviews.update'
+  | 'pages.update';
 export interface AuditEntry {
   id: string;
   at: Date;
