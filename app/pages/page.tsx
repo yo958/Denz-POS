@@ -38,6 +38,18 @@ interface SimplePageContent {
   seo?: SeoContent;
 }
 
+interface RuleItem { title: string; body: string }
+
+interface CoworkingContent extends SimplePageContent {
+  amenities?: string[];
+  rules?: {
+    badge?: string;
+    title?: string;
+    subtitle?: string;
+    items?: RuleItem[];
+  };
+}
+
 interface RoomsContent extends SimplePageContent {
   features?: string[];
 }
@@ -398,6 +410,121 @@ function RoomsEditor({ content, onChange }: { content: RoomsContent; onChange: (
   );
 }
 
+function RuleItemEditor({ rule, index, onUpdate, onRemove }: { rule: RuleItem; index: number; onUpdate: (r: RuleItem) => void; onRemove: () => void }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="border border-border rounded-xl overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-3">
+        <span className="text-xs font-medium text-muted-foreground w-5">#{index + 1}</span>
+        <input
+          type="text"
+          value={rule.title}
+          onChange={e => onUpdate({ ...rule, title: e.target.value })}
+          placeholder="Rule title…"
+          className="flex-1 text-sm bg-transparent focus:outline-none"
+        />
+        <button onClick={() => setExpanded(!expanded)} className="p-1 text-muted-foreground hover:text-foreground transition-colors">
+          {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
+        <button onClick={onRemove} className="p-1 text-muted-foreground hover:text-rose-500 transition-colors">
+          <Trash2 size={14} />
+        </button>
+      </div>
+      {expanded && (
+        <div className="px-4 pb-3 border-t border-border">
+          <Textarea value={rule.body} onChange={v => onUpdate({ ...rule, body: v })} placeholder="Rule description…" rows={3} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CoworkingEditor({ content, onChange }: { content: CoworkingContent; onChange: (c: CoworkingContent) => void }) {
+  const hero      = content.hero      ?? {};
+  const seo       = content.seo       ?? {};
+  const amenities = content.amenities ?? ['1 Gbps Fibre', 'Free drinks', 'Printing', 'Lockers', 'Community', 'Standing desks'];
+  const rules     = content.rules     ?? {};
+  const ruleItems = rules.items ?? [];
+
+  function setHero(patch: Partial<typeof hero>) { onChange({ ...content, hero: { ...hero, ...patch } }); }
+  function setRules(patch: Partial<typeof rules>) { onChange({ ...content, rules: { ...rules, ...patch } }); }
+
+  return (
+    <div>
+      <Section title="Hero section">
+        <FieldRow label="Badge label">
+          <Input value={hero.badge ?? ''} onChange={v => setHero({ badge: v })} placeholder="Coworking" />
+        </FieldRow>
+        <FieldRow label="Page title">
+          <Input value={hero.title ?? ''} onChange={v => setHero({ title: v })} placeholder="Flexible workspace in Phuket" />
+        </FieldRow>
+        <FieldRow label="Subtitle">
+          <Textarea value={hero.subtitle ?? ''} onChange={v => setHero({ subtitle: v })} placeholder="From day passes to dedicated private offices…" rows={2} />
+        </FieldRow>
+      </Section>
+
+      <Section title="Amenity pills" note="Icons are fixed; labels shown as pills under the hero header">
+        <div className="space-y-2">
+          {amenities.map((a, i) => (
+            <div key={i} className="flex gap-2">
+              <input
+                type="text"
+                value={a}
+                onChange={e => { const next = [...amenities]; next[i] = e.target.value; onChange({ ...content, amenities: next }); }}
+                className="flex-1 h-9 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <button
+                onClick={() => onChange({ ...content, amenities: amenities.filter((_, j) => j !== i) })}
+                className="w-9 h-9 flex items-center justify-center rounded-xl border border-border text-muted-foreground hover:text-rose-500 hover:border-rose-300 transition-colors"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+          <button
+            onClick={() => onChange({ ...content, amenities: [...amenities, ''] })}
+            className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors"
+          >
+            <Plus size={12} /> Add amenity
+          </button>
+        </div>
+      </Section>
+
+      <Section title="House rules section">
+        <FieldRow label="Badge text">
+          <Input value={rules.badge ?? ''} onChange={v => setRules({ badge: v })} placeholder="These rules were not made to be broken" />
+        </FieldRow>
+        <FieldRow label="Section title">
+          <Input value={rules.title ?? ''} onChange={v => setRules({ title: v })} placeholder="Denz CoWorking Rules" />
+        </FieldRow>
+        <FieldRow label="Subtitle">
+          <Textarea value={rules.subtitle ?? ''} onChange={v => setRules({ subtitle: v })} placeholder="At Denz CoWorking Cafe, we value…" rows={2} />
+        </FieldRow>
+        <div className="mt-4 space-y-3">
+          <p className="text-xs font-medium text-muted-foreground">Rules</p>
+          {ruleItems.map((rule, i) => (
+            <RuleItemEditor
+              key={i}
+              rule={rule}
+              index={i}
+              onUpdate={updated => { const next = [...ruleItems]; next[i] = updated; setRules({ items: next }); }}
+              onRemove={() => setRules({ items: ruleItems.filter((_, j) => j !== i) })}
+            />
+          ))}
+          <button
+            onClick={() => setRules({ items: [...ruleItems, { title: '', body: '' }] })}
+            className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors mt-2"
+          >
+            <Plus size={12} /> Add rule
+          </button>
+        </div>
+      </Section>
+
+      <SeoPanel seo={seo} onChange={s => onChange({ ...content, seo: s })} />
+    </div>
+  );
+}
+
 function GuideEditor({ content, onChange }: { content: GuideContent; onChange: (c: GuideContent) => void }) {
   const hero = content.hero ?? {};
   const seo  = content.seo  ?? {};
@@ -562,10 +689,9 @@ export default function PagesPage() {
               />
             )}
             {activeTab === 'coworking' && (
-              <SimplePageEditor
-                content={contents.coworking as SimplePageContent}
+              <CoworkingEditor
+                content={contents.coworking as CoworkingContent}
                 onChange={d => setContent('coworking', d as Record<string, unknown>)}
-                defaults={{ badge: 'CoWorking', title: 'Work from paradise', subtitle: 'Desks, offices, and the best mountain views…' }}
               />
             )}
             {activeTab === 'rooms' && (

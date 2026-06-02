@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.12.27] - 2026-06-02
+### Added
+- Pages CMS: Coworking tab now has Amenities list and full House Rules editor (badge, title, subtitle, add/edit/remove rules)
+
 ## [1.12.26] - 2026-06-02
 ### Added
 - Pages CMS: SEO panel (violet, collapsible) on every page tab — Focus Keyword, Meta Title (60-char counter), Meta Description (160-char counter)
