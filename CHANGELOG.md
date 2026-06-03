@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.12.31] - 2026-06-03
+### Added
+- Settings: LLMs / AI Context Files section to edit llms.txt and llms-full.txt content from the POS
+
 ## [1.12.30] - 2026-06-03
 ### Fixed
 - Firestore rules: allow public read of `settings` slice so website can display social links and opening hours

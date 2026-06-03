@@ -450,6 +450,8 @@ export default function SettingsPage() {
 
         <WebsiteSection />
 
+        <LlmsSection />
+
         <OpenAISection />
 
         <GoogleReviewsSection />
@@ -1345,6 +1347,89 @@ function GoogleReviewsSection() {
           )}
         </div>
       )}
+    </Section>
+  );
+}
+
+/* ── LLMs / AI Context Files ────────────────────────────────── */
+
+function LlmsSection() {
+  const [short, setShort] = useState('');
+  const [full,  setFull]  = useState('');
+  const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/pages/llms')
+      .then(r => r.json())
+      .then((d: { short?: string; full?: string }) => {
+        setShort(d.short ?? '');
+        setFull(d.full ?? '');
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+  }, []);
+
+  async function save() {
+    setSaving(true);
+    try {
+      const res = await fetch('/api/pages/llms', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ short, full }),
+      });
+      if (!res.ok) throw new Error('save failed');
+      toast.success('LLMs files saved');
+    } catch {
+      toast.error('Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!loaded) return null;
+
+  return (
+    <Section title="LLMs / AI Context Files">
+      <p className="text-xs text-muted-foreground -mt-1">
+        Plain-text files served at <code className="font-mono">/llms.txt</code> and <code className="font-mono">/llms-full.txt</code> on the website. AI search engines use these to understand your business.
+      </p>
+      <div className="space-y-4">
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">llms.txt <span className="text-xs font-normal text-muted-foreground">— concise summary</span></p>
+            <span className="text-xs text-muted-foreground tabular-nums">{short.length} chars</span>
+          </div>
+          <textarea
+            value={short}
+            onChange={e => setShort(e.target.value)}
+            rows={10}
+            spellCheck={false}
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">llms-full.txt <span className="text-xs font-normal text-muted-foreground">— full business profile</span></p>
+            <span className="text-xs text-muted-foreground tabular-nums">{full.length} chars</span>
+          </div>
+          <textarea
+            value={full}
+            onChange={e => setFull(e.target.value)}
+            rows={16}
+            spellCheck={false}
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+          />
+        </div>
+        <button
+          onClick={() => void save()}
+          disabled={saving}
+          className="flex items-center gap-1.5 h-10 px-4 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:opacity-90 active:scale-95 disabled:opacity-50 transition-all cursor-pointer"
+        >
+          {saving ? <RefreshCw size={13} className="animate-spin" /> : <Save size={13} />}
+          Save LLMs Files
+        </button>
+      </div>
     </Section>
   );
 }
