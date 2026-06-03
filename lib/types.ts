@@ -414,6 +414,12 @@ export interface DayHours {
   closed: boolean;
 }
 
+export interface SocialLink {
+  platform: 'instagram' | 'facebook' | 'tiktok' | 'youtube' | 'x' | 'linkedin' | 'whatsapp' | 'custom';
+  url: string;
+  label?: string;
+}
+
 export interface VenueSettings {
   name: string;
   address: string;
@@ -421,6 +427,7 @@ export interface VenueSettings {
   abn: string;
   timezone?: string;                              // IANA e.g. 'Asia/Bangkok'
   openingHours?: Record<DayOfWeek, DayHours>;
+  socialLinks?: SocialLink[];
 }
 export interface ReceiptSettings {
   header: string;

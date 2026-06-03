@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Save, Upload, Download, Trash2, KeyRound, UserPlus, AlertTriangle, Plus, Pencil, X, Phone, Mail, Image as ImageIcon, RefreshCw, Eye, EyeOff, Sparkles, Check, Sun, Moon, Monitor, Globe, EyeOff as SearchOff, Star, Tag, ChevronDown, ChevronUp } from 'lucide-react';
+import { Save, Upload, Download, Trash2, KeyRound, UserPlus, AlertTriangle, Plus, Pencil, X, Phone, Mail, Image as ImageIcon, RefreshCw, Eye, EyeOff, Sparkles, Check, Sun, Moon, Monitor, Globe, EyeOff as SearchOff, Star, Tag, ChevronDown, ChevronUp, Link2 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useSettings, useStaff, useCurrentStaff, useModifierGroups } from '@/lib/hooks/useStore';
 import { getStore } from '@/lib/store/store';
@@ -11,7 +11,7 @@ import { createStaffAccount, sendPasswordReset } from '@/lib/firebase';
 import { confirm } from '@/components/ui/confirm-dialog';
 import { toast } from '@/components/ui/toast';
 import { newId } from '@/lib/domain/id';
-import type { DayOfWeek, GoogleReview, GoogleReviewSettings, ModifierGroup, ModifierOption, ReviewTag, Settings, Staff, StaffRole } from '@/lib/types';
+import type { DayOfWeek, GoogleReview, GoogleReviewSettings, ModifierGroup, ModifierOption, ReviewTag, Settings, SocialLink, Staff, StaffRole } from '@/lib/types';
 
 export default function SettingsPage() {
   const settings = useSettings();
@@ -174,6 +174,83 @@ export default function SettingsPage() {
           <div className="grid grid-cols-2 gap-3">
             <Field label="Phone"><input value={draft.venue.phone} onChange={e => updateVenue({ phone: e.target.value })} className={inputCls} /></Field>
             <Field label="ABN"><input value={draft.venue.abn} onChange={e => updateVenue({ abn: e.target.value })} className={inputCls} /></Field>
+          </div>
+
+          {/* Social links repeater */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                <Link2 size={12} /> Social Media Links
+              </span>
+              <button
+                type="button"
+                onClick={() => updateVenue({ socialLinks: [...(draft.venue.socialLinks ?? []), { platform: 'instagram', url: '' }] })}
+                className="flex items-center gap-1 h-7 px-2 rounded-lg text-xs font-medium border border-border bg-white/50 dark:bg-white/5 hover:bg-black/5 dark:hover:bg-white/8 cursor-pointer"
+              >
+                <Plus size={11} /> Add link
+              </button>
+            </div>
+            {(draft.venue.socialLinks ?? []).length === 0 && (
+              <p className="text-xs text-muted-foreground px-1">No social links yet — click Add link to get started. Links sync to the website footer.</p>
+            )}
+            <div className="space-y-2">
+              {(draft.venue.socialLinks ?? []).map((link, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <select
+                    value={link.platform}
+                    onChange={e => {
+                      const next = [...(draft.venue.socialLinks ?? [])];
+                      next[idx] = { ...next[idx], platform: e.target.value as SocialLink['platform'] };
+                      updateVenue({ socialLinks: next });
+                    }}
+                    className="h-10 px-2 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring w-36 shrink-0"
+                  >
+                    <option value="instagram">Instagram</option>
+                    <option value="facebook">Facebook</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="x">X / Twitter</option>
+                    <option value="linkedin">LinkedIn</option>
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                  <input
+                    type="url"
+                    value={link.url}
+                    onChange={e => {
+                      const next = [...(draft.venue.socialLinks ?? [])];
+                      next[idx] = { ...next[idx], url: e.target.value };
+                      updateVenue({ socialLinks: next });
+                    }}
+                    placeholder={link.platform === 'whatsapp' ? 'https://wa.me/66812345678' : `https://${link.platform}.com/…`}
+                    className={inputCls + ' flex-1'}
+                  />
+                  {link.platform === 'custom' && (
+                    <input
+                      type="text"
+                      value={link.label ?? ''}
+                      onChange={e => {
+                        const next = [...(draft.venue.socialLinks ?? [])];
+                        next[idx] = { ...next[idx], label: e.target.value };
+                        updateVenue({ socialLinks: next });
+                      }}
+                      placeholder="Label"
+                      className="h-10 px-3 rounded-xl text-sm bg-black/5 dark:bg-white/5 border border-border focus:outline-none focus:ring-2 focus:ring-ring w-28 shrink-0"
+                    />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = (draft.venue.socialLinks ?? []).filter((_, i) => i !== idx);
+                      updateVenue({ socialLinks: next });
+                    }}
+                    className="flex items-center justify-center w-9 h-9 rounded-xl text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors cursor-pointer shrink-0"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         </Section>
 

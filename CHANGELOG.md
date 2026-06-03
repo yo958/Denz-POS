@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.12.28] - 2026-06-03
+### Added
+- Settings: social media links repeater in Venue section — add/remove Instagram, Facebook, TikTok, YouTube, X, LinkedIn, WhatsApp, or custom links; syncs to website footer via Firestore
+
 ## [1.12.27] - 2026-06-02
 ### Added
 - Pages CMS: Coworking tab now has Amenities list and full House Rules editor (badge, title, subtitle, add/edit/remove rules)
