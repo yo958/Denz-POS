@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.12.33] - 2026-06-03
+### Changed
+- AGENTS.md: document Denz MCP server tools and usage guidelines
+
 ## [1.12.32] - 2026-06-03
 ### Fixed
 - Settings LLMs section: pre-fill textareas with original file content when Firestore doc doesn't exist yet
