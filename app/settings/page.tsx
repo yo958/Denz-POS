@@ -212,6 +212,8 @@ export default function SettingsPage() {
                     <option value="x">X / Twitter</option>
                     <option value="linkedin">LinkedIn</option>
                     <option value="whatsapp">WhatsApp</option>
+                    <option value="tripadvisor">TripAdvisor</option>
+                    <option value="threads">Threads</option>
                     <option value="custom">Custom</option>
                   </select>
                   <input

@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.12.29] - 2026-06-03
+### Added
+- Settings: TripAdvisor and Threads added to social media platform options
+
 ## [1.12.28] - 2026-06-03
 ### Added
 - Settings: social media links repeater in Venue section — add/remove Instagram, Facebook, TikTok, YouTube, X, LinkedIn, WhatsApp, or custom links; syncs to website footer via Firestore

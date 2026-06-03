@@ -415,7 +415,7 @@ export interface DayHours {
 }
 
 export interface SocialLink {
-  platform: 'instagram' | 'facebook' | 'tiktok' | 'youtube' | 'x' | 'linkedin' | 'whatsapp' | 'custom';
+  platform: 'instagram' | 'facebook' | 'tiktok' | 'youtube' | 'x' | 'linkedin' | 'whatsapp' | 'tripadvisor' | 'threads' | 'custom';
   url: string;
   label?: string;
 }
