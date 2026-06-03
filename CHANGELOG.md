@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.12.32] - 2026-06-03
+### Fixed
+- Settings LLMs section: pre-fill textareas with original file content when Firestore doc doesn't exist yet
+
 ## [1.12.31] - 2026-06-03
 ### Added
 - Settings: LLMs / AI Context Files section to edit llms.txt and llms-full.txt content from the POS

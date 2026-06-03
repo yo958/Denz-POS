@@ -1353,6 +1353,266 @@ function GoogleReviewsSection() {
 
 /* ── LLMs / AI Context Files ────────────────────────────────── */
 
+const LLMS_SHORT_DEFAULT = `# Denz — Coworking Café in Phuket, Thailand
+
+> Denz is a modern coworking café in Kathu, Phuket, Thailand. We offer flexible hot desk and dedicated desk coworking, private offices, hotel-style accommodation rooms, a full café menu with Thai and international food, and equipment rentals — all in one place. Rated 5.0 stars on Google (150+ reviews). Open Monday to Friday, 10:00 AM – 11:30 PM.
+
+## Key Information
+
+- **Location:** Soi 4, Soi Khuanyang, Kathu, Pa Tong, Phuket 83120, Thailand
+- **GPS:** 7.9044°N, 98.3181°E
+- **WiFi:** 1 Gbps fibre (dual lines), included with all coworking packages
+- **Open:** Monday – Friday, 10:00 AM – 11:30 PM (coworking); café and rooms available daily
+- **Phone:** +66 63 917 7720
+- **Google Rating:** 5.0 stars (150+ reviews)
+- **Instagram:** @denzphuket
+- **Facebook:** /denzphuket
+
+## Key Pages
+
+- [Home](https://denzphuket.com/): Overview of coworking, café, rooms and guides
+- [Coworking in Phuket](https://denzphuket.com/coworking): Hot desks, dedicated desks, private offices — full pricing and packages from ฿200/day
+- [Hotel Rooms](https://denzphuket.com/rooms): Comfortable rooms above the café with Patong Bay views and gigabit WiFi
+- [Café Menu](https://denzphuket.com/menu): Full Thai & western food menu with pricing
+- [Phuket Guides](https://denzphuket.com/guide): Travel and lifestyle guides for digital nomads and visitors in Phuket
+- [Contact & Directions](https://denzphuket.com/contact): Address, map, and how to find Denz
+- [Order Online](https://denzphuket.com/order): Order food and drinks for pickup
+
+## Popular Guide Articles
+
+- [Coworking Phuket Guide](https://denzphuket.com/guide/coworking-phuket): Ranked guide to all coworking spaces in Phuket
+- [Best Time to Visit Phuket](https://denzphuket.com/guide/best-time-to-visit-phuket): Month-by-month weather and events guide
+- [How to Work Remotely in Phuket](https://denzphuket.com/guide/how-to-work-remotely-in-phuket-thailand): Practical remote work guide for digital nomads
+
+## Coworking
+
+Flexible desk coworking in Phuket. Hot desks from ฿200/day (no-desk, café seating) or ฿300/day (standard hot desk). Dedicated desk reservations from ฿400/day. Private offices from ฿200/hour or ฿1,400/day. Weekly, monthly, 3-month, 6-month, and yearly passes available for all desk types. Equipment includes adjustable standing desks, external monitors (24", 27", 34", 49" ultrawide, dual-screen setups), Mac Mini rentals, printing (฿10/page), lockers, and ergonomic chairs.
+
+## Rooms
+
+Three accommodation rooms on-site, each with Patong Bay or mountain views and 1 Gbps WiFi:
+- Room 1 — King Deluxe: Height-adjustable standing desk, ergonomic chair, 50" Smart TV, in-room safe, fridge, kettle
+- Room 2 — Queen Standard: Work setup, business WiFi, Patong Bay views, direct café access
+- Room 3 — Queen Deluxe: Largest room, premium finishings, sweeping bay views, standing desk, 50" Smart TV
+
+All room stays include a complimentary daily hot desk pass at the café.
+
+## Café
+
+Full Thai and western food menu. Kitchen open 11:00 AM – 10:00 PM. Specialities include: cashew chicken, Pad Thai, Tom Yum, green curry, burgers, sandwiches, salads, specialty coffee, and smoothies. No outside food or drink.
+
+## Amenities
+
+1 Gbps fibre WiFi (dual lines) · Free coffee & tea · Free drinking water · Printing & scanning · Lockers · Standing desks · External monitors · Mac Mini rentals · Air conditioning · Panoramic Patong Bay views · 5 resident French Bulldogs · Podcast & video studio · On-site café & kitchen
+
+## Unique Features
+
+- 5 resident French Bulldogs (Denz is famous for them)
+- Panoramic views of Patong Bay from both coworking area and terrace
+- 1000/1000 Mbps gigabit business WiFi with backup line
+- Private podcast and video studio available for hire
+- One of the highest-rated coworking spaces in Phuket (5.0 stars, 150+ reviews)`;
+
+const LLMS_FULL_DEFAULT = `# Denz — Full Business Profile
+
+## Business Overview
+
+Denz is a coworking café located in Kathu, Phuket, Thailand, on Patong Hill — between Patong Beach and Kathu town. The business serves digital nomads, remote workers, freelancers, entrepreneurs, and travellers who want a productive and comfortable workspace, good food, and a great atmosphere. Denz is one of the most highly rated coworking spaces on Phuket island, with a 5.0 star Google rating from over 150 reviews.
+
+**Type:** Coworking café (hybrid: coworking space + café + guest rooms)
+**Address:** Soi 4, Soi Khuanyang, Kathu, Pa Tong, Phuket 83120, Thailand
+**GPS:** 7.9044°N, 98.3181°E
+**Phone:** +66 63 917 7720
+**Website:** https://denzphuket.com
+**Instagram:** @denzphuket
+**Facebook:** /denzphuket
+**Google Maps:** https://maps.app.goo.gl/DvhWG46V5XLVdurTA
+
+## Opening Hours
+
+**Coworking & Café:** Monday – Friday, 10:00 AM – 11:30 PM
+**Kitchen:** 11:00 AM – 10:00 PM
+**Rooms:** Available daily (check-in by arrangement)
+**Weekends:** Closed for coworking; available on request
+
+## Google Rating
+
+5.0 stars out of 5 — 150+ reviews on Google Maps
+
+## Coworking Packages
+
+### Hot Desk (No Desk — Café Seating)
+Flexible café seating: window bar, balcony, sofas, dining tables. Ideal for writers, casual workers, and anyone who prefers moving around.
+- Day: ฿200
+- Week: ฿800
+- Month: ฿2,500
+- 3 months: ฿7,000
+- 6 months: ฿12,500
+- Year: ฿7,200
+
+### Hot Desk (Standard Window Desk)
+Window desk with ergonomic chair. Walk-in, first-come first-served.
+- Day: ฿300
+- Week: ฿1,200
+- Month: ฿3,600
+- 3 months: ฿10,800
+- 6 months: ฿18,000
+- Year: ฿30,000
+
+Dedicated (reserved seat):
+- Day: ฿400 | Week: ฿1,600 | Month: ฿4,800 | 3 months: ฿14,000
+
+### Desk + 24" Monitor
+Standard desk with 24-inch external monitor.
+- Day: ฿400 (walk-in) / ฿500 (dedicated)
+- Month: ฿6,000 (dedicated)
+
+### Desk + Dual 24" Monitors
+Standard desk with two 24-inch curved monitors side by side.
+- Day: ฿450 (walk-in) / ฿550 (dedicated)
+- Month: ฿6,600 (dedicated)
+
+### Standup Desk + 27" Monitor
+Height-adjustable sit-stand desk with 27-inch monitor.
+- Day: ฿450 (walk-in) / ฿550 (dedicated)
+- Month: ฿6,600 (dedicated)
+
+### Standup Desk + 34" Ultrawide
+Height-adjustable desk with 34-inch ultrawide curved monitor.
+- Day: ฿500 (walk-in) / ฿600 (dedicated)
+- Month: ฿7,200 (dedicated)
+
+### Standup Desk + Dual 27" Monitors
+Height-adjustable desk with two 27-inch wide-format monitors.
+- Day: ฿500 (walk-in) / ฿600 (dedicated)
+- Month: ฿7,200 (dedicated)
+
+### Desk + 49" Ultrawide
+Standard sitting desk with 49-inch ultrawide curved monitor.
+- Day: ฿500 (walk-in) / ฿600 (dedicated)
+- Month: ฿7,200 (dedicated)
+
+### Private Office
+Fully enclosed, air-conditioned private room for 1–4 people. Ideal for calls, confidential work, team meetings.
+- Hour: ฿200
+- Day: ฿1,400
+- Week: ฿6,000
+- Month: ฿23,000
+- 3 months: ฿65,000
+- 6 months: ฿125,000
+- Year: ฿235,000
+
+## Included with All Coworking Packages
+
+- 1 Gbps fibre WiFi (dual lines, business-grade)
+- Free coffee and tea
+- Free drinking water
+- Air conditioning
+- Access to café menu (food charged separately)
+
+## Additional Equipment
+
+- Mac Mini rentals: 2 units available, bookable online
+- Printing: ฿10 per page (black & white and colour)
+- Lockers available
+- Personal desk fans at all desk stations
+
+## Podcast & Video Studio
+
+Private soundproofed studio available for hire. Suitable for podcast recording, video content creation, online interviews. Contact for pricing and availability.
+
+## Guest Rooms (WorkStay)
+
+Three rooms available above the café, each with Patong Bay or mountain views.
+
+### Room 1 — King Deluxe
+Height-adjustable standing desk, ergonomic chair, 50" Smart TV with Netflix, in-room safe, fridge, kettle, Patong Bay views. Includes daily hot desk pass.
+
+### Room 2 — Queen Standard
+Private work setup, business-grade WiFi, Patong Bay views, direct café access. Includes daily hot desk pass.
+
+### Room 3 — Queen Deluxe (Superior)
+Largest room, premium finishings, sweeping Patong Bay sunset views, standing desk, 50" Smart TV, full café access. Includes daily hot desk pass.
+
+All rooms include:
+- 1000/1000 Mbps gigabit business WiFi (with backup line)
+- Air conditioning
+- Complimentary daily hot desk pass at the café (฿200/day value)
+
+## Café Menu Highlights
+
+**Thai food:** Pad Thai, Tom Yum soup, green curry, massaman curry, cashew chicken, Isaan dishes, som tam, mango sticky rice
+**Western food:** Burgers (frequently cited as best burger in Patong), sandwiches, salads, bowls, wraps, roast chicken
+**Coffee:** Specialty coffee with nut milk options (oat, almond), caramel, cinnamon, honey variations
+**Drinks:** Smoothies, fresh juices, teas, soft drinks
+
+Kitchen hours: 11:00 AM – 10:00 PM
+No outside food or drink permitted.
+
+## Notable Features
+
+- **5 resident French Bulldogs** — Denz is famous for its friendly bulldogs and frequently mentioned in reviews
+- **Panoramic Patong Bay views** from the coworking terrace and most seating areas
+- **Business-grade dual-line internet** — 1000/1000 Mbps with automatic failover
+- **Highest-rated coworking café in Phuket** — 5.0 stars on Google
+- **Ergonomic workstations** — standing desks, external monitors from 24" to 49"
+- **Private offices** for meetings and focused work
+
+## Getting There
+
+**From Patong Beach:** Head towards Kathu, go up the hill with the multiple bends, pass Wyndham Sea Pearl Resort on the left, descend the hill. At the bottom — just before it climbs again past the Patong City sign — look for Patong Rescue Center on your left. Turn right into Soi Khuanyang. Drive straight ahead past several smaller streets (Soi) and speed bumps. Denz is on the left, up Soi 4.
+
+**From Kathu:** Head towards Patong, go up the sharp hill with multiple bends, pass the Patong City sign on the right, pass Pun Thao Kong Shrine at the top (locals beep 3 times). Descend toward Patong — look for Patong Rescue Center on your right. Turn left into Soi Khuanyang. Drive straight ahead past several Sois and speed bumps. Denz is on the left up Soi 4.
+
+**Parking:** Available at the front and side of the building.
+
+## Frequently Asked Questions
+
+**How much does coworking cost?**
+From ฿200/day for café seating (No Desk), ฿300/day for a standard hot desk, ฿400/day for a dedicated hot desk. Private office from ฿200/hour.
+
+**What are the opening hours?**
+Monday–Friday, 10:00 AM – 11:30 PM. Kitchen open 11:00 AM – 10:00 PM. Closed Saturdays and Sundays (available on request).
+
+**Is WiFi fast enough for video calls?**
+Yes. Denz runs dual 1000/1000 Mbps fibre lines with automatic failover. Widely considered to have the best coworking internet in Phuket.
+
+**Can I bring my laptop?**
+Yes. You can also rent a Mac Mini by the hour if needed.
+
+**Are there external monitors?**
+Yes — 10 external monitors available (24", 27", 34" ultrawide, 49" ultrawide, dual-screen setups). Some desk packages include monitors; others allow add-on rental.
+
+**Can I just eat without coworking?**
+Yes. Anyone can visit to eat and drink. If you plan to work during your visit, a coworking pass is required (from ฿200/day).
+
+**Do you have parking?**
+Yes, parking at the front and side of the building.
+
+**Can I bring my pet?**
+Check with staff. Denz has 5 resident French Bulldogs so the environment is pet-adjacent — ask ahead.
+
+**Is there a podcast studio?**
+Yes. A private studio is available for podcasting, video recording, and online interviews.
+
+**Do rooms include WiFi?**
+Yes. All rooms have 1000/1000 Mbps gigabit WiFi and a backup line.
+
+**Do guests get free coworking?**
+Yes. All room stays include a complimentary daily hot desk pass (value ฿200/day per person).
+
+## About Denz
+
+Denz was founded as a combined coworking and café concept to serve the growing community of digital nomads and remote workers on Phuket island. The name "Denz" reflects the dense, connected community of people who work from the space. The venue is known for its laid-back but productive atmosphere, its team of French Bulldogs, and consistently excellent food alongside one of the island's fastest internet connections.
+
+## Contact
+
+- **Website:** https://denzphuket.com
+- **Phone:** +66 63 917 7720
+- **Instagram:** https://instagram.com/denzphuket
+- **Facebook:** https://facebook.com/denzphuket
+- **Google Maps:** https://maps.app.goo.gl/DvhWG46V5XLVdurTA`;
+
 function LlmsSection() {
   const [short, setShort] = useState('');
   const [full,  setFull]  = useState('');
@@ -1363,11 +1623,15 @@ function LlmsSection() {
     fetch('/api/pages/llms')
       .then(r => r.json())
       .then((d: { short?: string; full?: string }) => {
-        setShort(d.short ?? '');
-        setFull(d.full ?? '');
+        setShort(d.short || LLMS_SHORT_DEFAULT);
+        setFull(d.full || LLMS_FULL_DEFAULT);
         setLoaded(true);
       })
-      .catch(() => setLoaded(true));
+      .catch(() => {
+        setShort(LLMS_SHORT_DEFAULT);
+        setFull(LLMS_FULL_DEFAULT);
+        setLoaded(true);
+      });
   }, []);
 
   async function save() {
