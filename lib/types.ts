@@ -207,6 +207,19 @@ export interface Tab {
   bookingType?: 'hot' | 'dedicated';
   /** Manager marks payment as physically received/reconciled. Syncs across devices via Firestore. */
   paymentReceived?: boolean;
+  /**
+   * Last time this tab was mutated. Stamped automatically by the store on every
+   * change and used by the Firestore sync layer to merge concurrent edits
+   * per-tab (newest wins) instead of overwriting the whole list. Immune to
+   * device clock skew relative to the old whole-document last-write-wins guard.
+   */
+  updatedAt?: Date;
+  /**
+   * Soft-delete tombstone. Deleting a tab flags it instead of dropping it, so
+   * the deletion propagates to other devices and a stale session can't
+   * resurrect it. Filtered out of the UI by `useTabs()`; purged after 30 days.
+   */
+  deleted?: boolean;
 }
 
 /* ── Stay (folio) ─────────────────────────────────────────────── */

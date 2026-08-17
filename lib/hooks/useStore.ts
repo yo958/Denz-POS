@@ -22,7 +22,7 @@ export function useSlice<T>(slice: StorageSlice<T>): T {
 }
 
 /* ── Convenience selectors for the singleton store ────────────── */
-export function useTabs()     { return useSlice(getStore().tabs); }
+export function useTabs()     { return useSlice(getStore().tabs).filter(t => !t.deleted); }
 export function useStays()    { return useSlice(getStore().stays); }
 export function useProducts() { return useSlice(getStore().products); }
 export function useModifierGroups() { return useSlice(getStore().modifierGroups); }

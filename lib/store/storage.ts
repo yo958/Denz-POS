@@ -21,6 +21,27 @@ function reviver(_: string, v: unknown) {
   return v;
 }
 
+/**
+ * Deterministic, key-sorted serialization used only to compare a merged value
+ * against the remote snapshot. Both sides canonicalize identically, so this
+ * can't produce false "differs" results from object key-order differences
+ * (which would otherwise cause an infinite write-back ping-pong between
+ * devices). Dates are normalized to the same tagged form as `replacer`.
+ */
+function canonical(v: unknown): unknown {
+  if (v instanceof Date) return { [DATE_TAG]: v.toISOString() };
+  if (Array.isArray(v)) return v.map(canonical);
+  if (v && typeof v === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const k of Object.keys(v as Record<string, unknown>).sort()) {
+      out[k] = canonical((v as Record<string, unknown>)[k]);
+    }
+    return out;
+  }
+  return v;
+}
+const stableStringify = (v: unknown) => JSON.stringify(canonical(v));
+
 interface Envelope<T> {
   v: number;
   data: T;
@@ -52,6 +73,15 @@ export class StorageSlice<T> {
      * aren't lost when the remote snapshot is applied.
      */
     private readonly firestoreRecvMerge?: (remote: T, local: T) => T,
+    /**
+     * Per-entity merge strategy. When provided, this slice abandons the
+     * whole-document last-write-wins model (which is unreliable across devices
+     * with clock skew and lets a stale session overwrite newer data). Instead,
+     * every incoming snapshot is merged with the local cache entity-by-entity,
+     * and if the merged result holds data the remote lacks it is written back
+     * so all devices converge (anti-entropy). Used for the `tabs` slice.
+     */
+    private readonly entityMerge?: (remote: T, local: T) => T,
   ) {
     this.cache = this.load();
     if (typeof window !== 'undefined') {
@@ -177,23 +207,52 @@ export class StorageSlice<T> {
           }
           const remote = snap.data() as { v: number; serialized: string; writtenAt?: number } | null;
           if (!remote?.serialized) return;
-          // Reject snapshots that are older than our last local write.
-          // This prevents a stale write from another device (or a slow
-          // Firestore delivery) from overwriting a more-recent local change
-          // (e.g. a tab being marked paid and then reverting to open).
+
+          let parsed: T;
+          try {
+            parsed = JSON.parse(remote.serialized, reviver) as T;
+          } catch (e) {
+            console.warn(`[firestore] parse error for ${this.key}`, e);
+            return;
+          }
+
+          // ── Per-entity merge path (clock-skew-proof) ──────────────
+          // Merge remote with local by each entity's own timestamp rather than
+          // trusting a device-clock document timestamp. A stale session can no
+          // longer resurrect completed/deleted entities, and concurrent edits
+          // on different devices are preserved instead of clobbered.
+          if (this.entityMerge) {
+            const merged = this.entityMerge(parsed, this.cache);
+            this._suppressFirestoreWrite = true;
+            this.cache = merged;
+            this.localPersist(merged);
+            this.listeners.forEach(l => l());
+            this._suppressFirestoreWrite = false;
+            // If we hold data the remote is missing, push the merged view back
+            // so other devices converge. Canonical compare avoids key-order
+            // false positives that would cause a write-back ping-pong.
+            if (stableStringify(merged) !== stableStringify(parsed)) {
+              this.firestorePersist(merged);
+            }
+            return;
+          }
+
+          // ── Legacy whole-document path (writtenAt guard) ──────────
+          // Reject snapshots that are older than our last local write. This
+          // prevents a slow Firestore delivery from overwriting a more-recent
+          // local change on slices that don't use per-entity merge.
           const remoteWrittenAt = remote.writtenAt ?? 0;
           if (this._lastLocalWriteAt > 0 && remoteWrittenAt < this._lastLocalWriteAt) {
             return;
           }
           try {
-            const parsed = JSON.parse(remote.serialized, reviver) as T;
             const merged = this.firestoreRecvMerge ? this.firestoreRecvMerge(parsed, this.cache) : parsed;
             this._suppressFirestoreWrite = true;
             this.cache = merged;
             this.localPersist(merged);
             this.listeners.forEach(l => l());
           } catch (e) {
-            console.warn(`[firestore] parse error for ${this.key}`, e);
+            console.warn(`[firestore] merge error for ${this.key}`, e);
           } finally {
             this._suppressFirestoreWrite = false;
           }

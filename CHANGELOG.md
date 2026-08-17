@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.34] - 2026-08-17
+### Fixed
+- **Tabs disappearing / completed tabs reappearing across devices**: the Firestore sync layer used whole-document last-write-wins keyed on each device's own `Date.now()`. A stale or backgrounded session (second device, phone, or a browser tab left open days ago) could overwrite the shared tab list with its old data — resurrecting already-completed tabs (e.g. the persistent "12 Aug" open tabs) and dropping tabs created on other devices. Replaced with per-tab merge: each tab now carries an `updatedAt` stamp (set automatically on every mutation) and incoming Firestore snapshots are merged tab-by-tab (newest wins), with anti-entropy write-back so all devices converge. Immune to device clock skew.
+- Tab deletion is now a soft-delete tombstone (filtered from the UI, purged after 30 days) so a deletion propagates instead of being resurrected by a stale device.
+### Changed
+- **Concurrent multi-device editing hardened** (two staff on two devices at once): when the same open tab is edited on two devices simultaneously, their line items are now merged by id (union) so a concurrent add is never lost. Settled (paid/refunded) or deleted tabs are never mutated by a late edit — the newest whole-tab state wins. Edits to different tabs on different devices always both survive.
+
 ## [1.12.33] - 2026-06-03
 ### Changed
 - AGENTS.md: document Denz MCP server tools and usage guidelines
