@@ -15,6 +15,7 @@ import {
 import { newId } from '../domain/id';
 import { db, ensureAuth } from '../firebase';
 import { doc } from 'firebase/firestore';
+import { loadArchive, upsertSettledTabs } from './tabArchive';
 
 const FS = (name: string) => doc(db, 'stores', 'default', 'slices', name);
 
@@ -84,6 +85,37 @@ export function mergeTabs(remote: Tab[], local: Tab[]): Tab[] {
   return [...byId.values()].filter(t => !(t.deleted && tabStamp(t) < cutoff));
 }
 
+/** Settled tabs paid within this window stay in the live-synced document (so a
+ *  just-closed tab shows on the other device instantly and end-of-shift reports
+ *  work off the live set). Older settled tabs live only in the per-document
+ *  archive — see tabArchive.ts. */
+const LIVE_PAID_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
+
+/**
+ * Does this tab belong in the small, real-time-synced `tabs` document?
+ * Everything that is operationally live stays; immutable old history is dropped
+ * from the sync payload (it's preserved in the archive collection and folded
+ * back into the cache on load). This is what keeps the live document from ever
+ * approaching Firestore's 1 MB per-document limit again.
+ */
+function keepInLiveSync(t: Tab, now: number): boolean {
+  if (t.status === 'open') return true;
+  if (t.deleted) return tabStamp(t) >= now - TOMBSTONE_TTL_MS; // keep tombstone until it can propagate
+  if (t.status === 'paid' || t.status === 'refunded') {
+    // An active desk/room booking is still live regardless of when it was paid.
+    if (t.bookingEndsAt && new Date(t.bookingEndsAt as unknown as string).getTime() > now) return true;
+    const paidMs = t.paidAt ? new Date(t.paidAt as unknown as string).getTime() : tabStamp(t);
+    return paidMs >= now - LIVE_PAID_WINDOW_MS;
+  }
+  return true; // unknown status — keep, to be safe
+}
+
+/** Firestore write transform for the tabs slice: sync only the working set. */
+function tabsFirestoreTransform(tabs: Tab[]): Tab[] {
+  const now = Date.now();
+  return tabs.filter(t => keepInLiveSync(t, now));
+}
+
 class Store {
   readonly settings = new StorageSlice<Settings>('denz.settings', CURRENT_SCHEMA, () => SEED_SETTINGS);
   readonly staff    = new StorageSlice<Staff[]>('denz.staff',    CURRENT_SCHEMA, () => SEED_STAFF);
@@ -102,10 +134,10 @@ class Store {
   readonly modifierGroups = new StorageSlice<ModifierGroup[]>('denz.modifierGroups', CURRENT_SCHEMA, () => SEED_MODIFIER_GROUPS);
   readonly tabs     = new StorageSlice<Tab[]>(
     'denz.tabs', CURRENT_SCHEMA, () => SEED_TABS,
-    undefined,   // migrate
-    undefined,   // firestoreTransform
-    undefined,   // firestoreRecvMerge
-    mergeTabs,   // entityMerge — per-tab conflict resolution across devices
+    undefined,                // migrate
+    tabsFirestoreTransform,   // firestoreTransform — sync only the live working set
+    undefined,                // firestoreRecvMerge
+    mergeTabs,                // entityMerge — per-tab conflict resolution across devices
   );
   readonly stays    = new StorageSlice<Stay[]>('denz.stays',     CURRENT_SCHEMA, () => SEED_STAYS);
   readonly shift    = new StorageSlice<Shift | null>('denz.shift', CURRENT_SCHEMA, () => SEED_SHIFT);
@@ -161,6 +193,17 @@ class Store {
         this.equipment.connectFirestore(FS('equipment'));
         this.bills.connectFirestore(FS('bills'));
         this.billTags.connectFirestore(FS('billTags'));
+
+        // Fold immutable settled-tab history (stored as individual documents in
+        // the tab-archive collection) into the tabs cache so History / Reports /
+        // Customers see the full picture even though the live sync document only
+        // carries the recent working set.
+        loadArchive()
+          .then(arch => { if (arch.length) this.tabs.absorb(arch); })
+          .catch(() => { /* non-fatal — live slice still works */ });
+        // Self-heal: make sure anything already settled in the cache is archived
+        // (idempotent + deduped). New settlements are archived on mutation below.
+        upsertSettledTabs(this.tabs.get());
       });
     }
 
@@ -219,7 +262,12 @@ class Store {
         const tombstones = prev
           .filter(t => !nextIds.has(t.id) && !t.deleted)
           .map(t => ({ ...t, deleted: true, updatedAt: now }));
-        return tombstones.length ? [...stamped, ...tombstones] : stamped;
+        const result = tombstones.length ? [...stamped, ...tombstones] : stamped;
+        // Mirror any newly-settled tab to the per-document archive so paid
+        // history is durable and cross-device even after it ages out of the
+        // live sync window. Deduped by updatedAt inside; safe to call always.
+        try { upsertSettledTabs(result); } catch { /* never block a tab write */ }
+        return result;
       });
     };
   }

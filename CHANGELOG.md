@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.35] - 2026-08-19
+### Fixed
+- **Tabs stopped syncing across devices (the real root cause)**: the entire tab list — every open tab *and* every paid tab ever — was serialised into a single Firestore document, which is hard-capped at **1 MB**. Paid tabs were never purged (History/Reports/Customers read them back from that one slice), so the document grew until it crossed 1 MB (~11 Aug) and Firestore began silently rejecting every write. A tab created and paid on one device saved to that device's local storage but never reached the cloud, so the other device never saw it. The v1.12.34 merge fix was working — the list had simply outgrown Firestore's document limit.
+### Added
+- **Per-document tab archive** (`stores/default/tab-archive/{id}`): settled (paid/refunded) tabs are now mirrored to individual Firestore documents (no combined size limit) as they're paid, and folded back into the in-memory list on load — so History, Reports and Customers still show full cross-device history. The live `tabs` slice now syncs only the working set (open tabs, active desk/room bookings, and paid tabs from the last 3 days) via a `firestoreTransform`, keeping it permanently far below the 1 MB limit.
+- One-time migration `scripts/migrate-tab-archive.mjs` moves existing paid tabs into the archive and shrinks the live document, restoring sync.
+
 ## [1.12.34] - 2026-08-17
 ### Fixed
 - **Tabs disappearing / completed tabs reappearing across devices**: the Firestore sync layer used whole-document last-write-wins keyed on each device's own `Date.now()`. A stale or backgrounded session (second device, phone, or a browser tab left open days ago) could overwrite the shared tab list with its old data — resurrecting already-completed tabs (e.g. the persistent "12 Aug" open tabs) and dropping tabs created on other devices. Replaced with per-tab merge: each tab now carries an `updatedAt` stamp (set automatically on every mutation) and incoming Firestore snapshots are merged tab-by-tab (newest wins), with anti-entropy write-back so all devices converge. Immune to device clock skew.

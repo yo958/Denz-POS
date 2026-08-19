@@ -169,6 +169,22 @@ export class StorageSlice<T> {
     this.listeners.forEach(l => l());
   }
 
+  /**
+   * Fold externally-sourced entities (e.g. the per-document tab archive) into
+   * the cache using this slice's `entityMerge` strategy, WITHOUT writing the
+   * result back to the live Firestore document. Immutable history lives in its
+   * own collection of small documents; this lets readers see the full picture
+   * while the live sync document stays bounded well under Firestore's 1 MB
+   * per-document limit. No-op on slices without an entityMerge.
+   */
+  absorb(incoming: T) {
+    if (!this.entityMerge) return;
+    const merged = this.entityMerge(incoming, this.cache);
+    this.cache = merged;
+    this.localPersist(merged);
+    this.listeners.forEach(l => l());
+  }
+
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
     return () => { this.listeners.delete(listener); };
@@ -229,9 +245,13 @@ export class StorageSlice<T> {
             this.listeners.forEach(l => l());
             this._suppressFirestoreWrite = false;
             // If we hold data the remote is missing, push the merged view back
-            // so other devices converge. Canonical compare avoids key-order
-            // false positives that would cause a write-back ping-pong.
-            if (stableStringify(merged) !== stableStringify(parsed)) {
+            // so other devices converge. Compare what we would ACTUALLY write
+            // (the post-transform working set) against the remote snapshot —
+            // comparing the full merged view would always differ once archived
+            // history is folded into the cache, causing an endless write-back
+            // loop. Canonical compare also avoids key-order false positives.
+            const wouldWrite = this.firestoreTransform ? this.firestoreTransform(merged) : merged;
+            if (stableStringify(wouldWrite) !== stableStringify(parsed)) {
               this.firestorePersist(merged);
             }
             return;
